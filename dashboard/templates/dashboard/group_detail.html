@@ -9,20 +9,20 @@
 <body class="bg-gray-50 min-h-screen">
     
     <!-- Шапка -->
-    <header class="bg-white shadow-sm">
+    <header class="bg-white shadow-sm sticky top-0 z-10">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-gray-800">
+                <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-gray-800 transition">
                     ← Назад
                 </a>
                 <div class="flex items-center gap-2">
-                    <span class="text-2xl">🎓</span>
+                    <span class="text-2xl">📚</span>
                     <h1 class="text-xl font-bold text-gray-800">{{ group.name }}</h1>
                 </div>
             </div>
             <div class="flex items-center gap-4">
-                <span class="text-gray-600">{{ request.user.username }}</span>
-                <a href="{% url 'logout' %}" class="text-red-600 hover:text-red-700 font-medium">Выйти</a>
+                <span class="text-gray-600 text-sm">{{ request.user.username }}</span>
+                <a href="{% url 'logout' %}" class="text-red-600 hover:text-red-700 font-medium text-sm">Выйти</a>
             </div>
         </div>
     </header>
@@ -31,103 +31,126 @@
         
         <!-- Инфо о группе -->
         <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
-            <div class="flex flex-wrap gap-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div>
                     <p class="text-gray-500 text-sm">Расписание</p>
-                    <p class="font-medium">📅 {{ group.schedule }}</p>
+                    <p class="font-medium text-gray-800">📅 {{ group.schedule }}</p>
                 </div>
                 <div>
                     <p class="text-gray-500 text-sm">Учитель</p>
-                    <p class="font-medium">👨‍🏫 {{ group.teacher.username }}</p>
+                    <p class="font-medium text-gray-800">👨‍🏫 {{ group.teacher.username }}</p>
                 </div>
                 <div>
                     <p class="text-gray-500 text-sm">Учеников</p>
-                    <p class="font-medium">👥 {{ student_data|length }}</p>
+                    <p class="font-medium text-gray-800">👥 {{ student_data|length }}</p>
                 </div>
                 <div>
                     <p class="text-gray-500 text-sm">Цена</p>
-                    <p class="font-medium">💰 {{ group.price }} ₸</p>
+                    <p class="font-medium text-gray-800">💰 {{ group.price }} ₸</p>
                 </div>
             </div>
         </div>
         
         <!-- Таблица учеников -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-100">
+            <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
                 <h2 class="font-bold text-gray-800">
-                    Урок: {{ today|date:"d.m.Y" }}
+                    📋 Урок: {{ today|date:"d.m.Y" }}
                 </h2>
             </div>
             
-            <table class="w-full">
-                <thead>
-                    <tr class="bg-gray-50 text-left">
-                        <th class="px-6 py-3 text-sm font-medium text-gray-500">Ученик</th>
-                        <th class="px-6 py-3 text-sm font-medium text-gray-500">Посещаемость</th>
-                        <th class="px-6 py-3 text-sm font-medium text-gray-500">Оплата за {{ current_month }}.{{ current_year }}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for data in student_data %}
-                    <tr class="border-t border-gray-100 hover:bg-gray-50">
-                        <td class="px-6 py-4">
-                            <p class="font-medium text-gray-800">{{ data.student.name }}</p>
-                            <p class="text-sm text-gray-400">{{ data.student.phone }}</p>
-                        </td>
-                        <td class="px-6 py-4">
-                            <!-- Переключатель посещаемости -->
-                            <button onclick="toggleAttendance({{ data.student.id }}, 'present', this)"
-                                    class="px-3 py-1 rounded-full text-sm font-medium transition
-                                    {% if data.attendance_status == 'present' %}
-                                        bg-green-100 text-green-700
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-50 text-left border-b border-gray-100">
+                            <th class="px-6 py-3 text-sm font-medium text-gray-500">Ученик</th>
+                            <th class="px-6 py-3 text-sm font-medium text-gray-500">Посещаемость</th>
+                            <th class="px-6 py-3 text-sm font-medium text-gray-500">
+                                Оплата за {{ current_month }}.{{ current_year }}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for data in student_data %}
+                        <tr class="border-b border-gray-50 hover:bg-gray-50 transition">
+                            <td class="px-6 py-4">
+                                <p class="font-medium text-gray-800">{{ data.student.name }}</p>
+                                {% if data.student.phone %}
+                                <p class="text-sm text-gray-400">{{ data.student.phone }}</p>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex gap-2">
+                                    <button onclick="toggleAttendance({{ data.student.id }}, 'present')"
+                                            class="px-4 py-2 rounded-lg text-sm font-medium transition-all
+                                            {% if data.attendance_status == 'present' %}
+                                                bg-green-500 text-white shadow
+                                            {% else %}
+                                                bg-gray-100 text-gray-500 hover:bg-gray-200
+                                            {% endif %}">
+                                        ✓ Был
+                                    </button>
+                                    <button onclick="toggleAttendance({{ data.student.id }}, 'absent')"
+                                            class="px-4 py-2 rounded-lg text-sm font-medium transition-all
+                                            {% if data.attendance_status == 'absent' %}
+                                                bg-red-500 text-white shadow
+                                            {% else %}
+                                                bg-gray-100 text-gray-500 hover:bg-gray-200
+                                            {% endif %}">
+                                        ✗ Не был
+                                    </button>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                {% if role != 'teacher' %}
+                                <!-- Админ может переключать оплату -->
+                                <button onclick="togglePayment({{ data.student.id }})"
+                                        class="px-4 py-2 rounded-lg text-sm font-medium transition-all
+                                        {% if data.is_paid %}
+                                            bg-green-100 text-green-700 hover:bg-green-200
+                                        {% else %}
+                                            bg-red-100 text-red-700 hover:bg-red-200
+                                        {% endif %}">
+                                    {% if data.is_paid %}
+                                        ✅ Оплачено
                                     {% else %}
-                                        bg-gray-100 text-gray-500
-                                    {% endif %}">
-                                Был
-                            </button>
-                            <button onclick="toggleAttendance({{ data.student.id }}, 'absent', this)"
-                                    class="px-3 py-1 rounded-full text-sm font-medium transition
-                                    {% if data.attendance_status == 'absent' %}
-                                        bg-red-100 text-red-700
-                                    {% else %}
-                                        bg-gray-100 text-gray-500
-                                    {% endif %}">
-                                Не был
-                            </button>
-                        </td>
-                        <td class="px-6 py-4">
-                            <!-- Переключатель оплаты -->
-                            <button onclick="togglePayment({{ data.student.id }}, this)"
-                                    class="px-4 py-2 rounded-lg text-sm font-medium transition
+                                        ❌ Не оплачено
+                                    {% endif %}
+                                </button>
+                                {% else %}
+                                <!-- Учитель только видит статус -->
+                                <span class="px-4 py-2 rounded-lg text-sm font-medium
                                     {% if data.is_paid %}
                                         bg-green-100 text-green-700
                                     {% else %}
-                                        bg-gray-100 text-gray-500
+                                        bg-red-100 text-red-700
                                     {% endif %}">
-                                {% if data.is_paid %}
-                                    ✅ Оплачено
-                                {% else %}
-                                    ❌ Не оплачено
+                                    {% if data.is_paid %}
+                                        ✅ Оплачено
+                                    {% else %}
+                                        ❌ Не оплачено
+                                    {% endif %}
+                                </span>
                                 {% endif %}
-                            </button>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="3" class="px-6 py-12 text-center text-gray-400">
-                            <p class="text-4xl mb-3">📭</p>
-                            <p>Нет учеников в группе</p>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="px-6 py-12 text-center text-gray-400">
+                                <p class="text-5xl mb-3">📭</p>
+                                <p class="text-lg">Нет учеников в группе</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
         
     </main>
     
     <script>
-        function toggleAttendance(studentId, status, element) {
+        function toggleAttendance(studentId, status) {
             fetch(`/group/{{ group.id }}/attendance/`, {
                 method: 'POST',
                 headers: {
@@ -139,13 +162,12 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Перезагружаем страницу чтобы обновить стили
                     location.reload();
                 }
             });
         }
         
-        function togglePayment(studentId, element) {
+        function togglePayment(studentId) {
             fetch(`/group/{{ group.id }}/payment/`, {
                 method: 'POST',
                 headers: {
