@@ -14,4 +14,5 @@ urlpatterns = [
     path('students/add/', views.add_student, name='add_student'),
     path('payments/', views.payments_list, name='payments_list'),
     path('group/<int:group_id>/history/', views.lesson_history, name='lesson_history'),
+    path('schedule/', views.weekly_schedule, name='weekly_schedule'),
 ]

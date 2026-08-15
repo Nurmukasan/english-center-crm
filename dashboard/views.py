@@ -382,3 +382,64 @@ def lesson_history(request, group_id):
     }
     
     return render(request, 'dashboard/lesson_history.html', context)
+
+@login_required
+def weekly_schedule(request):
+    """Расписание на неделю"""
+    role = get_user_role(request.user)
+    
+    if role == 'teacher':
+        groups = Group.objects.filter(teacher=request.user, is_active=True)
+    else:
+        groups = Group.objects.filter(is_active=True)
+    
+    # Дни недели
+    days = [
+        {'name': 'Понедельник', 'short': 'Пн', 'date': ''},
+        {'name': 'Вторник', 'short': 'Вт', 'date': ''},
+        {'name': 'Среда', 'short': 'Ср', 'date': ''},
+        {'name': 'Четверг', 'short': 'Чт', 'date': ''},
+        {'name': 'Пятница', 'short': 'Пт', 'date': ''},
+        {'name': 'Суббота', 'short': 'Сб', 'date': ''},
+        {'name': 'Воскресенье', 'short': 'Вс', 'date': ''},
+    ]
+    
+    # Определяем даты текущей недели
+    today = timezone.now().date()
+    monday = today - timedelta(days=today.weekday())
+    
+    for i, day in enumerate(days):
+        day['date'] = (monday + timedelta(days=i)).strftime('%d.%m')
+        day['is_today'] = (monday + timedelta(days=i) == today)
+    
+    # Распределяем группы по дням
+    schedule = {}
+    for day in days:
+        schedule[day['short']] = []
+    
+    # Определяем день недели по расписанию группы
+    day_keywords = {
+        'Пн': ['пн', 'понедельник'],
+        'Вт': ['вт', 'вторник'],
+        'Ср': ['ср', 'сред'],
+        'Чт': ['чт', 'четверг'],
+        'Пт': ['пт', 'пятниц'],
+        'Сб': ['сб', 'суббот'],
+        'Вс': ['вс', 'воскрес'],
+    }
+    
+    for group in groups:
+        schedule_text = group.schedule.lower()
+        
+        for day_short, keywords in day_keywords.items():
+            if any(keyword in schedule_text for keyword in keywords):
+                schedule[day_short].append(group)
+    
+    context = {
+        'days': days,
+        'schedule': schedule,
+        'role': role,
+        'all_groups': groups,
+    }
+    
+    return render(request, 'dashboard/weekly_schedule.html', context)

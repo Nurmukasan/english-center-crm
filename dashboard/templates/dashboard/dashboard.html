@@ -20,6 +20,10 @@
                 </div>
             </div>
             <div class="flex items-center gap-4">
+                <a href="{% url 'weekly_schedule' %}" 
+                    class="text-indigo-600 hover:text-indigo-700 text-sm font-medium hidden sm:inline">
+                        📅 Расписание
+                </a>
                 <span class="text-gray-600 text-sm hidden sm:inline">{{ request.user.username }}</span>
                 {% if role == 'admin' %}
                 <span class="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-medium">Админ</span>
