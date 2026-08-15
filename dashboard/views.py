@@ -352,16 +352,27 @@ def lesson_history(request, group_id):
     
     lessons = Lesson.objects.filter(group=group).order_by('-date')
     
-    # Для каждого урока считаем посещаемость
+    # Для каждого урока получаем посещаемость с именами учеников
     lesson_data = []
     for lesson in lessons:
-        present_count = Attendance.objects.filter(lesson=lesson, status='present').count()
-        absent_count = Attendance.objects.filter(lesson=lesson, status='absent').count()
+        attendances = Attendance.objects.filter(lesson=lesson).select_related('student')
+        
+        present_students = []
+        absent_students = []
+        
+        for att in attendances:
+            if att.status == 'present':
+                present_students.append(att.student.name)
+            else:
+                absent_students.append(att.student.name)
+        
         lesson_data.append({
             'lesson': lesson,
-            'present_count': present_count,
-            'absent_count': absent_count,
-            'total_count': present_count + absent_count,
+            'present_count': len(present_students),
+            'absent_count': len(absent_students),
+            'total_count': len(present_students) + len(absent_students),
+            'present_students': present_students,
+            'absent_students': absent_students,
         })
     
     context = {

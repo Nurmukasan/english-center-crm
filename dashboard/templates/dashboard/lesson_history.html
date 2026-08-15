@@ -25,24 +25,75 @@
         
         <div class="space-y-4">
             {% for data in lesson_data %}
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition">
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <p class="font-bold text-gray-800 text-lg">{{ data.lesson.date|date:"d.m.Y" }}</p>
-                        {% if data.lesson.topic %}
-                        <p class="text-gray-500 text-sm">{{ data.lesson.topic }}</p>
-                        {% endif %}
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                
+                <!-- Заголовок урока (кликабельный) -->
+                <button onclick="toggleStudents({{ forloop.counter }})" 
+                        class="w-full flex justify-between items-center p-6 hover:bg-gray-50 transition text-left">
+                    <div class="flex items-center gap-4">
+                        <span class="text-2xl">📖</span>
+                        <div>
+                            <p class="font-bold text-gray-800 text-lg">{{ data.lesson.date|date:"d.m.Y" }}</p>
+                            {% if data.lesson.topic %}
+                            <p class="text-gray-500 text-sm">{{ data.lesson.topic }}</p>
+                            {% endif %}
+                        </div>
                     </div>
-                    <div class="flex gap-4">
-                        <span class="text-green-600 font-medium">✓ {{ data.present_count }}</span>
-                        <span class="text-red-600 font-medium">✗ {{ data.absent_count }}</span>
+                    <div class="flex items-center gap-4">
+                        <div class="flex gap-3 text-sm">
+                            <span class="text-green-600 font-medium">✓ {{ data.present_count }}</span>
+                            <span class="text-red-600 font-medium">✗ {{ data.absent_count }}</span>
+                        </div>
+                        <span class="text-gray-400" id="arrow-{{ forloop.counter }}">▼</span>
+                    </div>
+                </button>
+                
+                <!-- Прогресс-бар -->
+                <div class="px-6 pb-3">
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-green-500 h-2 rounded-full transition-all" 
+                             style="width: {% if data.total_count > 0 %}{% widthratio data.present_count data.total_count 100 %}%{% else %}0%{% endif %}">
+                        </div>
                     </div>
                 </div>
-                <div class="w-full bg-gray-200 rounded-full h-2">
-                    <div class="bg-green-500 h-2 rounded-full" 
-                         style="width: {% if data.total_count > 0 %}{{ data.present_count|floatformat:0 }}00{% else %}0{% endif %}%">
+                
+                <!-- Список учеников (скрытый по умолчанию) -->
+                <div id="students-{{ forloop.counter }}" class="hidden border-t border-gray-100 bg-gray-50">
+                    
+                    {% if data.present_students %}
+                    <div class="p-6">
+                        <p class="text-sm font-bold text-green-700 mb-3">✅ Присутствовали ({{ data.present_count }}):</p>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            {% for name in data.present_students %}
+                            <span class="bg-green-100 text-green-800 px-3 py-1.5 rounded-full text-sm font-medium">
+                                {{ name }}
+                            </span>
+                            {% endfor %}
+                        </div>
                     </div>
+                    {% endif %}
+                    
+                    {% if data.absent_students %}
+                    <div class="px-6 pb-6">
+                        <p class="text-sm font-bold text-red-700 mb-3">❌ Отсутствовали ({{ data.absent_count }}):</p>
+                        <div class="flex flex-wrap gap-2">
+                            {% for name in data.absent_students %}
+                            <span class="bg-red-100 text-red-800 px-3 py-1.5 rounded-full text-sm font-medium">
+                                {{ name }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if not data.present_students and not data.absent_students %}
+                    <div class="p-6 text-center text-gray-400">
+                        Нет данных о посещаемости
+                    </div>
+                    {% endif %}
+                    
                 </div>
+                
             </div>
             {% empty %}
             <div class="bg-white rounded-xl p-12 text-center text-gray-400">
@@ -53,6 +104,21 @@
         </div>
         
     </main>
+    
+    <script>
+        function toggleStudents(id) {
+            const studentsDiv = document.getElementById(`students-${id}`);
+            const arrow = document.getElementById(`arrow-${id}`);
+            
+            if (studentsDiv.classList.contains('hidden')) {
+                studentsDiv.classList.remove('hidden');
+                arrow.textContent = '▲';
+            } else {
+                studentsDiv.classList.add('hidden');
+                arrow.textContent = '▼';
+            }
+        }
+    </script>
     
 </body>
 </html>
