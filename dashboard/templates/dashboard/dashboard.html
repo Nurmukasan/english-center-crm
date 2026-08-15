@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Дашборд — English Center CRM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    
+    <!-- Шапка -->
+    <header class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl">🎓</span>
+                <h1 class="text-xl font-bold text-gray-800">English Center</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="text-gray-600">{{ request.user.username }}</span>
+                <a href="{% url 'logout' %}" 
+                   class="text-red-600 hover:text-red-700 font-medium">
+                    Выйти
+                </a>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Контент -->
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">
+            {% if role == 'teacher' %}
+                Мои группы
+            {% else %}
+                Все группы
+            {% endif %}
+        </h2>
+        
+        <!-- Сетка групп -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            {% for group in groups %}
+            <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition p-6 border border-gray-100">
+                <h3 class="text-lg font-bold text-gray-800 mb-2">{{ group.name }}</h3>
+                <p class="text-gray-500 text-sm mb-3">📅 {{ group.schedule }}</p>
+                <p class="text-gray-500 text-sm mb-3">👨‍🏫 {{ group.teacher.username }}</p>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600 text-sm">
+                        👥 {{ group.enrollments.count }} учеников
+                    </span>
+                    <span class="text-indigo-600 font-medium">
+                        {{ group.price }} ₸
+                    </span>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-span-full bg-white rounded-xl p-12 text-center text-gray-400">
+                <p class="text-4xl mb-3">📭</p>
+                <p>Пока нет групп</p>
+            </div>
+            {% endfor %}
+            
+        </div>
+        
+        <!-- Статистика для админа -->
+        {% if role != 'teacher' %}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+            <div class="bg-white rounded-xl p-6 border border-gray-100">
+                <p class="text-gray-500 text-sm">Всего учеников</p>
+                <p class="text-3xl font-bold text-gray-800">{{ total_students }}</p>
+            </div>
+            <div class="bg-white rounded-xl p-6 border border-gray-100">
+                <p class="text-gray-500 text-sm">Оплачено</p>
+                <p class="text-3xl font-bold text-green-600">{{ total_paid }}</p>
+            </div>
+            <div class="bg-white rounded-xl p-6 border border-gray-100">
+                <p class="text-gray-500 text-sm">Активных групп</p>
+                <p class="text-3xl font-bold text-indigo-600">{{ groups.count }}</p>
+            </div>
+        </div>
+        {% endif %}
+        
+    </main>
+    
+</body>
+</html>
