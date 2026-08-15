@@ -40,7 +40,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             
             {% for group in groups %}
-            <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition p-6 border border-gray-100">
+            <a href="{% url 'group_detail' group.id %}" class="bg-white rounded-xl shadow-sm hover:shadow-md transition p-6 border border-gray-100 block">
                 <h3 class="text-lg font-bold text-gray-800 mb-2">{{ group.name }}</h3>
                 <p class="text-gray-500 text-sm mb-3">📅 {{ group.schedule }}</p>
                 <p class="text-gray-500 text-sm mb-3">👨‍🏫 {{ group.teacher.username }}</p>
@@ -52,7 +52,7 @@
                         {{ group.price }} ₸
                     </span>
                 </div>
-            </div>
+            </a>
             {% empty %}
             <div class="col-span-full bg-white rounded-xl p-12 text-center text-gray-400">
                 <p class="text-4xl mb-3">📭</p>
