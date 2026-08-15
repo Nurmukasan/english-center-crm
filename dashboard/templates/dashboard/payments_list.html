@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оплаты — English Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-gray-800">← Назад</a>
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">💰</span>
+                    <h1 class="text-xl font-bold text-gray-800">Оплаты</h1>
+                </div>
+            </div>
+            <a href="{% url 'logout' %}" class="text-red-600 font-medium text-sm">Выйти</a>
+        </div>
+    </header>
+    
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        
+        <!-- Фильтры -->
+        <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
+            <form method="GET" class="flex flex-wrap gap-4 items-end">
+                <div>
+                    <label class="block text-sm text-gray-500 mb-1">Месяц</label>
+                    <select name="month" class="px-4 py-2 border border-gray-300 rounded-lg">
+                        {% for value, name in months %}
+                        <option value="{{ value }}" {% if value == current_month %}selected{% endif %}>{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-500 mb-1">Год</label>
+                    <input type="number" name="year" value="{{ current_year }}" 
+                           class="px-4 py-2 border border-gray-300 rounded-lg w-28">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-500 mb-1">Статус</label>
+                    <select name="status" class="px-4 py-2 border border-gray-300 rounded-lg">
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Все</option>
+                        <option value="paid" {% if status_filter == 'paid' %}selected{% endif %}>Оплаченные</option>
+                        <option value="unpaid" {% if status_filter == 'unpaid' %}selected{% endif %}>Неоплаченные</option>
+                    </select>
+                </div>
+                <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+                    Фильтровать
+                </button>
+            </form>
+        </div>
+        
+        <!-- Таблица оплат -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-50 text-left border-b border-gray-100">
+                            <th class="px-6 py-3 text-sm font-medium text-gray-500">Ученик</th>
+                            <th class="px-6 py-3 text-sm font-medium text-gray-500">Группа</th>
+                            <th class="px-6 py-3 text-sm font-medium text-gray-500">Сумма</th>
+                            <th class="px-6 py-3 text-sm font-medium text-gray-500">Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payments %}
+                        <tr class="border-b border-gray-50 hover:bg-gray-50">
+                            <td class="px-6 py-4 font-medium text-gray-800">{{ payment.student.name }}</td>
+                            <td class="px-6 py-4 text-gray-600">{{ payment.group.name }}</td>
+                            <td class="px-6 py-4 text-gray-800 font-medium">{{ payment.amount }} ₸</td>
+                            <td class="px-6 py-4">
+                                {% if payment.is_paid %}
+                                <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-medium">
+                                    ✅ Оплачено
+                                </span>
+                                {% else %}
+                                <span class="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-medium">
+                                    ❌ Не оплачено
+                                </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="px-6 py-12 text-center text-gray-400">
+                                <p class="text-5xl mb-3">📭</p>
+                                <p>Нет оплат за выбранный период</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+    </main>
+    
+</body>
+</html>

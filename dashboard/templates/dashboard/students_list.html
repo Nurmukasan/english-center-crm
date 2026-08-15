@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ученики — English Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-gray-800">← Назад</a>
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">👥</span>
+                    <h1 class="text-xl font-bold text-gray-800">Ученики</h1>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                {% if role != 'teacher' %}
+                <a href="{% url 'add_student' %}" 
+                   class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
+                    + Добавить
+                </a>
+                {% endif %}
+                <a href="{% url 'logout' %}" class="text-red-600 font-medium text-sm">Выйти</a>
+            </div>
+        </div>
+    </header>
+    
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        
+        {% if messages %}
+            {% for message in messages %}
+            <div class="mb-4 px-4 py-3 rounded-lg 
+                {% if message.tags == 'success' %}bg-green-100 text-green-700 border border-green-400
+                {% else %}bg-red-100 text-red-700 border border-red-400{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        {% endif %}
+        
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-50 text-left border-b border-gray-100">
+                            <th class="px-6 py-3 text-sm font-medium text-gray-500">Имя</th>
+                            <th class="px-6 py-3 text-sm font-medium text-gray-500">Телефон</th>
+                            <th class="px-6 py-3 text-sm font-medium text-gray-500">Группы</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for data in student_data %}
+                        <tr class="border-b border-gray-50 hover:bg-gray-50">
+                            <td class="px-6 py-4 font-medium text-gray-800">{{ data.student.name }}</td>
+                            <td class="px-6 py-4 text-gray-600">{{ data.student.phone|default:"—" }}</td>
+                            <td class="px-6 py-4">
+                                <div class="flex flex-wrap gap-1">
+                                    {% for group_name in data.groups %}
+                                    <span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full text-xs font-medium">
+                                        {{ group_name }}
+                                    </span>
+                                    {% empty %}
+                                    <span class="text-gray-400 text-sm">Нет групп</span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="px-6 py-12 text-center text-gray-400">
+                                <p class="text-5xl mb-3">📭</p>
+                                <p>Нет учеников</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+    </main>
+    
+</body>
+</html>

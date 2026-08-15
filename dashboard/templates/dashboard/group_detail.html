@@ -53,10 +53,14 @@
         
         <!-- Таблица учеников -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+            <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
                 <h2 class="font-bold text-gray-800">
                     📋 Урок: {{ today|date:"d.m.Y" }}
                 </h2>
+                <a href="{% url 'lesson_history' group.id %}" 
+                    class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
+                        📅 История уроков →
+                </a>
             </div>
             
             <div class="overflow-x-auto">

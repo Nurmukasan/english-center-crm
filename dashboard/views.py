@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from django.http import JsonResponse
-from datetime import datetime
+from datetime import datetime, timedelta
 from .models import Student, Group, Enrollment, Lesson, Attendance, Payment
 from users.models import Profile
 
@@ -48,14 +48,9 @@ def dashboard(request):
     role = get_user_role(request.user)
     
     if role == 'teacher':
-        # Учитель видит только свои группы
         groups = Group.objects.filter(teacher=request.user, is_active=True)
-        
-        # Статистика для учителя
         total_students = Enrollment.objects.filter(group__teacher=request.user).count()
         today = timezone.now().date()
-        
-        # Сегодняшние уроки
         today_lessons = Lesson.objects.filter(
             group__teacher=request.user,
             date=today
@@ -68,25 +63,21 @@ def dashboard(request):
             'today_lessons': today_lessons,
         }
     else:
-        # Админ/разработчик видит всё
         groups = Group.objects.filter(is_active=True)
         total_students = Student.objects.count()
         total_groups = groups.count()
         
-        # Статистика оплат за текущий месяц
         current_month = str(timezone.now().month)
         current_year = timezone.now().year
         month_payments = Payment.objects.filter(month=current_month, year=current_year)
         paid_count = month_payments.filter(is_paid=True).count()
         unpaid_count = month_payments.filter(is_paid=False).count()
         
-        # Данные для графика (оплаты по месяцам)
         payment_stats = []
         for month in range(1, 13):
             count = Payment.objects.filter(month=str(month), year=current_year, is_paid=True).count()
             payment_stats.append(count)
         
-        # Посещаемость за сегодня
         today = timezone.now().date()
         today_attendance = Attendance.objects.filter(lesson__date=today)
         present_count = today_attendance.filter(status='present').count()
@@ -102,6 +93,7 @@ def dashboard(request):
             'payment_stats': payment_stats,
             'present_count': present_count,
             'total_attendance': total_attendance,
+            'current_year': current_year,
         }
     
     return render(request, 'dashboard/dashboard.html', context)
@@ -113,16 +105,13 @@ def group_detail(request, group_id):
     group = get_object_or_404(Group, id=group_id)
     role = get_user_role(request.user)
     
-    # Проверка: учитель может видеть только свои группы
     if role == 'teacher' and group.teacher != request.user:
         messages.error(request, 'У вас нет доступа к этой группе')
         return redirect('dashboard')
     
-    # Получаем всех учеников группы
     enrollments = Enrollment.objects.filter(group=group).select_related('student')
     students = [enrollment.student for enrollment in enrollments]
     
-    # Получаем или создаём урок на сегодня
     today = timezone.now().date()
     lesson, created = Lesson.objects.get_or_create(
         group=group,
@@ -130,7 +119,6 @@ def group_detail(request, group_id):
         defaults={'topic': ''}
     )
     
-    # Если урок только создан — создаём записи посещаемости
     if created:
         for student in students:
             Attendance.objects.get_or_create(
@@ -139,11 +127,9 @@ def group_detail(request, group_id):
                 defaults={'status': 'absent'}
             )
     
-    # Получаем посещаемость
     attendances = Attendance.objects.filter(lesson=lesson)
     attendance_dict = {att.student_id: att.status for att in attendances}
     
-    # Получаем оплаты за текущий месяц
     current_month = str(today.month)
     current_year = today.year
     payments = Payment.objects.filter(
@@ -153,7 +139,6 @@ def group_detail(request, group_id):
     )
     payment_dict = {pay.student_id: pay.is_paid for pay in payments}
     
-    # Формируем список учеников с данными
     student_data = []
     for student in students:
         student_data.append({
@@ -162,6 +147,9 @@ def group_detail(request, group_id):
             'is_paid': payment_dict.get(student.id, False),
         })
     
+    # История уроков группы (последние 10)
+    lessons_history = Lesson.objects.filter(group=group).order_by('-date')[:10]
+    
     context = {
         'group': group,
         'student_data': student_data,
@@ -169,6 +157,7 @@ def group_detail(request, group_id):
         'current_month': current_month,
         'current_year': current_year,
         'role': role,
+        'lessons_history': lessons_history,
     }
     
     return render(request, 'dashboard/group_detail.html', context)
@@ -181,17 +170,22 @@ def mark_attendance(request, group_id):
         group = get_object_or_404(Group, id=group_id)
         role = get_user_role(request.user)
         
-        # Учитель может отмечать только в своих группах
         if role == 'teacher' and group.teacher != request.user:
             return JsonResponse({'success': False, 'error': 'Нет доступа'})
         
         student_id = request.POST.get('student_id')
         status = request.POST.get('status')
+        date_str = request.POST.get('date', None)
         
-        today = timezone.now().date()
+        # Если дата указана — используем её, иначе сегодня
+        if date_str:
+            lesson_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        else:
+            lesson_date = timezone.now().date()
+        
         lesson, _ = Lesson.objects.get_or_create(
             group=group,
-            date=today
+            date=lesson_date
         )
         
         attendance, _ = Attendance.objects.get_or_create(
@@ -214,7 +208,6 @@ def toggle_payment(request, group_id):
         group = get_object_or_404(Group, id=group_id)
         role = get_user_role(request.user)
         
-        # Только админ или разработчик может менять оплату
         if role == 'teacher':
             return JsonResponse({'success': False, 'error': 'Нет доступа'})
         
@@ -237,3 +230,144 @@ def toggle_payment(request, group_id):
         return JsonResponse({'success': True, 'is_paid': payment.is_paid})
     
     return JsonResponse({'success': False})
+
+
+@login_required
+def students_list(request):
+    """Список всех учеников"""
+    role = get_user_role(request.user)
+    
+    if role == 'teacher':
+        # Учитель видит только своих учеников
+        students = Student.objects.filter(
+            enrollments__group__teacher=request.user
+        ).distinct()
+    else:
+        students = Student.objects.all()
+    
+    # Для каждого ученика считаем его группы
+    student_data = []
+    for student in students:
+        enrollments = Enrollment.objects.filter(student=student).select_related('group')
+        groups_list = [e.group.name for e in enrollments]
+        student_data.append({
+            'student': student,
+            'groups': groups_list,
+        })
+    
+    context = {
+        'student_data': student_data,
+        'role': role,
+    }
+    
+    return render(request, 'dashboard/students_list.html', context)
+
+
+@login_required
+def add_student(request):
+    """Добавление ученика"""
+    role = get_user_role(request.user)
+    
+    if role == 'teacher':
+        messages.error(request, 'У вас нет доступа')
+        return redirect('students_list')
+    
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        phone = request.POST.get('phone', '')
+        parent_name = request.POST.get('parent_name', '')
+        parent_phone = request.POST.get('parent_phone', '')
+        group_ids = request.POST.getlist('groups')
+        
+        if name:
+            student = Student.objects.create(
+                name=name,
+                phone=phone,
+                parent_name=parent_name,
+                parent_phone=parent_phone,
+            )
+            
+            # Добавляем в выбранные группы
+            for group_id in group_ids:
+                group = Group.objects.get(id=group_id)
+                Enrollment.objects.get_or_create(student=student, group=group)
+            
+            messages.success(request, f'Ученик {name} добавлен!')
+            return redirect('students_list')
+    
+    groups = Group.objects.filter(is_active=True)
+    context = {
+        'groups': groups,
+    }
+    
+    return render(request, 'dashboard/add_student.html', context)
+
+
+@login_required
+def payments_list(request):
+    """Все оплаты"""
+    role = get_user_role(request.user)
+    
+    current_month = str(timezone.now().month)
+    current_year = timezone.now().year
+    
+    # Фильтры
+    month = request.GET.get('month', current_month)
+    year = request.GET.get('year', str(current_year))
+    status = request.GET.get('status', 'all')
+    
+    payments = Payment.objects.filter(month=month, year=year)
+    
+    if role == 'teacher':
+        payments = payments.filter(group__teacher=request.user)
+    
+    if status == 'paid':
+        payments = payments.filter(is_paid=True)
+    elif status == 'unpaid':
+        payments = payments.filter(is_paid=False)
+    
+    payments = payments.select_related('student', 'group').order_by('student__name')
+    
+    context = {
+        'payments': payments,
+        'role': role,
+        'current_month': month,
+        'current_year': year,
+        'status_filter': status,
+        'months': Payment.MONTH_CHOICES,
+    }
+    
+    return render(request, 'dashboard/payments_list.html', context)
+
+
+@login_required
+def lesson_history(request, group_id):
+    """История уроков группы"""
+    group = get_object_or_404(Group, id=group_id)
+    role = get_user_role(request.user)
+    
+    if role == 'teacher' and group.teacher != request.user:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    lessons = Lesson.objects.filter(group=group).order_by('-date')
+    
+    # Для каждого урока считаем посещаемость
+    lesson_data = []
+    for lesson in lessons:
+        present_count = Attendance.objects.filter(lesson=lesson, status='present').count()
+        absent_count = Attendance.objects.filter(lesson=lesson, status='absent').count()
+        lesson_data.append({
+            'lesson': lesson,
+            'present_count': present_count,
+            'absent_count': absent_count,
+            'total_count': present_count + absent_count,
+        })
+    
+    context = {
+        'group': group,
+        'lesson_data': lesson_data,
+        'role': role,
+    }
+    
+    return render(request, 'dashboard/lesson_history.html', context)

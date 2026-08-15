@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>История уроков — {{ group.name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <a href="{% url 'group_detail' group.id %}" class="text-gray-600 hover:text-gray-800">← Назад</a>
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">📅</span>
+                    <h1 class="text-xl font-bold text-gray-800">История: {{ group.name }}</h1>
+                </div>
+            </div>
+            <a href="{% url 'logout' %}" class="text-red-600 font-medium text-sm">Выйти</a>
+        </div>
+    </header>
+    
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        
+        <div class="space-y-4">
+            {% for data in lesson_data %}
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="font-bold text-gray-800 text-lg">{{ data.lesson.date|date:"d.m.Y" }}</p>
+                        {% if data.lesson.topic %}
+                        <p class="text-gray-500 text-sm">{{ data.lesson.topic }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="flex gap-4">
+                        <span class="text-green-600 font-medium">✓ {{ data.present_count }}</span>
+                        <span class="text-red-600 font-medium">✗ {{ data.absent_count }}</span>
+                    </div>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-green-500 h-2 rounded-full" 
+                         style="width: {% if data.total_count > 0 %}{{ data.present_count|floatformat:0 }}00{% else %}0{% endif %}%">
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="bg-white rounded-xl p-12 text-center text-gray-400">
+                <p class="text-5xl mb-3">📭</p>
+                <p>Уроков пока не было</p>
+            </div>
+            {% endfor %}
+        </div>
+        
+    </main>
+    
+</body>
+</html>
