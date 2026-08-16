@@ -395,13 +395,13 @@ def weekly_schedule(request):
     
     # Дни недели
     days = [
-        {'name': 'Понедельник', 'short': 'Пн', 'date': ''},
-        {'name': 'Вторник', 'short': 'Вт', 'date': ''},
-        {'name': 'Среда', 'short': 'Ср', 'date': ''},
-        {'name': 'Четверг', 'short': 'Чт', 'date': ''},
-        {'name': 'Пятница', 'short': 'Пт', 'date': ''},
-        {'name': 'Суббота', 'short': 'Сб', 'date': ''},
-        {'name': 'Воскресенье', 'short': 'Вс', 'date': ''},
+        {'name': 'Понедельник', 'short': 'Пн', 'num': 0},
+        {'name': 'Вторник', 'short': 'Вт', 'num': 1},
+        {'name': 'Среда', 'short': 'Ср', 'num': 2},
+        {'name': 'Четверг', 'short': 'Чт', 'num': 3},
+        {'name': 'Пятница', 'short': 'Пт', 'num': 4},
+        {'name': 'Суббота', 'short': 'Сб', 'num': 5},
+        {'name': 'Воскресенье', 'short': 'Вс', 'num': 6},
     ]
     
     # Определяем даты текущей недели
@@ -409,37 +409,97 @@ def weekly_schedule(request):
     monday = today - timedelta(days=today.weekday())
     
     for i, day in enumerate(days):
-        day['date'] = (monday + timedelta(days=i)).strftime('%d.%m')
-        day['is_today'] = (monday + timedelta(days=i) == today)
+        day_date = monday + timedelta(days=i)
+        day['date'] = day_date.strftime('%d.%m')
+        day['full_date'] = day_date.strftime('%d %B')
+        day['is_today'] = (day_date == today)
     
-    # Распределяем группы по дням
-    schedule = {}
-    for day in days:
-        schedule[day['short']] = []
+    # Время с 6:00 до 22:00 (каждый слот — 30 минут)
+    time_slots = []
+    for hour in range(6, 23):
+        for minute in [0, 30]:
+            time_slots.append({
+                'hour': hour,
+                'minute': minute,
+                'label': f'{hour}:{minute:02d}',
+            })
     
-    # Определяем день недели по расписанию группы
-    day_keywords = {
-        'Пн': ['пн', 'понедельник'],
-        'Вт': ['вт', 'вторник'],
-        'Ср': ['ср', 'сред'],
-        'Чт': ['чт', 'четверг'],
-        'Пт': ['пт', 'пятниц'],
-        'Сб': ['сб', 'суббот'],
-        'Вс': ['вс', 'воскрес'],
-    }
+    # Для каждой группы определяем день, время начала и конца
+    import re
     
+    schedule_data = []
     for group in groups:
         schedule_text = group.schedule.lower()
         
-        for day_short, keywords in day_keywords.items():
+        # Определяем дни
+        day_indexes = []
+        day_keywords = {
+            0: ['пн', 'понедельник'],
+            1: ['вт', 'вторник'],
+            2: ['ср', 'сред'],
+            3: ['чт', 'четверг'],
+            4: ['пт', 'пятниц'],
+            5: ['сб', 'суббот'],
+            6: ['вс', 'воскрес'],
+        }
+        
+        for day_num, keywords in day_keywords.items():
             if any(keyword in schedule_text for keyword in keywords):
-                schedule[day_short].append(group)
+                day_indexes.append(day_num)
+        
+        # Если дни не найдены — пропускаем
+        if not day_indexes:
+            continue
+        
+        # Ищем время начала и конца (например 18:00-20:00)
+        time_match = re.search(r'(\d{1,2})[:.](\d{2})\s*[-–—]\s*(\d{1,2})[:.](\d{2})', schedule_text)
+        
+        if time_match:
+            start_hour = int(time_match.group(1))
+            start_minute = int(time_match.group(2))
+            end_hour = int(time_match.group(3))
+            end_minute = int(time_match.group(4))
+        else:
+            # Ищем только одно время
+            time_match = re.search(r'(\d{1,2})[:.](\d{2})', schedule_text)
+            if time_match:
+                start_hour = int(time_match.group(1))
+                start_minute = int(time_match.group(2))
+                # По умолчанию длительность 1.5 часа
+                end_hour = start_hour + 1
+                end_minute = start_minute + 30
+                if end_minute >= 60:
+                    end_hour += 1
+                    end_minute -= 60
+            else:
+                # Если время не указано — 18:00-19:30
+                start_hour = 18
+                start_minute = 0
+                end_hour = 19
+                end_minute = 30
+        
+        # Вычисляем длительность в слотах (30 минут)
+        start_total_minutes = start_hour * 60 + start_minute
+        end_total_minutes = end_hour * 60 + end_minute
+        duration_slots = (end_total_minutes - start_total_minutes) // 30
+        
+        if duration_slots < 1:
+            duration_slots = 1
+        
+        for day_index in day_indexes:
+            schedule_data.append({
+                'group': group,
+                'day_index': day_index,
+                'start_hour': start_hour,
+                'start_minute': start_minute,
+                'duration_slots': duration_slots,
+            })
     
     context = {
         'days': days,
-        'schedule': schedule,
+        'time_slots': time_slots,
+        'schedule_data': schedule_data,
         'role': role,
-        'all_groups': groups,
     }
     
     return render(request, 'dashboard/weekly_schedule.html', context)
