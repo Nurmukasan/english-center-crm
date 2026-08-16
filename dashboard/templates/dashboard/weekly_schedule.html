@@ -24,18 +24,17 @@
     
     <main class="max-w-full mx-auto px-4 py-6">
         
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="w-full min-w-[900px] table-fixed">
+                <table class="w-full min-w-[900px] table-fixed border-collapse" id="schedule-table">
                     
-                    <!-- Шапка: даты и дни -->
                     <thead>
                         <tr>
-                            <th class="px-2 py-4 border-b border-gray-100 bg-gray-50 w-16 sticky left-0 z-10">
-                                <span class="text-xs text-gray-400">Время</span>
+                            <th class="px-2 py-4 border-b-2 border-gray-200 bg-gray-50 w-20 sticky left-0 z-10">
+                                <span class="text-xs text-gray-400 font-medium">Время</span>
                             </th>
                             {% for day in days %}
-                            <th class="px-2 py-4 border-b border-gray-100 text-center
+                            <th class="px-2 py-4 border-b-2 border-gray-200 text-center
                                        {% if day.is_today %}bg-indigo-50{% endif %}">
                                 <p class="font-bold text-gray-800 {% if day.is_today %}text-indigo-600{% endif %}">
                                     {{ day.date }}
@@ -52,35 +51,37 @@
                     <tbody>
                         {% for slot in time_slots %}
                         <tr>
-                            <!-- Время (только для начала часа) -->
-                            <td class="px-2 py-0 border-b border-gray-50 bg-gray-50 text-right sticky left-0 z-10">
+                            <!-- Время -->
+                            <td class="px-2 py-0 border-b border-gray-200 bg-gray-50 text-right sticky left-0 z-10">
                                 {% if slot.minute == 0 %}
                                 <span class="text-xs font-bold text-gray-600">{{ slot.label }}</span>
                                 {% else %}
-                                <span class="text-[10px] text-gray-300">{{ slot.label }}</span>
+                                <span class="text-[10px] text-gray-400">{{ slot.label }}</span>
                                 {% endif %}
                             </td>
                             
                             <!-- Ячейки дней -->
                             {% for day in days %}
-                            <td class="border-b border-gray-50 relative h-8
-                                       {% if day.is_today %}bg-indigo-50/40{% endif %}
-                                       {% if slot.minute == 0 %}border-t border-gray-100{% endif %}">
+                            <td class="schedule-cell border-b border-gray-200 border-r border-gray-100 relative h-8 p-0
+                                       {% if day.is_today %}bg-indigo-50/30{% endif %}
+                                       {% if slot.minute == 0 %}border-t-2 border-t-gray-300{% endif %}"
+                                data-day="{{ day.num }}"
+                                data-hour="{{ slot.hour }}"
+                                data-minute="{{ slot.minute }}">
                                 
-                                <!-- Ищем группу, которая начинается в этот слот -->
                                 {% for item in schedule_data %}
                                     {% if item.day_index == day.num and item.start_hour == slot.hour and item.start_minute == slot.minute %}
                                     
-                                    <!-- Блок группы, растянутый на duration_slots слотов -->
-                                    <a href="{% url 'group_detail' item.group.id %}"
-                                       class="absolute left-1 right-1 bg-indigo-600 text-white rounded-lg px-2 py-1
-                                              hover:bg-indigo-700 hover:shadow-lg transition-all cursor-pointer
-                                              flex flex-col justify-center items-center text-center z-20
-                                              {% if item.duration_slots == 1 %}top-0.5 bottom-0.5{% endif %}"
-                                       style="{% if item.duration_slots > 1 %}top: 2px; height: calc({{ item.duration_slots }} * 2rem + ({{ item.duration_slots|add:'-1' }} * 1px));{% endif %}">
+                                    <div class="group-block absolute top-0 left-0 right-0 {{ item.bg_color }} {{ item.text_color }} 
+                                                border-2 {{ item.border_color }} rounded-lg
+                                                hover:shadow-md hover:brightness-95 transition-all cursor-pointer
+                                                flex flex-col justify-center items-center text-center
+                                                w-full overflow-hidden"
+                                         data-group-url="{% url 'group_detail' item.group.id %}"
+                                         style="height: calc({{ item.duration_slots }} * 2rem + ({{ item.duration_slots|add:'-1' }} * 2px)); z-index: 5;">
                                         <p class="text-[11px] font-bold leading-tight">{{ item.group.name }}</p>
-                                        <p class="text-[9px] opacity-80">👥 {{ item.group.enrollments.count }} • {{ item.group.teacher.username }}</p>
-                                    </a>
+                                        <p class="text-[9px] opacity-70">👥 {{ item.group.enrollments.count }} • {{ item.group.teacher.username }}</p>
+                                    </div>
                                     
                                     {% endif %}
                                 {% endfor %}
@@ -96,19 +97,55 @@
             </div>
         </div>
         
-        <!-- Легенда -->
-        <div class="mt-4 flex items-center gap-6 text-sm text-gray-500">
-            <div class="flex items-center gap-2">
-                <div class="w-4 h-4 bg-indigo-600 rounded"></div>
-                <span>Занятие группы</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <div class="w-4 h-4 bg-indigo-50 border border-indigo-200 rounded"></div>
-                <span>Сегодняшний день</span>
-            </div>
-        </div>
-        
     </main>
+    
+    <script>
+        // Делаем кликабельными все ячейки, которые находятся под блоком группы
+        document.addEventListener('DOMContentLoaded', function() {
+            const groupBlocks = document.querySelectorAll('.group-block');
+            
+            groupBlocks.forEach(function(block) {
+                const url = block.getAttribute('data-group-url');
+                const cell = block.closest('td');
+                
+                // Находим высоту блока в слотах
+                const blockHeight = block.offsetHeight;
+                const cellHeight = cell.offsetHeight;
+                const slotsCount = Math.round(blockHeight / cellHeight);
+                
+                // Получаем данные текущей ячейки
+                const day = cell.getAttribute('data-day');
+                const hour = parseInt(cell.getAttribute('data-hour'));
+                const minute = parseInt(cell.getAttribute('data-minute'));
+                
+                // Находим все ячейки ниже, которые должны быть кликабельными
+                let currentRow = cell.closest('tr');
+                
+                for (let i = 1; i < slotsCount; i++) {
+                    currentRow = currentRow.nextElementSibling;
+                    if (!currentRow) break;
+                    
+                    const cells = currentRow.querySelectorAll('.schedule-cell');
+                    const targetCell = cells[parseInt(day) + 1]; // +1 из-за колонки времени
+                    
+                    if (targetCell) {
+                        targetCell.style.cursor = 'pointer';
+                        targetCell.addEventListener('click', function() {
+                            window.location.href = url;
+                        });
+                    }
+                }
+                
+                // Текущая ячейка тоже кликабельна
+                cell.style.cursor = 'pointer';
+                cell.addEventListener('click', function(e) {
+                    if (!e.target.closest('.group-block')) {
+                        window.location.href = url;
+                    }
+                });
+            });
+        });
+    </script>
     
 </body>
 </html>
