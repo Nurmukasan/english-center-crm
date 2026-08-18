@@ -21,10 +21,25 @@
             </div>
             <div class="flex items-center gap-4">
                 <a href="{% url 'weekly_schedule' %}" 
-                    class="text-indigo-600 hover:text-indigo-700 text-sm font-medium hidden sm:inline">
-                        📅 Расписание
+                   class="text-indigo-600 hover:text-indigo-700 text-sm font-medium hidden sm:inline">
+                    📅 Расписание
                 </a>
-                <span class="text-gray-600 text-sm hidden sm:inline">{{ request.user.username }}</span>
+                {% if role != 'teacher' %}
+                <a href="{% url 'export_excel' %}"
+                    class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition">
+                    📊 Excel
+                </a>
+                {% endif %}
+                <a href="{% url 'profile' %}" class="flex items-center gap-2 hover:opacity-80 transition">
+                    {% if request.user.profile.photo %}
+                    <img src="{{ request.user.profile.photo.url }}" alt="Фото" class="w-8 h-8 rounded-full object-cover border border-gray-200">
+                    {% else %}
+                    <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-sm">
+                        👤
+                    </div>
+                    {% endif %}
+                    <span class="text-gray-600 text-sm hidden sm:inline">{{ request.user.username }}</span>
+                </a>
                 {% if role == 'admin' %}
                 <span class="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-medium">Админ</span>
                 {% elif role == 'teacher' %}
@@ -152,7 +167,6 @@
     
     {% if role != 'teacher' %}
     <script>
-        // График оплат
         const ctx = document.getElementById('paymentChart').getContext('2d');
         new Chart(ctx, {
             type: 'bar',

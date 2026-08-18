@@ -17,7 +17,18 @@
                     <h1 class="text-xl font-bold text-gray-800">История: {{ group.name }}</h1>
                 </div>
             </div>
-            <a href="{% url 'logout' %}" class="text-red-600 font-medium text-sm">Выйти</a>
+            <div class="flex items-center gap-4">
+                <a href="{% url 'profile' %}" class="flex items-center gap-2 hover:opacity-80 transition">
+                    {% if request.user.profile.photo %}
+                    <img src="{{ request.user.profile.photo.url }}" alt="Фото"
+                        class="w-8 h-8 rounded-full object-cover border border-gray-200">
+                    {% else %}
+                    <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-sm">👤</div>
+                    {% endif %}
+                    <span class="text-gray-600 text-sm hidden sm:inline">{{ request.user.username }}</span>
+                </a>
+                <a href="{% url 'logout' %}" class="text-red-600 font-medium text-sm">Выйти</a>
+            </div>
         </div>
     </header>
     

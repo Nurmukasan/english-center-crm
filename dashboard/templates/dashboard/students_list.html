@@ -8,26 +8,34 @@
 </head>
 <body class="bg-gray-50 min-h-screen">
     
-    <header class="bg-white shadow-sm sticky top-0 z-10">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <div class="flex items-center gap-4">
-                <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-gray-800">← Назад</a>
-                <div class="flex items-center gap-2">
-                    <span class="text-2xl">👥</span>
-                    <h1 class="text-xl font-bold text-gray-800">Ученики</h1>
-                </div>
-            </div>
-            <div class="flex items-center gap-4">
-                {% if role != 'teacher' %}
-                <a href="{% url 'add_student' %}" 
-                   class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
-                    + Добавить
-                </a>
-                {% endif %}
-                <a href="{% url 'logout' %}" class="text-red-600 font-medium text-sm">Выйти</a>
+<header class="bg-white shadow-sm sticky top-0 z-10">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-gray-800">← Назад</a>
+            <div class="flex items-center gap-2">
+                <span class="text-2xl">👥</span>
+                <h1 class="text-xl font-bold text-gray-800">Ученики</h1>
             </div>
         </div>
-    </header>
+        <div class="flex items-center gap-4">
+            {% if role != 'teacher' %}
+            <a href="{% url 'add_student' %}"
+                class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">+
+                Добавить</a>
+            {% endif %}
+            <a href="{% url 'profile' %}" class="flex items-center gap-2 hover:opacity-80 transition">
+                {% if request.user.profile.photo %}
+                <img src="{{ request.user.profile.photo.url }}" alt="Фото"
+                    class="w-8 h-8 rounded-full object-cover border border-gray-200">
+                {% else %}
+                <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-sm">👤</div>
+                {% endif %}
+                <span class="text-gray-600 text-sm hidden sm:inline">{{ request.user.username }}</span>
+            </a>
+            <a href="{% url 'logout' %}" class="text-red-600 font-medium text-sm">Выйти</a>
+        </div>
+    </div>
+</header>
     
     <main class="max-w-7xl mx-auto px-4 py-8">
         

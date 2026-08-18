@@ -12,7 +12,14 @@
         <div class="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
             <a href="{% url 'students_list' %}" class="text-gray-600 hover:text-gray-800">← Назад</a>
             <h1 class="text-xl font-bold text-gray-800">Добавить ученика</h1>
-            <div></div>
+            <a href="{% url 'profile' %}" class="flex items-center gap-2 hover:opacity-80 transition">
+                {% if request.user.profile.photo %}
+                <img src="{{ request.user.profile.photo.url }}" alt="Фото"
+                    class="w-8 h-8 rounded-full object-cover border border-gray-200">
+                {% else %}
+                <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-sm">👤</div>
+                {% endif %}
+            </a>
         </div>
     </header>
     

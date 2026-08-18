@@ -112,12 +112,42 @@ def group_detail(request, group_id):
     enrollments = Enrollment.objects.filter(group=group).select_related('student')
     students = [enrollment.student for enrollment in enrollments]
     
+        # Получаем или создаём урок на сегодня (только если сегодня день занятий)
     today = timezone.now().date()
-    lesson, created = Lesson.objects.get_or_create(
-        group=group,
-        date=today,
-        defaults={'topic': ''}
-    )
+    
+    # Определяем день недели
+    day_keywords = {
+        0: ['пн', 'понедельник'],
+        1: ['вт', 'вторник'],
+        2: ['ср', 'сред'],
+        3: ['чт', 'четверг'],
+        4: ['пт', 'пятниц'],
+        5: ['сб', 'суббот'],
+        6: ['вс', 'воскрес'],
+    }
+    
+    schedule_text = group.schedule.lower()
+    today_weekday = today.weekday()  # 0=Пн, 1=Вт, ..., 6=Вс
+    
+    is_lesson_day = any(keyword in schedule_text for keyword in day_keywords.get(today_weekday, []))
+    
+    if is_lesson_day:
+        lesson, created = Lesson.objects.get_or_create(
+            group=group,
+            date=today,
+            defaults={'topic': ''}
+        )
+        
+        if created:
+            for student in students:
+                Attendance.objects.get_or_create(
+                    lesson=lesson,
+                    student=student,
+                    defaults={'status': 'absent'}
+                )
+    else:
+        lesson = None
+        created = False
     
     if created:
         for student in students:
@@ -127,8 +157,11 @@ def group_detail(request, group_id):
                 defaults={'status': 'absent'}
             )
     
-    attendances = Attendance.objects.filter(lesson=lesson)
-    attendance_dict = {att.student_id: att.status for att in attendances}
+        # Получаем посещаемость (только если урок есть)
+    attendance_dict = {}
+    if lesson:
+        attendances = Attendance.objects.filter(lesson=lesson)
+        attendance_dict = {att.student_id: att.status for att in attendances}
     
     current_month = str(today.month)
     current_year = today.year
@@ -173,19 +206,30 @@ def mark_attendance(request, group_id):
         if role == 'teacher' and group.teacher != request.user:
             return JsonResponse({'success': False, 'error': 'Нет доступа'})
         
+        # Проверяем что сегодня день занятий
+        today = timezone.now().date()
+        day_keywords = {
+            0: ['пн', 'понедельник'],
+            1: ['вт', 'вторник'],
+            2: ['ср', 'сред'],
+            3: ['чт', 'четверг'],
+            4: ['пт', 'пятниц'],
+            5: ['сб', 'суббот'],
+            6: ['вс', 'воскрес'],
+        }
+        schedule_text = group.schedule.lower()
+        today_weekday = today.weekday()
+        is_lesson_day = any(keyword in schedule_text for keyword in day_keywords.get(today_weekday, []))
+        
+        if not is_lesson_day:
+            return JsonResponse({'success': False, 'error': 'Сегодня нет урока'})
+        
         student_id = request.POST.get('student_id')
         status = request.POST.get('status')
-        date_str = request.POST.get('date', None)
-        
-        # Если дата указана — используем её, иначе сегодня
-        if date_str:
-            lesson_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-        else:
-            lesson_date = timezone.now().date()
         
         lesson, _ = Lesson.objects.get_or_create(
             group=group,
-            date=lesson_date
+            date=today
         )
         
         attendance, _ = Attendance.objects.get_or_create(
@@ -529,3 +573,265 @@ def weekly_schedule(request):
     }
     
     return render(request, 'dashboard/weekly_schedule.html', context)
+@login_required
+def profile(request):
+    """Личный кабинет пользователя"""
+    role = get_user_role(request.user)
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'change_password':
+            old_password = request.POST.get('old_password')
+            new_password = request.POST.get('new_password')
+            confirm_password = request.POST.get('confirm_password')
+            
+            if not request.user.check_password(old_password):
+                messages.error(request, 'Неверный текущий пароль')
+            elif new_password != confirm_password:
+                messages.error(request, 'Новые пароли не совпадают')
+            elif len(new_password) < 6:
+                messages.error(request, 'Пароль должен быть не менее 6 символов')
+            else:
+                request.user.set_password(new_password)
+                request.user.save()
+                messages.success(request, 'Пароль успешно изменён!')
+                from django.contrib.auth import update_session_auth_hash
+                update_session_auth_hash(request, request.user)
+        
+        elif action == 'change_phone':
+            phone = request.POST.get('phone')
+            profile_obj, created = Profile.objects.get_or_create(user=request.user)
+            profile_obj.phone = phone
+            profile_obj.save()
+            messages.success(request, 'Телефон обновлён!')
+        
+        elif action == 'change_photo':
+            photo = request.FILES.get('photo')
+            if photo:
+                profile_obj, created = Profile.objects.get_or_create(user=request.user)
+                profile_obj.photo = photo
+                profile_obj.save()
+                messages.success(request, 'Фото обновлено!')
+            else:
+                messages.error(request, 'Выберите файл')
+    
+    # Получаем данные профиля
+    try:
+        user_profile = request.user.profile
+    except:
+        user_profile = None
+    
+    context = {
+        'role': role,
+        'user_profile': user_profile,
+    }
+    
+    return render(request, 'dashboard/profile.html', context)
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from django.http import HttpResponse
+
+
+@login_required
+def export_excel(request):
+    """Экспорт данных в Excel для админа"""
+    role = get_user_role(request.user)
+    
+    if role == 'teacher':
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    wb = openpyxl.Workbook()
+    
+    # Стили
+    header_font = Font(bold=True, color='FFFFFF', size=12)
+    header_fill = PatternFill(start_color='4F46E5', end_color='4F46E5', fill_type='solid')
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    header_alignment = Alignment(horizontal='center', vertical='center')
+    cell_alignment = Alignment(vertical='center')
+    
+    # ========== Лист 1: Ученики и долги ==========
+    ws1 = wb.active
+    ws1.title = 'Ученики и долги'
+    
+    headers1 = ['Имя', 'Телефон', 'Группы (цены)', 'Общий долг (₸)', 'Не оплачено месяцев']
+    for col, header in enumerate(headers1, 1):
+        cell = ws1.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = border
+    
+    students = Student.objects.all()
+    for row, student in enumerate(students, 2):
+        enrollments = Enrollment.objects.filter(student=student).select_related('group')
+        
+        # Формируем список групп с ценами
+        groups_info = []
+        for enrollment in enrollments:
+            group_price = float(enrollment.group.price)
+            groups_info.append(f"{enrollment.group.name} ({group_price}₸)")
+        groups_str = ', '.join(groups_info) if groups_info else '—'
+        
+        # Считаем долги по каждой группе отдельно
+        total_debt = 0
+        months_unpaid = 0
+        
+        for enrollment in enrollments:
+            unpaid_payments = Payment.objects.filter(
+                student=student,
+                group=enrollment.group,
+                is_paid=False
+            )
+            total_debt += sum([float(p.amount) for p in unpaid_payments])
+            months_unpaid += unpaid_payments.count()
+        
+        data = [
+            student.name,
+            student.phone or '',
+            groups_str,
+            total_debt if total_debt > 0 else 0,
+            months_unpaid,
+        ]
+        for col, value in enumerate(data, 1):
+            cell = ws1.cell(row=row, column=col, value=value)
+            cell.alignment = cell_alignment
+            cell.border = border
+            # Подсветка должников
+            if col == 4 and total_debt > 0:
+                cell.fill = PatternFill(start_color='FEE2E2', end_color='FEE2E2', fill_type='solid')
+                cell.font = Font(color='DC2626', bold=True)
+            elif col == 5 and months_unpaid > 0:
+                cell.fill = PatternFill(start_color='FEE2E2', end_color='FEE2E2', fill_type='solid')
+                cell.font = Font(color='DC2626')
+    
+    ws1.column_dimensions['A'].width = 25
+    ws1.column_dimensions['B'].width = 20
+    ws1.column_dimensions['C'].width = 50
+    ws1.column_dimensions['D'].width = 20
+    ws1.column_dimensions['E'].width = 25
+    
+    # ========== Лист 2: Долги по месяцам ==========
+    ws2 = wb.create_sheet('Долги по месяцам')
+    
+    headers2 = ['Ученик', 'Группа', 'Цена группы', 'Месяц', 'Год', 'Сумма', 'Статус']
+    for col, header in enumerate(headers2, 1):
+        cell = ws2.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = border
+    
+    unpaid = Payment.objects.filter(is_paid=False).select_related('student', 'group').order_by('student__name', 'year', 'month')
+    for row, payment in enumerate(unpaid, 2):
+        data = [
+            payment.student.name,
+            payment.group.name,
+            float(payment.group.price),
+            payment.get_month_display(),
+            payment.year,
+            float(payment.amount),
+            '❌ Не оплачено',
+        ]
+        for col, value in enumerate(data, 1):
+            cell = ws2.cell(row=row, column=col, value=value)
+            cell.alignment = cell_alignment
+            cell.border = border
+            if col == 7:
+                cell.fill = PatternFill(start_color='FEE2E2', end_color='FEE2E2', fill_type='solid')
+                cell.font = Font(color='DC2626')
+    
+    ws2.column_dimensions['A'].width = 25
+    ws2.column_dimensions['B'].width = 25
+    ws2.column_dimensions['C'].width = 15
+    ws2.column_dimensions['D'].width = 15
+    ws2.column_dimensions['E'].width = 10
+    ws2.column_dimensions['F'].width = 15
+    ws2.column_dimensions['G'].width = 20
+    
+    # ========== Лист 3: Группы ==========
+    ws3 = wb.create_sheet('Группы')
+    
+    headers3 = ['Название', 'Учитель', 'Расписание', 'Цена', 'Учеников', 'Активна']
+    for col, header in enumerate(headers3, 1):
+        cell = ws3.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = border
+    
+    groups = Group.objects.all()
+    for row, group in enumerate(groups, 2):
+        data = [
+            group.name,
+            group.teacher.username if group.teacher else '—',
+            group.schedule or '',
+            float(group.price),
+            group.enrollments.count(),
+            'Да' if group.is_active else 'Нет',
+        ]
+        for col, value in enumerate(data, 1):
+            cell = ws3.cell(row=row, column=col, value=value)
+            cell.alignment = cell_alignment
+            cell.border = border
+    
+    ws3.column_dimensions['A'].width = 25
+    ws3.column_dimensions['B'].width = 20
+    ws3.column_dimensions['C'].width = 30
+    ws3.column_dimensions['D'].width = 15
+    ws3.column_dimensions['E'].width = 15
+    ws3.column_dimensions['F'].width = 10
+    
+    # ========== Лист 4: Посещаемость ==========
+    ws4 = wb.create_sheet('Посещаемость')
+    
+    headers4 = ['Дата', 'Группа', 'Ученик', 'Статус']
+    for col, header in enumerate(headers4, 1):
+        cell = ws4.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = border
+    
+    attendances = Attendance.objects.select_related('lesson', 'lesson__group', 'student').order_by('-lesson__date')
+    for row, attendance in enumerate(attendances, 2):
+        status_map = {
+            'present': 'Присутствовал',
+            'absent': 'Отсутствовал',
+            'late': 'Опоздал',
+        }
+        data = [
+            attendance.lesson.date.strftime('%d.%m.%Y'),
+            attendance.lesson.group.name,
+            attendance.student.name,
+            status_map.get(attendance.status, attendance.status),
+        ]
+        for col, value in enumerate(data, 1):
+            cell = ws4.cell(row=row, column=col, value=value)
+            cell.alignment = cell_alignment
+            cell.border = border
+            if col == 4:
+                if attendance.status == 'present':
+                    cell.fill = PatternFill(start_color='DCFCE7', end_color='DCFCE7', fill_type='solid')
+                elif attendance.status == 'absent':
+                    cell.fill = PatternFill(start_color='FEE2E2', end_color='FEE2E2', fill_type='solid')
+    
+    ws4.column_dimensions['A'].width = 15
+    ws4.column_dimensions['B'].width = 25
+    ws4.column_dimensions['C'].width = 25
+    ws4.column_dimensions['D'].width = 20
+    
+    # Сохраняем
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="english_center_report.xlsx"'
+    
+    wb.save(response)
+    return response

@@ -12,16 +12,22 @@
     <header class="bg-white shadow-sm sticky top-0 z-10">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-gray-800 transition">
-                    ← Назад
-                </a>
+                <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-gray-800 transition">← Назад</a>
                 <div class="flex items-center gap-2">
                     <span class="text-2xl">📚</span>
                     <h1 class="text-xl font-bold text-gray-800">{{ group.name }}</h1>
                 </div>
             </div>
             <div class="flex items-center gap-4">
-                <span class="text-gray-600 text-sm">{{ request.user.username }}</span>
+                <a href="{% url 'profile' %}" class="flex items-center gap-2 hover:opacity-80 transition">
+                    {% if request.user.profile.photo %}
+                    <img src="{{ request.user.profile.photo.url }}" alt="Фото"
+                        class="w-8 h-8 rounded-full object-cover border border-gray-200">
+                    {% else %}
+                    <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-sm">👤</div>
+                    {% endif %}
+                    <span class="text-gray-600 text-sm">{{ request.user.username }}</span>
+                </a>
                 <a href="{% url 'logout' %}" class="text-red-600 hover:text-red-700 font-medium text-sm">Выйти</a>
             </div>
         </div>
@@ -54,9 +60,15 @@
         <!-- Таблица учеников -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                {% if lesson %}
                 <h2 class="font-bold text-gray-800">
                     📋 Урок: {{ today|date:"d.m.Y" }}
                 </h2>
+                {% else %}
+                <h2 class="font-bold text-gray-400">
+                    😴 Сегодня нет занятия
+                </h2>
+                {% endif %}
                 <a href="{% url 'lesson_history' group.id %}" 
                     class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
                         📅 История уроков →
@@ -84,9 +96,9 @@
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4">
+                                {% if lesson %}
                                 <div class="flex gap-2">
-                                    <button onclick="toggleAttendance({{ data.student.id }}, 'present')"
-                                            class="px-4 py-2 rounded-lg text-sm font-medium transition-all
+                                    <button onclick="toggleAttendance({{ data.student.id }}, 'present')" class="px-4 py-2 rounded-lg text-sm font-medium transition-all
                                             {% if data.attendance_status == 'present' %}
                                                 bg-green-500 text-white shadow
                                             {% else %}
@@ -94,8 +106,7 @@
                                             {% endif %}">
                                         ✓ Был
                                     </button>
-                                    <button onclick="toggleAttendance({{ data.student.id }}, 'absent')"
-                                            class="px-4 py-2 rounded-lg text-sm font-medium transition-all
+                                    <button onclick="toggleAttendance({{ data.student.id }}, 'absent')" class="px-4 py-2 rounded-lg text-sm font-medium transition-all
                                             {% if data.attendance_status == 'absent' %}
                                                 bg-red-500 text-white shadow
                                             {% else %}
@@ -104,6 +115,9 @@
                                         ✗ Не был
                                     </button>
                                 </div>
+                                {% else %}
+                                <span class="text-gray-400 text-sm">—</span>
+                                {% endif %}
                             </td>
                             <td class="px-6 py-4">
                                 {% if role != 'teacher' %}
