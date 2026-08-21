@@ -7,6 +7,7 @@ from django.http import JsonResponse
 from datetime import datetime, timedelta
 from .models import Student, Group, Enrollment, Lesson, Attendance, Payment
 from users.models import Profile
+from decimal import Decimal
 
 
 def login_view(request):
@@ -47,10 +48,11 @@ def dashboard(request):
     """Главный дашборд"""
     role = get_user_role(request.user)
     
+    
     if role == 'teacher':
         groups = Group.objects.filter(teacher=request.user, is_active=True)
         total_students = Enrollment.objects.filter(group__teacher=request.user).count()
-        today = timezone.now().date()
+        today = timezone.localdate()
         today_lessons = Lesson.objects.filter(
             group__teacher=request.user,
             date=today
@@ -67,18 +69,18 @@ def dashboard(request):
         total_students = Student.objects.count()
         total_groups = groups.count()
         
-        current_month = str(timezone.now().month)
-        current_year = timezone.now().year
-        month_payments = Payment.objects.filter(month=current_month, year=current_year)
-        paid_count = month_payments.filter(is_paid=True).count()
-        unpaid_count = month_payments.filter(is_paid=False).count()
+        # Статистика оплат (текущие циклы)
+        today = timezone.localdate()
+        current_payments = Payment.objects.filter(start_date__lte=today, end_date__gte=today)
+        paid_count = current_payments.filter(is_paid=True).count()
+        unpaid_count = current_payments.filter(is_paid=False).count()
         
+        # Данные для графика (оплаты по циклам)
         payment_stats = []
-        for month in range(1, 13):
-            count = Payment.objects.filter(month=str(month), year=current_year, is_paid=True).count()
+        for cycle in range(1, 13):
+            count = Payment.objects.filter(cycle_number=cycle, is_paid=True).count()
             payment_stats.append(count)
         
-        today = timezone.now().date()
         today_attendance = Attendance.objects.filter(lesson__date=today)
         present_count = today_attendance.filter(status='present').count()
         total_attendance = today_attendance.count()
@@ -93,7 +95,6 @@ def dashboard(request):
             'payment_stats': payment_stats,
             'present_count': present_count,
             'total_attendance': total_attendance,
-            'current_year': current_year,
         }
     
     return render(request, 'dashboard/dashboard.html', context)
@@ -112,10 +113,9 @@ def group_detail(request, group_id):
     enrollments = Enrollment.objects.filter(group=group).select_related('student')
     students = [enrollment.student for enrollment in enrollments]
     
-        # Получаем или создаём урок на сегодня (только если сегодня день занятий)
-    today = timezone.now().date()
+    # Получаем или создаём урок на сегодня (только если сегодня день занятий)
+    today = timezone.localdate()
     
-    # Определяем день недели
     day_keywords = {
         0: ['пн', 'понедельник'],
         1: ['вт', 'вторник'],
@@ -127,7 +127,7 @@ def group_detail(request, group_id):
     }
     
     schedule_text = group.schedule.lower()
-    today_weekday = today.weekday()  # 0=Пн, 1=Вт, ..., 6=Вс
+    today_weekday = today.weekday()
     
     is_lesson_day = any(keyword in schedule_text for keyword in day_keywords.get(today_weekday, []))
     
@@ -147,28 +147,18 @@ def group_detail(request, group_id):
                 )
     else:
         lesson = None
-        created = False
     
-    if created:
-        for student in students:
-            Attendance.objects.get_or_create(
-                lesson=lesson,
-                student=student,
-                defaults={'status': 'absent'}
-            )
-    
-        # Получаем посещаемость (только если урок есть)
+    # Получаем посещаемость (только если урок есть)
     attendance_dict = {}
     if lesson:
         attendances = Attendance.objects.filter(lesson=lesson)
         attendance_dict = {att.student_id: att.status for att in attendances}
     
-    current_month = str(today.month)
-    current_year = today.year
+    # Получаем оплаты за текущий цикл
     payments = Payment.objects.filter(
         group=group,
-        month=current_month,
-        year=current_year
+        start_date__lte=today,
+        end_date__gte=today
     )
     payment_dict = {pay.student_id: pay.is_paid for pay in payments}
     
@@ -180,17 +170,16 @@ def group_detail(request, group_id):
             'is_paid': payment_dict.get(student.id, False),
         })
     
-    # История уроков группы (последние 10)
     lessons_history = Lesson.objects.filter(group=group).order_by('-date')[:10]
     
     context = {
         'group': group,
         'student_data': student_data,
         'today': today,
-        'current_month': current_month,
-        'current_year': current_year,
         'role': role,
         'lessons_history': lessons_history,
+        'lesson': lesson,
+        'can_mark_attendance': role in ['teacher', 'developer'],
     }
     
     return render(request, 'dashboard/group_detail.html', context)
@@ -203,11 +192,13 @@ def mark_attendance(request, group_id):
         group = get_object_or_404(Group, id=group_id)
         role = get_user_role(request.user)
         
+        if role not in ['teacher', 'developer']:
+            return JsonResponse({'success': False, 'error': 'Нет доступа'})
+        
         if role == 'teacher' and group.teacher != request.user:
             return JsonResponse({'success': False, 'error': 'Нет доступа'})
         
-        # Проверяем что сегодня день занятий
-        today = timezone.now().date()
+        today = timezone.localdate()
         day_keywords = {
             0: ['пн', 'понедельник'],
             1: ['вт', 'вторник'],
@@ -256,15 +247,14 @@ def toggle_payment(request, group_id):
             return JsonResponse({'success': False, 'error': 'Нет доступа'})
         
         student_id = request.POST.get('student_id')
-        month = request.POST.get('month')
-        year = request.POST.get('year')
+        today = timezone.localdate()
         
         payment, created = Payment.objects.get_or_create(
             student_id=student_id,
             group=group,
-            month=month,
-            year=year,
-            defaults={'amount': group.price, 'is_paid': True}
+            start_date__lte=today,
+            end_date__gte=today,
+            defaults={'amount': group.price, 'is_paid': True, 'cycle_number': 1}
         )
         
         if not created:
@@ -280,16 +270,18 @@ def toggle_payment(request, group_id):
 def students_list(request):
     """Список всех учеников"""
     role = get_user_role(request.user)
+
+    if role == 'accountant':
+        messages.error(request, 'У вас нет доступа')
+        return redirect('payment_management')
     
     if role == 'teacher':
-        # Учитель видит только своих учеников
         students = Student.objects.filter(
             enrollments__group__teacher=request.user
         ).distinct()
     else:
         students = Student.objects.all()
     
-    # Для каждого ученика считаем его группы
     student_data = []
     for student in students:
         enrollments = Enrollment.objects.filter(student=student).select_related('group')
@@ -312,7 +304,7 @@ def add_student(request):
     """Добавление ученика"""
     role = get_user_role(request.user)
     
-    if role == 'teacher':
+    if role not in ['admin', 'developer']:
         messages.error(request, 'У вас нет доступа')
         return redirect('students_list')
     
@@ -331,7 +323,6 @@ def add_student(request):
                 parent_phone=parent_phone,
             )
             
-            # Добавляем в выбранные группы
             for group_id in group_ids:
                 group = Group.objects.get(id=group_id)
                 Enrollment.objects.get_or_create(student=student, group=group)
@@ -352,33 +343,14 @@ def payments_list(request):
     """Все оплаты"""
     role = get_user_role(request.user)
     
-    current_month = str(timezone.now().month)
-    current_year = timezone.now().year
-    
-    # Фильтры
-    month = request.GET.get('month', current_month)
-    year = request.GET.get('year', str(current_year))
-    status = request.GET.get('status', 'all')
-    
-    payments = Payment.objects.filter(month=month, year=year)
+    payments = Payment.objects.select_related('student', 'group').order_by('-cycle_number')
     
     if role == 'teacher':
         payments = payments.filter(group__teacher=request.user)
     
-    if status == 'paid':
-        payments = payments.filter(is_paid=True)
-    elif status == 'unpaid':
-        payments = payments.filter(is_paid=False)
-    
-    payments = payments.select_related('student', 'group').order_by('student__name')
-    
     context = {
         'payments': payments,
         'role': role,
-        'current_month': month,
-        'current_year': year,
-        'status_filter': status,
-        'months': Payment.MONTH_CHOICES,
     }
     
     return render(request, 'dashboard/payments_list.html', context)
@@ -396,7 +368,6 @@ def lesson_history(request, group_id):
     
     lessons = Lesson.objects.filter(group=group).order_by('-date')
     
-    # Для каждого урока получаем посещаемость с именами учеников
     lesson_data = []
     for lesson in lessons:
         attendances = Attendance.objects.filter(lesson=lesson).select_related('student')
@@ -427,17 +398,22 @@ def lesson_history(request, group_id):
     
     return render(request, 'dashboard/lesson_history.html', context)
 
+
 @login_required
 def weekly_schedule(request):
     """Расписание на неделю"""
     role = get_user_role(request.user)
+    
+    # Админ и бухгалтер не видят расписание
+    if role in ['admin', 'accountant']:
+        messages.error(request, 'Расписание пока недоступно для вашей роли')
+        return redirect('dashboard')
     
     if role == 'teacher':
         groups = Group.objects.filter(teacher=request.user, is_active=True)
     else:
         groups = Group.objects.filter(is_active=True)
     
-    # Дни недели
     days = [
         {'name': 'Понедельник', 'short': 'Пн', 'num': 0},
         {'name': 'Вторник', 'short': 'Вт', 'num': 1},
@@ -448,8 +424,7 @@ def weekly_schedule(request):
         {'name': 'Воскресенье', 'short': 'Вс', 'num': 6},
     ]
     
-    # Определяем даты текущей недели
-    today = timezone.now().date()
+    today = timezone.localdate()
     monday = today - timedelta(days=today.weekday())
     
     for i, day in enumerate(days):
@@ -458,7 +433,6 @@ def weekly_schedule(request):
         day['full_date'] = day_date.strftime('%d %B')
         day['is_today'] = (day_date == today)
     
-    # Время с 6:00 до 22:00 (каждый слот — 30 минут)
     time_slots = []
     for hour in range(6, 23):
         for minute in [0, 30]:
@@ -468,14 +442,12 @@ def weekly_schedule(request):
                 'label': f'{hour}:{minute:02d}',
             })
     
-    # Для каждой группы определяем день, время начала и конца
     import re
     
     schedule_data = []
     for group in groups:
         schedule_text = group.schedule.lower()
         
-        # Определяем дни
         day_indexes = []
         day_keywords = {
             0: ['пн', 'понедельник'],
@@ -491,11 +463,9 @@ def weekly_schedule(request):
             if any(keyword in schedule_text for keyword in keywords):
                 day_indexes.append(day_num)
         
-        # Если дни не найдены — пропускаем
         if not day_indexes:
             continue
         
-        # Ищем время начала и конца (например 18:00-20:00)
         time_match = re.search(r'(\d{1,2})[:.](\d{2})\s*[-–—]\s*(\d{1,2})[:.](\d{2})', schedule_text)
         
         if time_match:
@@ -504,25 +474,21 @@ def weekly_schedule(request):
             end_hour = int(time_match.group(3))
             end_minute = int(time_match.group(4))
         else:
-            # Ищем только одно время
             time_match = re.search(r'(\d{1,2})[:.](\d{2})', schedule_text)
             if time_match:
                 start_hour = int(time_match.group(1))
                 start_minute = int(time_match.group(2))
-                # По умолчанию длительность 1.5 часа
                 end_hour = start_hour + 1
                 end_minute = start_minute + 30
                 if end_minute >= 60:
                     end_hour += 1
                     end_minute -= 60
             else:
-                # Если время не указано — 18:00-19:30
                 start_hour = 18
                 start_minute = 0
                 end_hour = 19
                 end_minute = 30
         
-        # Вычисляем длительность в слотах (30 минут)
         start_total_minutes = start_hour * 60 + start_minute
         end_total_minutes = end_hour * 60 + end_minute
         duration_slots = (end_total_minutes - start_total_minutes) // 30
@@ -538,7 +504,7 @@ def weekly_schedule(request):
                 'start_minute': start_minute,
                 'duration_slots': duration_slots,
             })
-        # Генерируем цвет для каждой группы
+    
     pastel_colors = [
         {'bg': 'bg-blue-100', 'border': 'border-blue-300', 'text': 'text-blue-800'},
         {'bg': 'bg-green-100', 'border': 'border-green-300', 'text': 'text-green-800'},
@@ -552,13 +518,11 @@ def weekly_schedule(request):
         {'bg': 'bg-cyan-100', 'border': 'border-cyan-300', 'text': 'text-cyan-800'},
     ]
     
-    # Присваиваем цвета группам
     group_colors = {}
     for i, group in enumerate(groups):
         color_index = i % len(pastel_colors)
         group_colors[group.id] = pastel_colors[color_index]
     
-    # Добавляем цвет в schedule_data
     for item in schedule_data:
         color = group_colors.get(item['group'].id, pastel_colors[0])
         item['bg_color'] = color['bg']
@@ -573,6 +537,8 @@ def weekly_schedule(request):
     }
     
     return render(request, 'dashboard/weekly_schedule.html', context)
+
+
 @login_required
 def profile(request):
     """Личный кабинет пользователя"""
@@ -616,7 +582,6 @@ def profile(request):
             else:
                 messages.error(request, 'Выберите файл')
     
-    # Получаем данные профиля
     try:
         user_profile = request.user.profile
     except:
@@ -628,6 +593,8 @@ def profile(request):
     }
     
     return render(request, 'dashboard/profile.html', context)
+
+
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from django.http import HttpResponse
@@ -638,13 +605,12 @@ def export_excel(request):
     """Экспорт данных в Excel для админа"""
     role = get_user_role(request.user)
     
-    if role == 'teacher':
+    if role not in ['admin', 'accountant', 'developer']:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
     
     wb = openpyxl.Workbook()
     
-    # Стили
     header_font = Font(bold=True, color='FFFFFF', size=12)
     header_fill = PatternFill(start_color='4F46E5', end_color='4F46E5', fill_type='solid')
     border = Border(
@@ -656,11 +622,11 @@ def export_excel(request):
     header_alignment = Alignment(horizontal='center', vertical='center')
     cell_alignment = Alignment(vertical='center')
     
-    # ========== Лист 1: Ученики и долги ==========
+    # Лист 1: Ученики и долги
     ws1 = wb.active
     ws1.title = 'Ученики и долги'
     
-    headers1 = ['Имя', 'Телефон', 'Группы (цены)', 'Общий долг (₸)', 'Не оплачено месяцев']
+    headers1 = ['Имя', 'Телефон', 'Группы (цены)', 'Общий долг (₸)', 'Не оплачено циклов']
     for col, header in enumerate(headers1, 1):
         cell = ws1.cell(row=1, column=col, value=header)
         cell.font = header_font
@@ -672,16 +638,14 @@ def export_excel(request):
     for row, student in enumerate(students, 2):
         enrollments = Enrollment.objects.filter(student=student).select_related('group')
         
-        # Формируем список групп с ценами
         groups_info = []
         for enrollment in enrollments:
             group_price = float(enrollment.group.price)
             groups_info.append(f"{enrollment.group.name} ({group_price}₸)")
         groups_str = ', '.join(groups_info) if groups_info else '—'
         
-        # Считаем долги по каждой группе отдельно
         total_debt = 0
-        months_unpaid = 0
+        cycles_unpaid = 0
         
         for enrollment in enrollments:
             unpaid_payments = Payment.objects.filter(
@@ -689,25 +653,24 @@ def export_excel(request):
                 group=enrollment.group,
                 is_paid=False
             )
-            total_debt += sum([float(p.amount) for p in unpaid_payments])
-            months_unpaid += unpaid_payments.count()
+            total_debt += sum([float(p.amount) - float(p.paid_amount) for p in unpaid_payments])
+            cycles_unpaid += unpaid_payments.count()
         
         data = [
             student.name,
             student.phone or '',
             groups_str,
             total_debt if total_debt > 0 else 0,
-            months_unpaid,
+            cycles_unpaid,
         ]
         for col, value in enumerate(data, 1):
             cell = ws1.cell(row=row, column=col, value=value)
             cell.alignment = cell_alignment
             cell.border = border
-            # Подсветка должников
             if col == 4 and total_debt > 0:
                 cell.fill = PatternFill(start_color='FEE2E2', end_color='FEE2E2', fill_type='solid')
                 cell.font = Font(color='DC2626', bold=True)
-            elif col == 5 and months_unpaid > 0:
+            elif col == 5 and cycles_unpaid > 0:
                 cell.fill = PatternFill(start_color='FEE2E2', end_color='FEE2E2', fill_type='solid')
                 cell.font = Font(color='DC2626')
     
@@ -717,10 +680,10 @@ def export_excel(request):
     ws1.column_dimensions['D'].width = 20
     ws1.column_dimensions['E'].width = 25
     
-    # ========== Лист 2: Долги по месяцам ==========
-    ws2 = wb.create_sheet('Долги по месяцам')
+    # Лист 2: Долги по циклам
+    ws2 = wb.create_sheet('Долги по циклам')
     
-    headers2 = ['Ученик', 'Группа', 'Цена группы', 'Месяц', 'Год', 'Сумма', 'Статус']
+    headers2 = ['Ученик', 'Телефон', 'Телефон родителя', 'Группа', 'Цена группы', 'Цикл', 'Период', 'Долг', 'Статус']
     for col, header in enumerate(headers2, 1):
         cell = ws2.cell(row=1, column=col, value=header)
         cell.font = header_font
@@ -728,15 +691,18 @@ def export_excel(request):
         cell.alignment = header_alignment
         cell.border = border
     
-    unpaid = Payment.objects.filter(is_paid=False).select_related('student', 'group').order_by('student__name', 'year', 'month')
+    unpaid = Payment.objects.filter(is_paid=False).select_related('student', 'group').order_by('student__name', 'cycle_number')
     for row, payment in enumerate(unpaid, 2):
+        period = f"{payment.start_date.strftime('%d.%m')} — {payment.end_date.strftime('%d.%m')}" if payment.start_date and payment.end_date else '—'
         data = [
             payment.student.name,
+            payment.student.phone or '—',
+            payment.student.parent_phone or '—',
             payment.group.name,
             float(payment.group.price),
-            payment.get_month_display(),
-            payment.year,
-            float(payment.amount),
+            f"Цикл {payment.cycle_number}",
+            period,
+            float(payment.amount) - float(payment.paid_amount),
             '❌ Не оплачено',
         ]
         for col, value in enumerate(data, 1):
@@ -748,14 +714,16 @@ def export_excel(request):
                 cell.font = Font(color='DC2626')
     
     ws2.column_dimensions['A'].width = 25
-    ws2.column_dimensions['B'].width = 25
-    ws2.column_dimensions['C'].width = 15
-    ws2.column_dimensions['D'].width = 15
-    ws2.column_dimensions['E'].width = 10
+    ws2.column_dimensions['B'].width = 20
+    ws2.column_dimensions['C'].width = 20
+    ws2.column_dimensions['D'].width = 25
+    ws2.column_dimensions['E'].width = 15
     ws2.column_dimensions['F'].width = 15
-    ws2.column_dimensions['G'].width = 20
+    ws2.column_dimensions['G'].width = 25
+    ws2.column_dimensions['H'].width = 15
+    ws2.column_dimensions['I'].width = 20
     
-    # ========== Лист 3: Группы ==========
+    # Лист 3: Группы
     ws3 = wb.create_sheet('Группы')
     
     headers3 = ['Название', 'Учитель', 'Расписание', 'Цена', 'Учеников', 'Активна']
@@ -788,7 +756,7 @@ def export_excel(request):
     ws3.column_dimensions['E'].width = 15
     ws3.column_dimensions['F'].width = 10
     
-    # ========== Лист 4: Посещаемость ==========
+    # Лист 4: Посещаемость
     ws4 = wb.create_sheet('Посещаемость')
     
     headers4 = ['Дата', 'Группа', 'Ученик', 'Статус']
@@ -827,11 +795,336 @@ def export_excel(request):
     ws4.column_dimensions['C'].width = 25
     ws4.column_dimensions['D'].width = 20
     
-    # Сохраняем
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
     response['Content-Disposition'] = 'attachment; filename="english_center_report.xlsx"'
     
+    wb.save(response)
+    return response
+
+
+@login_required
+def payment_management(request):
+    """Страница контроля оплат"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'accountant', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    today = timezone.localdate()
+    view_mode = request.GET.get('view', 'periods')
+    search_query = request.GET.get('search', '')
+    
+    if view_mode == 'students':
+        # РЕЖИМ ПО УЧЕНИКАМ
+        students = Student.objects.all()
+        
+        if search_query:
+            students = students.filter(name__icontains=search_query)
+        
+        students_data = []
+        for student in students:
+            unpaid_payments = Payment.objects.filter(student=student, is_paid=False)
+            total_debt = sum([float(p.amount) - float(p.paid_amount) for p in unpaid_payments])
+            
+            if total_debt > 0:
+                groups_list = []
+                for payment in unpaid_payments:
+                    if payment.group.name not in groups_list:
+                        groups_list.append(payment.group.name)
+                
+                students_data.append({
+                    'student': student,
+                    'total_debt': total_debt,
+                    'groups': ', '.join(groups_list),
+                    'unpaid_count': unpaid_payments.count(),
+                    'student_phone': student.phone,
+                    'parent_phone': student.parent_phone,
+                })
+        
+        students_data.sort(key=lambda x: x['total_debt'], reverse=True)
+        
+        context = {
+            'view_mode': view_mode,
+            'students_data': students_data,
+            'role': role,
+            'search_query': search_query,
+        }
+    else:
+        # РЕЖИМ ПО ПЕРИОДАМ
+        payment_data = []
+        
+        all_payments = Payment.objects.select_related('student', 'group').order_by('student__name', 'cycle_number')
+        
+        if search_query:
+            all_payments = all_payments.filter(student__name__icontains=search_query)
+        
+        for payment in all_payments:
+            student = payment.student
+            group = payment.group
+            
+            if payment.is_paid:
+                status = 'paid'
+            elif payment.is_partial:
+                status = 'partial'
+            elif payment.end_date and today > payment.end_date:
+                status = 'overdue'
+            elif payment.start_date and payment.start_date <= today <= payment.end_date:
+                status = 'current'
+            else:
+                status = 'upcoming'
+            
+            payment_data.append({
+                'payment': payment,
+                'student': student,
+                'group': group,
+                'cycle_number': payment.cycle_number,
+                'start_date': payment.start_date,
+                'end_date': payment.end_date,
+                'status': status,
+                'remaining': float(payment.amount) - float(payment.paid_amount),
+                'student_phone': student.phone,
+                'parent_name': student.parent_name,
+                'parent_phone': student.parent_phone,
+            })
+        
+        status_order = {'overdue': 0, 'current': 1, 'partial': 2, 'upcoming': 3, 'paid': 4}
+        payment_data.sort(key=lambda x: (status_order.get(x['status'], 5), x['end_date']))
+        
+        context = {
+            'view_mode': view_mode,
+            'payment_data': payment_data,
+            'role': role,
+            'search_query': search_query,
+        }
+    
+    return render(request, 'dashboard/payment_management.html', context)
+
+
+@login_required
+def toggle_payment_management(request, payment_id):
+    """Отметить полную оплату"""
+    if request.method == 'POST':
+        role = get_user_role(request.user)
+        
+        if role not in ['admin', 'accountant', 'developer']:
+            return JsonResponse({'success': False, 'error': 'Нет доступа'})
+        
+        payment = get_object_or_404(Payment, id=payment_id)
+        
+        if payment.is_paid:
+            # Отменяем оплату
+            payment.is_paid = False
+            payment.is_partial = False
+            payment.paid_amount = 0
+            payment.paid_at = None
+            payment.marked_by = None
+        else:
+            # Полная оплата
+            payment.is_paid = True
+            payment.is_partial = False
+            payment.paid_amount = payment.amount
+            payment.paid_at = timezone.now()
+            payment.marked_by = request.user
+        
+        payment.save()
+        return JsonResponse({'success': True, 'is_paid': payment.is_paid})
+    
+    return JsonResponse({'success': False})
+
+
+@login_required
+def partial_payment(request, payment_id):
+    """Частичная оплата"""
+    if request.method == 'POST':
+        role = get_user_role(request.user)
+        
+        if role not in ['admin', 'accountant', 'developer']:
+            return JsonResponse({'success': False, 'error': 'Нет доступа'})
+        
+        payment = get_object_or_404(Payment, id=payment_id)
+        amount = float(request.POST.get('amount', 0))
+        
+        if amount > 0:
+            from decimal import Decimal
+            payment.paid_amount = Decimal(str(payment.paid_amount)) + Decimal(str(amount))
+            payment.is_partial = True
+            payment.marked_by = request.user
+            
+            if payment.paid_amount >= payment.amount:
+                payment.is_paid = True
+                payment.is_partial = False
+                payment.paid_amount = payment.amount
+                payment.paid_at = timezone.now()
+            
+            payment.save()
+            return JsonResponse({'success': True})
+    
+    return JsonResponse({'success': False})
+
+@login_required
+def accountant_stats(request):
+    """Статистика для бухгалтера"""
+    role = get_user_role(request.user)
+    
+    if role not in ['accountant', 'developer', 'admin']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    today = timezone.localdate()
+    
+    # Период
+    period = request.GET.get('period', 'month')
+    group_filter = request.GET.get('group', 'all')
+    
+    # Все платежи с положительной суммой (включая частичные)
+    payments = Payment.objects.filter(paid_amount__gt=0)
+    
+    if group_filter != 'all':
+        payments = payments.filter(group_id=group_filter)
+    
+    # Общий заработок (все оплаты)
+    total_income = sum([float(p.paid_amount) for p in payments])
+    
+    # По группам
+    groups_stats = []
+    all_groups = Group.objects.all()
+    for group in all_groups:
+        group_payments = payments.filter(group=group)
+        group_income = sum([float(p.paid_amount) for p in group_payments])
+        if group_income > 0:
+            groups_stats.append({
+                'group': group,
+                'income': group_income,
+                'count': group_payments.count(),
+            })
+    
+    groups_stats.sort(key=lambda x: x['income'], reverse=True)
+    
+    # График по месяцам за всё время
+    monthly_income = []
+    for i in range(11, -1, -1):
+        month_date = today.replace(day=1) - timedelta(days=i*30)
+        month_start = month_date.replace(day=1)
+        if month_start.month == 12:
+            month_end = month_start.replace(day=31)
+        else:
+            next_month = month_start.replace(month=month_start.month + 1, day=1)
+            month_end = next_month - timedelta(days=1)
+        
+        # Оплаты с датой оплаты в этом месяце
+        paid_with_date = Payment.objects.filter(
+            paid_amount__gt=0,
+            paid_at__isnull=False,
+            paid_at__date__gte=month_start,
+            paid_at__date__lte=month_end
+        )
+        
+        # Частичные оплаты без даты — по дате конца периода
+        partial_without_date = Payment.objects.filter(
+            paid_amount__gt=0,
+            paid_at__isnull=True,
+            end_date__gte=month_start,
+            end_date__lte=month_end
+        )
+        
+        month_income = sum([float(p.paid_amount) for p in paid_with_date]) + \
+                       sum([float(p.paid_amount) for p in partial_without_date])
+        
+        monthly_income.append({
+            'month': month_start.strftime('%B %Y'),
+            'income': month_income,
+        })
+    
+    context = {
+        'role': role,
+        'total_income': total_income,
+        'groups_stats': groups_stats,
+        'monthly_income': monthly_income,
+        'period': period,
+        'start_date': today.replace(day=1),
+        'end_date': today,
+        'group_filter': group_filter,
+        'all_groups': all_groups,
+    }
+    
+    return render(request, 'dashboard/accountant_stats.html', context)
+
+
+@login_required
+def export_income_excel(request):
+    """Экспорт статистики доходов в Excel"""
+    role = get_user_role(request.user)
+    
+    if role not in ['accountant', 'developer', 'admin']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    today = timezone.localdate()
+    period = request.GET.get('period', 'month')
+    group_filter = request.GET.get('group', 'all')
+    
+    if period == 'month':
+        start_date = today.replace(day=1)
+    elif period == '3months':
+        start_date = today - timedelta(days=90)
+    elif period == 'year':
+        start_date = today.replace(month=1, day=1)
+    else:
+        start_date = today.replace(day=1)
+    
+    end_date = today
+    
+    payments = Payment.objects.filter(
+        is_paid=True,
+        paid_at__date__gte=start_date,
+        paid_at__date__lte=end_date
+    )
+    
+    if group_filter != 'all':
+        payments = payments.filter(group_id=group_filter)
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Доходы'
+    
+    headers = ['Ученик', 'Группа', 'Сумма', 'Дата оплаты', 'Кто отметил']
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True, color='FFFFFF', size=12)
+        cell.fill = PatternFill(start_color='4F46E5', end_color='4F46E5', fill_type='solid')
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = Border(
+            left=Side(style='thin'), right=Side(style='thin'),
+            top=Side(style='thin'), bottom=Side(style='thin')
+        )
+    
+    for row, payment in enumerate(payments, 2):
+        data = [
+            payment.student.name,
+            payment.group.name,
+            float(payment.paid_amount),
+            payment.paid_at.strftime('%d.%m.%Y') if payment.paid_at else '—',
+            payment.marked_by.username if payment.marked_by else '—',
+        ]
+        for col, value in enumerate(data, 1):
+            cell = ws.cell(row=row, column=col, value=value)
+            cell.border = Border(
+                left=Side(style='thin'), right=Side(style='thin'),
+                top=Side(style='thin'), bottom=Side(style='thin')
+            )
+    
+    ws.column_dimensions['A'].width = 25
+    ws.column_dimensions['B'].width = 25
+    ws.column_dimensions['C'].width = 15
+    ws.column_dimensions['D'].width = 15
+    ws.column_dimensions['E'].width = 20
+    
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="income_report.xlsx"'
     wb.save(response)
     return response

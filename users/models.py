@@ -7,11 +7,12 @@ class Profile(models.Model):
     ROLE_CHOICES = [
         ('admin', 'Администратор'),
         ('teacher', 'Учитель'),
+        ('accountant', 'Бухгалтер'),
         ('developer', 'Разработчик'),
     ]
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='teacher', verbose_name="Роль")
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='teacher', verbose_name="Роль")
     phone = models.CharField(max_length=20, blank=True, verbose_name="Телефон")
     photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True, verbose_name="Фото")
 

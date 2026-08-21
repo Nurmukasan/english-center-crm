@@ -33,5 +33,6 @@ class AttendanceAdmin(admin.ModelAdmin):
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ['student', 'group', 'month', 'year', 'amount', 'is_paid']
-    list_filter = ['is_paid', 'month', 'year', 'group']
+    list_display = ['student', 'group', 'cycle_number', 'start_date', 'end_date', 'amount', 'is_paid', 'marked_by']
+    list_filter = ['is_paid', 'group', 'cycle_number']
+    search_fields = ['student__name']

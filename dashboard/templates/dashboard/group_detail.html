@@ -81,9 +81,6 @@
                         <tr class="bg-gray-50 text-left border-b border-gray-100">
                             <th class="px-6 py-3 text-sm font-medium text-gray-500">Ученик</th>
                             <th class="px-6 py-3 text-sm font-medium text-gray-500">Посещаемость</th>
-                            <th class="px-6 py-3 text-sm font-medium text-gray-500">
-                                Оплата за {{ current_month }}.{{ current_year }}
-                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -96,7 +93,7 @@
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4">
-                                {% if lesson %}
+                                {% if lesson and can_mark_attendance %}
                                 <div class="flex gap-2">
                                     <button onclick="toggleAttendance({{ data.student.id }}, 'present')" class="px-4 py-2 rounded-lg text-sm font-medium transition-all
                                             {% if data.attendance_status == 'present' %}
@@ -116,45 +113,13 @@
                                     </button>
                                 </div>
                                 {% else %}
-                                <span class="text-gray-400 text-sm">—</span>
-                                {% endif %}
-                            </td>
-                            <td class="px-6 py-4">
-                                {% if role != 'teacher' %}
-                                <!-- Админ может переключать оплату -->
-                                <button onclick="togglePayment({{ data.student.id }})"
-                                        class="px-4 py-2 rounded-lg text-sm font-medium transition-all
-                                        {% if data.is_paid %}
-                                            bg-green-100 text-green-700 hover:bg-green-200
-                                        {% else %}
-                                            bg-red-100 text-red-700 hover:bg-red-200
-                                        {% endif %}">
-                                    {% if data.is_paid %}
-                                        ✅ Оплачено
-                                    {% else %}
-                                        ❌ Не оплачено
-                                    {% endif %}
-                                </button>
-                                {% else %}
-                                <!-- Учитель только видит статус -->
-                                <span class="px-4 py-2 rounded-lg text-sm font-medium
-                                    {% if data.is_paid %}
-                                        bg-green-100 text-green-700
-                                    {% else %}
-                                        bg-red-100 text-red-700
-                                    {% endif %}">
-                                    {% if data.is_paid %}
-                                        ✅ Оплачено
-                                    {% else %}
-                                        ❌ Не оплачено
-                                    {% endif %}
-                                </span>
+                                <span class="text-gray-400 text-sm">{% if not lesson %}—{% else %}Нет доступа{% endif %}</span>
                                 {% endif %}
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="3" class="px-6 py-12 text-center text-gray-400">
+                            <td colspan="2" class="px-6 py-12 text-center text-gray-400">
                                 <p class="text-5xl mb-3">📭</p>
                                 <p class="text-lg">Нет учеников в группе</p>
                             </td>
@@ -176,23 +141,6 @@
                     'X-CSRFToken': '{{ csrf_token }}'
                 },
                 body: `student_id=${studentId}&status=${status}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                }
-            });
-        }
-        
-        function togglePayment(studentId) {
-            fetch(`/group/{{ group.id }}/payment/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-CSRFToken': '{{ csrf_token }}'
-                },
-                body: `student_id=${studentId}&month={{ current_month }}&year={{ current_year }}`
             })
             .then(response => response.json())
             .then(data => {

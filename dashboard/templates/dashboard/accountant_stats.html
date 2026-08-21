@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Статистика — English Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-gray-800">← Назад</a>
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">📊</span>
+                    <h1 class="text-xl font-bold text-gray-800">Статистика доходов</h1>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="{% url 'payment_management' %}" class="text-indigo-600 text-sm">💰 Оплаты</a>
+                <a href="{% url 'logout' %}" class="text-red-600 text-sm">Выйти</a>
+            </div>
+        </div>
+    </header>
+    
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        
+        <!-- Фильтры -->
+        <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
+            <form method="GET" class="flex flex-wrap gap-4 items-end">
+                <div>
+                    <label class="block text-sm text-gray-500 mb-1">Период</label>
+                    <select name="period" class="px-4 py-2 border border-gray-300 rounded-lg">
+                        <option value="month" {% if period == 'month' %}selected{% endif %}>За месяц</option>
+                        <option value="3months" {% if period == '3months' %}selected{% endif %}>За 3 месяца</option>
+                        <option value="year" {% if period == 'year' %}selected{% endif %}>За год</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-500 mb-1">Группа</label>
+                    <select name="group" class="px-4 py-2 border border-gray-300 rounded-lg">
+                        <option value="all" {% if group_filter == 'all' %}selected{% endif %}>Все группы</option>
+                        {% for group in all_groups %}
+                        <option value="{{ group.id }}" {% if group_filter == group.id|stringformat:"s" %}selected{% endif %}>{{ group.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+                    Применить
+                </button>
+                <a href="{% url 'export_income_excel' %}?period={{ period }}&group={{ group_filter }}"
+                   class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700">
+                    📊 Excel
+                </a>
+            </form>
+        </div>
+        
+        <!-- Общий доход -->
+        <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-8 mb-8 text-white shadow-lg">
+            <p class="text-sm opacity-80 mb-2">Общий доход за период</p>
+            <p class="text-4xl font-bold">{{ total_income|floatformat:0 }} ₸</p>
+            <p class="text-sm opacity-80 mt-2">{{ start_date|date:"d.m.Y" }} — {{ end_date|date:"d.m.Y" }}</p>
+        </div>
+        
+        <!-- По группам -->
+        <div class="bg-white rounded-xl shadow-sm p-6 mb-8 border border-gray-100">
+            <h3 class="font-bold text-gray-800 mb-4">📚 По группам</h3>
+            <div class="space-y-4">
+                {% for stat in groups_stats %}
+                <div class="flex items-center justify-between border-b border-gray-50 pb-3">
+                    <div>
+                        <p class="font-medium text-gray-800">{{ stat.group.name }}</p>
+                        <p class="text-sm text-gray-400">{{ stat.count }} оплат</p>
+                    </div>
+                    <p class="font-bold text-indigo-600">{{ stat.income|floatformat:0 }} ₸</p>
+                </div>
+                {% empty %}
+                <p class="text-gray-400 text-center py-4">Нет данных</p>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- График -->
+        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <h3 class="font-bold text-gray-800 mb-4">📈 Доход по месяцам</h3>
+            <canvas id="incomeChart" height="100"></canvas>
+        </div>
+        
+    </main>
+    
+    <script>
+        const ctx = document.getElementById('incomeChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [{% for item in monthly_income %}'{{ item.month }}',{% endfor %}],
+                datasets: [{
+                    label: 'Доход (₸)',
+                    data: [{% for item in monthly_income %}{{ item.income }},{% endfor %}],
+                    borderColor: 'rgb(99, 102, 241)',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                    }
+                }
+            }
+        });
+    </script>
+    
+</body>
+</html>

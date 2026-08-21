@@ -19,6 +19,11 @@ urlpatterns = [
     path('group/<int:group_id>/history/', views.lesson_history, name='lesson_history'),
     path('schedule/', views.weekly_schedule, name='weekly_schedule'),
     path('export/', views.export_excel, name='export_excel'),
+    path('payments-management/', views.payment_management, name='payment_management'),
+    path('payments-management/toggle/<int:payment_id>/', views.toggle_payment_management, name='toggle_payment_management'),
+    path('payments-management/partial/<int:payment_id>/', views.partial_payment, name='partial_payment'),
+    path('accountant-stats/', views.accountant_stats, name='accountant_stats'),
+    path('accountant-stats/export/', views.export_income_excel, name='export_income_excel'),
 ]
 
 if settings.DEBUG:

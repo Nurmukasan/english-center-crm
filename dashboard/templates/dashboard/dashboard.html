@@ -20,19 +20,37 @@
                 </div>
             </div>
             <div class="flex items-center gap-4">
-                <a href="{% url 'weekly_schedule' %}" 
-                   class="text-indigo-600 hover:text-indigo-700 text-sm font-medium hidden sm:inline">
+                {% if role == 'teacher' or role == 'developer' %}
+                <a href="{% url 'weekly_schedule' %}"
+                    class="text-indigo-600 hover:text-indigo-700 text-sm font-medium hidden sm:inline">
                     📅 Расписание
                 </a>
+                {% endif %}
+    
                 {% if role != 'teacher' %}
                 <a href="{% url 'export_excel' %}"
                     class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition">
                     📊 Excel
                 </a>
                 {% endif %}
+    
+                {% if role == 'admin' or role == 'accountant' or role == 'developer' %}
+                <a href="{% url 'payment_management' %}"
+                    class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition">
+                    💰 Оплаты
+                </a>
+                {% endif %}
+                {% if role == 'accountant' or role == 'developer' %}
+                <a href="{% url 'accountant_stats' %}"
+                    class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 transition">
+                    📊 Статистика
+                </a>
+                {% endif %}
+    
                 <a href="{% url 'profile' %}" class="flex items-center gap-2 hover:opacity-80 transition">
                     {% if request.user.profile.photo %}
-                    <img src="{{ request.user.profile.photo.url }}" alt="Фото" class="w-8 h-8 rounded-full object-cover border border-gray-200">
+                    <img src="{{ request.user.profile.photo.url }}" alt="Фото"
+                        class="w-8 h-8 rounded-full object-cover border border-gray-200">
                     {% else %}
                     <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-sm">
                         👤
@@ -40,13 +58,16 @@
                     {% endif %}
                     <span class="text-gray-600 text-sm hidden sm:inline">{{ request.user.username }}</span>
                 </a>
+    
                 {% if role == 'admin' %}
                 <span class="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-medium">Админ</span>
                 {% elif role == 'teacher' %}
                 <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-medium">Учитель</span>
+                {% elif role == 'accountant' %}
+                <span class="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-medium">Бухгалтер</span>
                 {% endif %}
-                <a href="{% url 'logout' %}" 
-                   class="text-red-600 hover:text-red-700 font-medium text-sm">
+    
+                <a href="{% url 'logout' %}" class="text-red-600 hover:text-red-700 font-medium text-sm">
                     Выйти
                 </a>
             </div>
@@ -70,7 +91,7 @@
             </p>
         </div>
         
-        {% if role != 'teacher' %}
+        {% if role == 'admin' or role == 'developer' %}
         <!-- Статистика для админа -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
@@ -93,7 +114,7 @@
         
         <!-- График оплат -->
         <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm mb-8">
-            <h3 class="font-bold text-gray-800 mb-4">📊 Оплаты по месяцам ({{ current_year }})</h3>
+            <h3 class="font-bold text-gray-800 mb-4">📊 Оплаты по циклам</h3>
             <canvas id="paymentChart" height="100"></canvas>
         </div>
         
@@ -109,6 +130,22 @@
                     <p class="text-gray-500 text-sm">Всего отмечено</p>
                     <p class="text-3xl font-bold text-gray-800">{{ total_attendance }}</p>
                 </div>
+            </div>
+        </div>
+        {% elif role == 'accountant' %}
+        <!-- Статистика для бухгалтера -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+                <p class="text-gray-500 text-sm">Всего учеников</p>
+                <p class="text-3xl font-bold text-gray-800 mt-2">{{ total_students }}</p>
+            </div>
+            <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+                <p class="text-gray-500 text-sm">Оплачено (текущий месяц)</p>
+                <p class="text-3xl font-bold text-green-600 mt-2">{{ paid_count }}</p>
+            </div>
+            <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+                <p class="text-gray-500 text-sm">Не оплачено</p>
+                <p class="text-3xl font-bold text-red-600 mt-2">{{ unpaid_count }}</p>
             </div>
         </div>
         {% else %}
@@ -165,7 +202,7 @@
         
     </main>
     
-    {% if role != 'teacher' %}
+    {% if role == 'admin' or role == 'developer' %}
     <script>
         const ctx = document.getElementById('paymentChart').getContext('2d');
         new Chart(ctx, {

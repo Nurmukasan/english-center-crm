@@ -87,34 +87,29 @@ class Attendance(models.Model):
 
 
 class Payment(models.Model):
-    """Оплата"""
-    MONTH_CHOICES = [
-        ('1', 'Январь'),
-        ('2', 'Февраль'),
-        ('3', 'Март'),
-        ('4', 'Апрель'),
-        ('5', 'Май'),
-        ('6', 'Июнь'),
-        ('7', 'Июль'),
-        ('8', 'Август'),
-        ('9', 'Сентябрь'),
-        ('10', 'Октябрь'),
-        ('11', 'Ноябрь'),
-        ('12', 'Декабрь'),
-    ]
-    
+    """Оплата за 4-недельный цикл"""
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='payments')
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='payments')
-    month = models.CharField(max_length=2, choices=MONTH_CHOICES, verbose_name="Месяц")
-    year = models.IntegerField(verbose_name="Год")
+    cycle_number = models.IntegerField(default=1, verbose_name="Цикл")
+    
+    start_date = models.DateField(null=True, blank=True, verbose_name="Начало периода")
+    end_date = models.DateField(null=True, blank=True, verbose_name="Конец периода")
+    
     amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Сумма")
-    is_paid = models.BooleanField(default=False, verbose_name="Оплачено")
+    paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Оплачено")
+    is_paid = models.BooleanField(default=False, verbose_name="Полностью оплачено")
+    is_partial = models.BooleanField(default=False, verbose_name="Частичная оплата")
     paid_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата оплаты")
+    marked_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='marked_payments')
+    
+    def remaining_amount(self):
+        return self.amount - self.paid_amount
 
     def __str__(self):
-        return f"{self.student.name} — {self.get_month_display()} {self.year} — {'✅' if self.is_paid else '❌'}"
+        status = '✅' if self.is_paid else ('🟡' if self.is_partial else '❌')
+        return f"{self.student.name} — {self.group.name} — Цикл {self.cycle_number} — {status}"
 
     class Meta:
         verbose_name = "Оплата"
         verbose_name_plural = "Оплаты"
-        unique_together = ['student', 'group', 'month', 'year']
+        unique_together = ['student', 'group', 'cycle_number']
