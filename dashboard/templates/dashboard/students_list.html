@@ -63,7 +63,16 @@
                     <tbody>
                         {% for data in student_data %}
                         <tr class="border-b border-gray-50 hover:bg-gray-50">
-                            <td class="px-6 py-4 font-medium text-gray-800">{{ data.student.name }}</td>
+                            <td class="px-6 py-4">
+                                <p class="font-medium text-gray-800">{{ data.student.name }}</p>
+                                {% if data.student.school or data.student.grade or data.student.age %}
+                                <p class="text-xs text-gray-400">
+                                    {% if data.student.school %}{{ data.student.school }}{% endif %}
+                                    {% if data.student.grade %} • {{ data.student.grade }} класс{% endif %}
+                                    {% if data.student.age %} • {{ data.student.age }} лет{% endif %}
+                                </p>
+                                {% endif %}
+                            </td>
                             <td class="px-6 py-4 text-gray-600">{{ data.student.phone|default:"—" }}</td>
                             <td class="px-6 py-4">
                                 <div class="flex flex-wrap gap-1">

@@ -1,6 +1,10 @@
 from django.contrib import admin
 from .models import Student, Group, Enrollment, Lesson, Attendance, Payment
+from .models import Book
 
+@admin.register(Book)
+class BookAdmin(admin.ModelAdmin):
+    list_display = ['title']
 
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):

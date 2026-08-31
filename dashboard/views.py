@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.http import JsonResponse
 from datetime import datetime, timedelta
-from .models import Student, Group, Enrollment, Lesson, Attendance, Payment
+from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book
 from users.models import Profile
 from decimal import Decimal
 
@@ -181,10 +181,12 @@ def group_detail(request, group_id):
     
     student_data = []
     for student in students:
+        enrollment = Enrollment.objects.filter(student=student, group=group).first()
         student_data.append({
             'student': student,
             'attendance_status': attendance_dict.get(student.id, 'absent'),
             'is_paid': payment_dict.get(student.id, False),
+            'enrollment': enrollment,
         })
     
     lessons_history = Lesson.objects.filter(group=group).order_by('-date')[:10]
@@ -338,6 +340,9 @@ def add_student(request):
                 phone=phone,
                 parent_name=parent_name,
                 parent_phone=parent_phone,
+                school=request.POST.get('school', ''),
+                grade=request.POST.get('grade', ''),
+                age=request.POST.get('age') or None,
             )
             
             for group_id in group_ids:
@@ -1269,3 +1274,105 @@ def add_existing_student_to_group(request, student_id):
     }
     
     return render(request, 'dashboard/add_to_group.html', context)
+
+@login_required
+def toggle_book_status(request, enrollment_id=None):
+    """Переключить статус книги у ученика"""
+    if request.method == 'POST':
+        role = get_user_role(request.user)
+        
+        if role not in ['admin', 'teacher', 'developer']:
+            return JsonResponse({'success': False, 'error': 'Нет доступа'})
+        
+        action = request.POST.get('action')
+        
+        # Если переданы несколько учеников
+        enrollment_ids = request.POST.get('enrollment_ids', '')
+        if enrollment_ids:
+            ids = enrollment_ids.split(',')
+            for eid in ids:
+                try:
+                    enrollment = Enrollment.objects.get(id=int(eid))
+                    if action == 'need_book':
+                        enrollment.book_needed = True
+                        enrollment.has_book = False
+                    elif action == 'has_book':
+                        enrollment.has_book = True
+                        enrollment.book_needed = False
+                    enrollment.save()
+                except:
+                    pass
+            return JsonResponse({'success': True})
+        
+        # Для одного ученика
+        if enrollment_id:
+            enrollment = get_object_or_404(Enrollment, id=enrollment_id)
+            if action == 'need_book':
+                enrollment.book_needed = True
+                enrollment.has_book = False
+            elif action == 'has_book':
+                enrollment.has_book = True
+                enrollment.book_needed = False
+            enrollment.save()
+            return JsonResponse({'success': True})
+    
+    return JsonResponse({'success': False})
+
+
+@login_required
+def books_status(request):
+    """Статус книг для админа и разработчика"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    view_mode = request.GET.get('view', 'books')
+    search_query = request.GET.get('search', '')
+    
+    if view_mode == 'students':
+        # Вкладка по ученикам
+        enrollments = Enrollment.objects.filter(book_needed=True).select_related('student', 'group', 'group__book')
+        
+        if search_query:
+            enrollments = enrollments.filter(
+                student__name__icontains=search_query
+            ) | enrollments.filter(
+                group__name__icontains=search_query
+            ) | enrollments.filter(
+                group__book__title__icontains=search_query
+            )
+        
+        context = {
+            'view_mode': view_mode,
+            'enrollments': enrollments,
+            'search_query': search_query,
+            'role': role,
+        }
+    else:
+        # Вкладка по книгам
+        books = Book.objects.all()
+        
+        book_stats = []
+        for book in books:
+            groups_using = Group.objects.filter(book=book)
+            students_with_book = Enrollment.objects.filter(has_book=True, group__book=book).count()
+            students_need_book = Enrollment.objects.filter(book_needed=True, group__book=book).count()
+            
+            book_stats.append({
+                'book': book,
+                'groups_using': groups_using.count(),
+                'students_with_book': students_with_book,
+                'students_need_book': students_need_book,
+                'missing': students_need_book - book.quantity,
+            })
+        
+        context = {
+            'view_mode': view_mode,
+            'book_stats': book_stats,
+            'search_query': search_query,
+            'role': role,
+        }
+    
+    return render(request, 'dashboard/books_status.html', context)

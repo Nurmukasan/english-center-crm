@@ -8,6 +8,9 @@ class Student(models.Model):
     phone = models.CharField(max_length=20, blank=True, verbose_name="Телефон")
     parent_name = models.CharField(max_length=100, blank=True, verbose_name="Родитель")
     parent_phone = models.CharField(max_length=20, blank=True, verbose_name="Телефон родителя")
+    school = models.CharField(max_length=200, blank=True, verbose_name="Школа")
+    grade = models.CharField(max_length=20, blank=True, verbose_name="Класс")
+    age = models.IntegerField(null=True, blank=True, verbose_name="Возраст")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -16,6 +19,20 @@ class Student(models.Model):
     class Meta:
         verbose_name = "Ученик"
         verbose_name_plural = "Ученики"
+
+class Book(models.Model):
+    """Книга для группы"""
+    title = models.CharField(max_length=200, verbose_name="Название книги")
+    photo = models.ImageField(upload_to='books/', blank=True, null=True, verbose_name="Фото обложки")
+    created_at = models.DateTimeField(auto_now_add=True)
+    quantity = models.IntegerField(default=0, verbose_name="Количество книг")
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        verbose_name = "Книга"
+        verbose_name_plural = "Книги"
 
 
 class Group(models.Model):
@@ -32,6 +49,7 @@ class Group(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Цена за месяц")
     is_active = models.BooleanField(default=True, verbose_name="Активна")
     created_at = models.DateTimeField(auto_now_add=True)
+    book = models.ForeignKey(Book, on_delete=models.SET_NULL, null=True, blank=True, related_name='groups', verbose_name="Книга")
 
     def __str__(self):
         return self.name
@@ -46,6 +64,8 @@ class Enrollment(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='enrollments')
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='enrollments')
     enrolled_at = models.DateTimeField(auto_now_add=True)
+    has_book = models.BooleanField(default=False, verbose_name="Есть книга")
+    book_needed = models.BooleanField(default=False, verbose_name="Требуется книга")
 
     def __str__(self):
         return f"{self.student.name} → {self.group.name}"
@@ -119,3 +139,4 @@ class Payment(models.Model):
         verbose_name = "Оплата"
         verbose_name_plural = "Оплаты"
         unique_together = ['student', 'group', 'cycle_number']
+

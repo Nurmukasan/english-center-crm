@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Книги — English Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-gray-800">← Назад</a>
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">📚</span>
+                    <h1 class="text-xl font-bold text-gray-800">Книги</h1>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex bg-gray-100 rounded-lg p-1">
+                    <a href="?view=books" 
+                       class="px-4 py-2 rounded-lg text-sm font-medium transition
+                              {% if view_mode == 'books' %}bg-white shadow text-indigo-600{% else %}text-gray-600{% endif %}">
+                        📕 Книги
+                    </a>
+                    <a href="?view=students" 
+                       class="px-4 py-2 rounded-lg text-sm font-medium transition
+                              {% if view_mode == 'students' %}bg-white shadow text-indigo-600{% else %}text-gray-600{% endif %}">
+                        👥 Ученики
+                    </a>
+                </div>
+                <a href="{% url 'logout' %}" class="text-red-600 text-sm">Выйти</a>
+            </div>
+        </div>
+    </header>
+    
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        
+        {% if view_mode == 'students' %}
+        
+        <!-- ВКЛАДКА УЧЕНИКИ -->
+        <div class="mb-6">
+            <form method="GET" class="flex gap-3">
+                <input type="hidden" name="view" value="students">
+                <input type="text" name="search" value="{{ search_query }}"
+                       class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                       placeholder="🔍 Поиск по ученику, группе или книге...">
+                <button type="submit" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700">
+                    Найти
+                </button>
+            </form>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-50 text-left border-b border-gray-200">
+                            <th class="px-4 py-3 text-sm font-medium text-gray-500">Ученик</th>
+                            <th class="px-4 py-3 text-sm font-medium text-gray-500">Группа</th>
+                            <th class="px-4 py-3 text-sm font-medium text-gray-500">Книга</th>
+                            <th class="px-4 py-3 text-sm font-medium text-gray-500">Действие</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for enrollment in enrollments %}
+                        <tr class="border-b border-gray-100 hover:bg-gray-50">
+                            <td class="px-4 py-3">
+                                <p class="font-medium text-gray-800">{{ enrollment.student.name }}</p>
+                                {% if enrollment.student.phone %}
+                                <p class="text-xs text-gray-400">📱 {{ enrollment.student.phone }}</p>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 text-gray-600">{{ enrollment.group.name }}</td>
+                            <td class="px-4 py-3">
+                                {% if enrollment.group.book %}
+                                <span class="text-gray-800">{{ enrollment.group.book.title }}</span>
+                                {% else %}
+                                <span class="text-gray-400">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3">
+                                {% if enrollment.has_book %}
+                                <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-medium">✅ Выдана</span>
+                                {% else %}
+                                <button onclick="markHasBook({{ enrollment.id }})"
+                                        class="bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-medium hover:bg-green-700">
+                                    ✅ Выдать книгу
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="px-6 py-12 text-center text-gray-400">
+                                <p class="text-5xl mb-3">🎉</p>
+                                <p>Нет запросов на книги</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        {% else %}
+        
+        <!-- ВКЛАДКА КНИГИ -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for stat in book_stats %}
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="p-4 bg-gray-50 border-b border-gray-100 flex items-center gap-4">
+                    {% if stat.book.photo %}
+                    <img src="{{ stat.book.photo.url }}" alt="{{ stat.book.title }}" class="w-16 h-20 object-cover rounded-lg shadow">
+                    {% else %}
+                    <div class="w-16 h-20 bg-gray-200 rounded-lg flex items-center justify-center text-2xl">📕</div>
+                    {% endif %}
+                    <div>
+                        <p class="font-bold text-gray-800">{{ stat.book.title }}</p>
+                        <p class="text-sm text-gray-400">В наличии: {{ stat.book.quantity }} шт.</p>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Используется в группах:</span>
+                            <span class="font-medium">{{ stat.groups_using }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Выдано ученикам:</span>
+                            <span class="font-medium">{{ stat.students_with_book }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Требуется ещё:</span>
+                            <span class="font-bold {% if stat.students_need_book > 0 %}text-red-600{% else %}text-green-600{% endif %}">
+                                {{ stat.students_need_book }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-span-full bg-white rounded-xl p-12 text-center text-gray-400">
+                <p class="text-5xl mb-3">📭</p>
+                <p>Книг пока нет</p>
+            </div>
+            {% endfor %}
+        </div>
+        
+        {% endif %}
+        
+    </main>
+    
+    <script>
+        function markHasBook(enrollmentId) {
+            fetch(`/enrollment/${enrollmentId}/toggle-book/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: 'action=has_book'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) location.reload();
+            });
+        }
+    </script>
+    
+</body>
+</html>

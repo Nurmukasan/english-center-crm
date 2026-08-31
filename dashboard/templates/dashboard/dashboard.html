@@ -40,6 +40,12 @@
                     💰 Оплаты
                 </a>
                 {% endif %}
+                {% if role == 'admin' or role == 'developer' %}
+                <a href="{% url 'books_status' %}"
+                    class="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-700 transition">
+                    📚 Книги
+                </a>
+                {% endif %}
                 {% if role == 'accountant' or role == 'developer' %}
                 <a href="{% url 'accountant_stats' %}"
                     class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 transition">

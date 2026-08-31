@@ -29,6 +29,9 @@ urlpatterns = [
     path('student/<int:student_id>/delete/', views.delete_student, name='delete_student'),
     path('group/<int:group_id>/delete/', views.delete_group, name='delete_group'),
     path('student/<int:student_id>/add-to-group/', views.add_existing_student_to_group, name='add_existing_student_to_group'),
+    path('enrollment/<int:enrollment_id>/toggle-book/', views.toggle_book_status, name='toggle_book_status'),
+    path('books-status/', views.books_status, name='books_status'),
+    path('enrollment/toggle-book/', views.toggle_book_status, name='toggle_book_status_bulk'),
 ]
 
 if settings.DEBUG:

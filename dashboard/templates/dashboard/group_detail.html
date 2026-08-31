@@ -57,22 +57,42 @@
             </div>
         </div>
         
+        <!-- Книга группы -->
+        {% if group.book %}
+        <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100 flex items-center gap-6">
+            {% if group.book.photo %}
+            <img src="{{ group.book.photo.url }}" alt="{{ group.book.title }}" class="w-20 h-28 object-cover rounded-lg shadow">
+            {% else %}
+            <div class="w-20 h-28 bg-gray-200 rounded-lg flex items-center justify-center text-2xl">📕</div>
+            {% endif %}
+            <div>
+                <p class="text-sm text-gray-400">Книга группы</p>
+                <p class="text-xl font-bold text-gray-800">{{ group.book.title }}</p>
+            </div>
+        </div>
+        {% endif %}
+        
         <!-- Таблица учеников -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                {% if lesson %}
-                <h2 class="font-bold text-gray-800">
-                    📋 Урок: {{ today|date:"d.m.Y" }}
-                </h2>
-                {% else %}
-                <h2 class="font-bold text-gray-400">
-                    😴 Сегодня нет занятия
-                </h2>
-                {% endif %}
-                <a href="{% url 'lesson_history' group.id %}" 
-                    class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
+            <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center flex-wrap gap-3">
+                <div>
+                    {% if lesson %}
+                    <h2 class="font-bold text-gray-800">📋 Урок: {{ today|date:"d.m.Y" }}</h2>
+                    {% else %}
+                    <h2 class="font-bold text-gray-400">😴 Сегодня нет занятия</h2>
+                    {% endif %}
+                </div>
+                <div class="flex gap-2">
+                    {% if role == 'teacher' or role == 'developer' %}
+                    <button onclick="toggleBookRequest()"
+                        class="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-700 transition">
+                        📕 Запрос книги
+                    </button>
+                    {% endif %}
+                    <a href="{% url 'lesson_history' group.id %}" class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
                         📅 История уроков →
-                </a>
+                    </a>
+                </div>
             </div>
             
             <div class="overflow-x-auto">
@@ -89,7 +109,15 @@
                             <td class="px-6 py-4">
                                 <p class="font-medium text-gray-800">{{ data.student.name }}</p>
                                 {% if data.student.phone %}
-                                <p class="text-sm text-gray-400">{{ data.student.phone }}</p>
+                                <p class="text-sm text-gray-400">📱 {{ data.student.phone }}</p>
+                                {% endif %}
+                            
+                                {% if data.student.school or data.student.grade or data.student.age %}
+                                <p class="text-xs text-gray-400 mt-1">
+                                    {% if data.student.school %}🏫 {{ data.student.school }}{% endif %}
+                                    {% if data.student.grade %} • 📚 {{ data.student.grade }} класс{% endif %}
+                                    {% if data.student.age %} • 🎂 {{ data.student.age }} лет{% endif %}
+                                </p>
                                 {% endif %}
                             
                                 {% if role == 'admin' or role == 'developer' %}
@@ -140,6 +168,36 @@
         
     </main>
     
+    <!-- Модалка запроса книги -->
+    <div id="bookRequestModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-xl p-6 w-full max-w-lg">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">📕 Каким ученикам нужна книга?</h3>
+            <p class="text-sm text-gray-400 mb-4">Выберите учеников, которым требуется книга</p>
+    
+            <div class="space-y-2 max-h-80 overflow-y-auto mb-4">
+                {% for data in student_data %}
+                <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" class="book-checkbox w-5 h-5 text-amber-600" value="{{ data.enrollment.id }}">
+                    <div>
+                        <p class="font-medium text-gray-800">{{ data.student.name }}</p>
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+    
+            <div class="flex gap-3">
+                <button onclick="submitBookRequest()"
+                    class="flex-1 bg-amber-600 text-white py-3 rounded-lg font-medium hover:bg-amber-700">
+                    Отправить запрос
+                </button>
+                <button onclick="toggleBookRequest()"
+                    class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300">
+                    Отмена
+                </button>
+            </div>
+        </div>
+    </div>
+    
     <script>
         function toggleAttendance(studentId, status) {
             fetch(`/group/{{ group.id }}/attendance/`, {
@@ -155,6 +213,33 @@
                 if (data.success) {
                     location.reload();
                 }
+            });
+        }
+        
+        function toggleBookRequest() {
+            document.getElementById('bookRequestModal').classList.toggle('hidden');
+        }
+        
+        function submitBookRequest() {
+            const checkboxes = document.querySelectorAll('.book-checkbox:checked');
+            const enrollmentIds = Array.from(checkboxes).map(cb => cb.value);
+            
+            if (enrollmentIds.length === 0) {
+                alert('Выберите хотя бы одного ученика');
+                return;
+            }
+            
+            fetch(`/enrollment/toggle-book/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: `enrollment_ids=${enrollmentIds.join(',')}&action=need_book`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) location.reload();
             });
         }
     </script>
