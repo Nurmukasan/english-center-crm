@@ -36,7 +36,7 @@
                     <p class="text-xs text-gray-400 dark:text-gray-500">CRM система</p>
                 </div>
             </div>
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 md:gap-4 flex-wrap justify-end">
                 {% if role == 'teacher' or role == 'developer' %}
                 <a href="{% url 'weekly_schedule' %}"
                     class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 text-sm font-medium hidden sm:inline">
