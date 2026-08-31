@@ -1,13 +1,20 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Статистика — English Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-50 min-h-screen font-['Inter']">
     
     <header class="bg-white shadow-sm sticky top-0 z-10">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
@@ -20,6 +27,9 @@
             </div>
             <div class="flex items-center gap-4">
                 <a href="{% url 'payment_management' %}" class="text-indigo-600 text-sm">💰 Оплаты</a>
+                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-200 transition">
+                    🌙
+                </button>
                 <a href="{% url 'logout' %}" class="text-red-600 text-sm">Выйти</a>
             </div>
         </div>
@@ -119,6 +129,11 @@
                 }
             }
         });
+    </script>
+    <script>
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+        }
     </script>
     
 </body>

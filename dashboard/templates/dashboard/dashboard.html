@@ -1,13 +1,20 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Дашборд — English Center CRM</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-50 min-h-screen font-['Inter']">
     
     <!-- Шапка -->
     <header class="bg-white shadow-sm sticky top-0 z-10">
@@ -72,7 +79,9 @@
                 {% elif role == 'accountant' %}
                 <span class="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-medium">Бухгалтер</span>
                 {% endif %}
-    
+                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-200 transition">
+                    🌙
+                </button>
                 <a href="{% url 'logout' %}" class="text-red-600 hover:text-red-700 font-medium text-sm">
                     Выйти
                 </a>
@@ -245,6 +254,10 @@
     {% if role == 'admin' or role == 'developer' %}
     <!-- Скрипт для графика удалён -->
     {% endif %}
-    
+    <script>
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+        }
+    </script>
 </body>
 </html>
