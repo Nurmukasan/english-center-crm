@@ -91,6 +91,14 @@
                                 {% if data.student.phone %}
                                 <p class="text-sm text-gray-400">{{ data.student.phone }}</p>
                                 {% endif %}
+                            
+                                {% if role == 'admin' or role == 'developer' %}
+                                <a href="{% url 'remove_student_from_group' data.student.id group.id %}"
+                                    onclick="return confirm('Удалить {{ data.student.name }} из группы?')"
+                                    class="text-red-500 text-xs hover:text-red-700 inline-block mt-1">
+                                    🗑 Удалить из группы
+                                </a>
+                                {% endif %}
                             </td>
                             <td class="px-6 py-4">
                                 {% if lesson and can_mark_attendance %}

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Добавить в группу — English Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    
+    <header class="bg-white shadow-sm">
+        <div class="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
+            <a href="{% url 'students_list' %}" class="text-gray-600 hover:text-gray-800">← Назад</a>
+            <h1 class="text-xl font-bold text-gray-800">Добавить в группу</h1>
+            <div></div>
+        </div>
+    </header>
+    
+    <main class="max-w-3xl mx-auto px-4 py-8">
+        
+        <div class="bg-white rounded-xl shadow-sm p-8 border border-gray-100">
+            
+            <div class="mb-6">
+                <p class="text-sm text-gray-400">Ученик</p>
+                <p class="text-xl font-bold text-gray-800">{{ student.name }}</p>
+            </div>
+            
+            <form method="POST">
+                {% csrf_token %}
+                
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-medium mb-3">Выберите группы</label>
+                    <div class="space-y-2">
+                        {% for group in available_groups %}
+                        <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                            <input type="checkbox" name="groups" value="{{ group.id }}" class="w-5 h-5 text-indigo-600">
+                            <div>
+                                <p class="font-medium text-gray-800">{{ group.name }}</p>
+                                <p class="text-sm text-gray-400">{{ group.schedule }} • {{ group.price }} ₸</p>
+                            </div>
+                        </label>
+                        {% empty %}
+                        <p class="text-gray-400 text-center py-4">Нет доступных групп</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <button type="submit"
+                        class="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition">
+                    Добавить в группы
+                </button>
+                
+            </form>
+            
+        </div>
+        
+    </main>
+    
+</body>
+</html>

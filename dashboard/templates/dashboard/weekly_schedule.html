@@ -111,7 +111,6 @@
     </main>
     
     <script>
-        // Делаем кликабельными все ячейки, которые находятся под блоком группы
         document.addEventListener('DOMContentLoaded', function() {
             const groupBlocks = document.querySelectorAll('.group-block');
             
@@ -119,25 +118,20 @@
                 const url = block.getAttribute('data-group-url');
                 const cell = block.closest('td');
                 
-                // Находим высоту блока в слотах
                 const blockHeight = block.offsetHeight;
                 const cellHeight = cell.offsetHeight;
-                const slotsCount = Math.round(blockHeight / cellHeight);
+                const slotsCount = Math.max(1, Math.round(blockHeight / cellHeight));
                 
-                // Получаем данные текущей ячейки
-                const day = cell.getAttribute('data-day');
-                const hour = parseInt(cell.getAttribute('data-hour'));
-                const minute = parseInt(cell.getAttribute('data-minute'));
+                const day = parseInt(cell.getAttribute('data-day'));
                 
-                // Находим все ячейки ниже, которые должны быть кликабельными
                 let currentRow = cell.closest('tr');
                 
-                for (let i = 1; i < slotsCount; i++) {
-                    currentRow = currentRow.nextElementSibling;
+                // Делаем кликабельными все ячейки под блоком
+                for (let i = 0; i < slotsCount; i++) {
                     if (!currentRow) break;
                     
                     const cells = currentRow.querySelectorAll('.schedule-cell');
-                    const targetCell = cells[parseInt(day) + 1]; // +1 из-за колонки времени
+                    const targetCell = cells[day]; // day уже 0-6, колонка времени НЕ считается
                     
                     if (targetCell) {
                         targetCell.style.cursor = 'pointer';
@@ -145,15 +139,9 @@
                             window.location.href = url;
                         });
                     }
+                    
+                    currentRow = currentRow.nextElementSibling;
                 }
-                
-                // Текущая ячейка тоже кликабельна
-                cell.style.cursor = 'pointer';
-                cell.addEventListener('click', function(e) {
-                    if (!e.target.closest('.group-block')) {
-                        window.location.href = url;
-                    }
-                });
             });
         });
     </script>

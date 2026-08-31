@@ -57,6 +57,7 @@
                             <th class="px-6 py-3 text-sm font-medium text-gray-500">Имя</th>
                             <th class="px-6 py-3 text-sm font-medium text-gray-500">Телефон</th>
                             <th class="px-6 py-3 text-sm font-medium text-gray-500">Группы</th>
+                            <th class="px-6 py-3 text-sm font-medium text-gray-500">Действия</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -73,6 +74,19 @@
                                     {% empty %}
                                     <span class="text-gray-400 text-sm">Нет групп</span>
                                     {% endfor %}
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex gap-2">
+                                    <a href="{% url 'add_existing_student_to_group' data.student.id %}"
+                                        class="bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-indigo-200">
+                                        ➕ В группу
+                                    </a>
+                                    <a href="{% url 'delete_student' data.student.id %}"
+                                        onclick="return confirm('Удалить ученика {{ data.student.name }}?')"
+                                        class="bg-red-100 text-red-700 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-200">
+                                        🗑 Удалить
+                                    </a>
                                 </div>
                             </td>
                         </tr>

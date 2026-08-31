@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -68,6 +69,21 @@ def dashboard(request):
         groups = Group.objects.filter(is_active=True)
         total_students = Student.objects.count()
         total_groups = groups.count()
+
+        # Топ должников
+        top_debtors = []
+        students_with_debt = Student.objects.all()
+        for student in students_with_debt:
+            unpaid = Payment.objects.filter(student=student, is_paid=False)
+            total_debt = sum([float(p.amount) - float(p.paid_amount) for p in unpaid])
+            if total_debt > 0:
+                top_debtors.append({
+                    'student': student,
+                    'debt': total_debt,
+                    'phone': student.phone,
+                })
+        top_debtors.sort(key=lambda x: x['debt'], reverse=True)
+        top_debtors = top_debtors[:5]
         
         # Статистика оплат (текущие циклы)
         today = timezone.localdate()
@@ -95,6 +111,7 @@ def dashboard(request):
             'payment_stats': payment_stats,
             'present_count': present_count,
             'total_attendance': total_attendance,
+            'top_debtors': top_debtors,
         }
     
     return render(request, 'dashboard/dashboard.html', context)
@@ -1128,3 +1145,127 @@ def export_income_excel(request):
     response['Content-Disposition'] = 'attachment; filename="income_report.xlsx"'
     wb.save(response)
     return response
+
+
+@login_required
+def add_group(request):
+    """Создание группы"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        group_type = request.POST.get('group_type', 'group')
+        teacher_id = request.POST.get('teacher')
+        schedule = request.POST.get('schedule', '')
+        price = request.POST.get('price', '0')
+        
+        if name and teacher_id:
+            group = Group.objects.create(
+                name=name,
+                group_type=group_type,
+                teacher_id=teacher_id,
+                schedule=schedule,
+                price=price,
+                is_active=True,
+            )
+            messages.success(request, f'Группа "{name}" создана!')
+            return redirect('dashboard')
+        else:
+            messages.error(request, 'Заполните название и выберите учителя')
+    
+    teachers = User.objects.filter(profile__role='teacher')
+    
+    context = {
+        'teachers': teachers,
+    }
+    
+    return render(request, 'dashboard/add_group.html', context)
+
+
+@login_required
+def remove_student_from_group(request, student_id, group_id):
+    """Удалить ученика из группы"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    student = get_object_or_404(Student, id=student_id)
+    group = get_object_or_404(Group, id=group_id)
+    
+    Enrollment.objects.filter(student=student, group=group).delete()
+    messages.success(request, f'{student.name} удалён из группы {group.name}')
+    
+    return redirect('students_list')
+
+
+@login_required
+def delete_student(request, student_id):
+    """Удалить ученика из базы"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    student = get_object_or_404(Student, id=student_id)
+    name = student.name
+    student.delete()
+    messages.success(request, f'Ученик {name} удалён из базы')
+    
+    return redirect('students_list')
+
+
+@login_required
+def delete_group(request, group_id):
+    """Удалить группу"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    group = get_object_or_404(Group, id=group_id)
+    name = group.name
+    group.delete()
+    messages.success(request, f'Группа "{name}" удалена')
+    
+    return redirect('dashboard')
+
+
+@login_required
+def add_existing_student_to_group(request, student_id):
+    """Добавить существующего ученика в группу"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    student = get_object_or_404(Student, id=student_id)
+    
+    if request.method == 'POST':
+        group_ids = request.POST.getlist('groups')
+        
+        for group_id in group_ids:
+            group = Group.objects.get(id=group_id)
+            Enrollment.objects.get_or_create(student=student, group=group)
+        
+        messages.success(request, f'{student.name} добавлен в выбранные группы')
+        return redirect('students_list')
+    
+    groups = Group.objects.filter(is_active=True)
+    current_groups = Enrollment.objects.filter(student=student).values_list('group_id', flat=True)
+    available_groups = groups.exclude(id__in=current_groups)
+    
+    context = {
+        'student': student,
+        'available_groups': available_groups,
+    }
+    
+    return render(request, 'dashboard/add_to_group.html', context)

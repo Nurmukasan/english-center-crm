@@ -24,6 +24,11 @@ urlpatterns = [
     path('payments-management/partial/<int:payment_id>/', views.partial_payment, name='partial_payment'),
     path('accountant-stats/', views.accountant_stats, name='accountant_stats'),
     path('accountant-stats/export/', views.export_income_excel, name='export_income_excel'),
+    path('groups/add/', views.add_group, name='add_group'),
+    path('student/<int:student_id>/remove-from-group/<int:group_id>/', views.remove_student_from_group, name='remove_student_from_group'),
+    path('student/<int:student_id>/delete/', views.delete_student, name='delete_student'),
+    path('group/<int:group_id>/delete/', views.delete_group, name='delete_group'),
+    path('student/<int:student_id>/add-to-group/', views.add_existing_student_to_group, name='add_existing_student_to_group'),
 ]
 
 if settings.DEBUG:

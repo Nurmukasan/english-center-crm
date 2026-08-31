@@ -112,10 +112,40 @@
             </div>
         </div>
         
-        <!-- График оплат -->
+        <!-- Быстрые действия -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <a href="{% url 'add_group' %}"
+                class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition text-center">
+                <span class="text-3xl block mb-2">📚</span>
+                <p class="font-bold text-gray-800">Создать группу</p>
+            </a>
+            <a href="{% url 'students_list' %}"
+                class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition text-center">
+                <span class="text-3xl block mb-2">👥</span>
+                <p class="font-bold text-gray-800">Все ученики</p>
+            </a>
+        </div>
+        
+        <!-- Топ должников -->
         <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm mb-8">
-            <h3 class="font-bold text-gray-800 mb-4">📊 Оплаты по циклам</h3>
-            <canvas id="paymentChart" height="100"></canvas>
+            <h3 class="font-bold text-gray-800 mb-4">🔔 Топ должников</h3>
+            {% if top_debtors %}
+            <div class="space-y-3">
+                {% for debtor in top_debtors %}
+                <div class="flex justify-between items-center border-b border-gray-50 pb-3">
+                    <div>
+                        <p class="font-medium text-gray-800">{{ debtor.student.name }}</p>
+                        {% if debtor.phone %}
+                        <p class="text-xs text-gray-400">📱 {{ debtor.phone }}</p>
+                        {% endif %}
+                    </div>
+                    <span class="font-bold text-red-600">{{ debtor.debt|floatformat:0 }} ₸</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-400 text-center py-4">🎉 Нет должников!</p>
+            {% endif %}
         </div>
         
         <!-- Посещаемость сегодня -->
@@ -174,27 +204,31 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             
             {% for group in groups %}
-            <a href="{% url 'group_detail' group.id %}" 
-               class="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-200 p-6 border border-gray-100 block group">
-                <div class="flex justify-between items-start mb-4">
-                    <h3 class="text-lg font-bold text-gray-800 group-hover:text-indigo-600 transition">{{ group.name }}</h3>
-                    <span class="text-2xl">📚</span>
-                </div>
-                <p class="text-gray-500 text-sm mb-3">📅 {{ group.schedule }}</p>
-                <p class="text-gray-500 text-sm mb-3">👨‍🏫 {{ group.teacher.username }}</p>
-                <div class="flex justify-between items-center pt-3 border-t border-gray-100">
-                    <span class="text-gray-600 text-sm">
-                        👥 {{ group.enrollments.count }} учеников
-                    </span>
-                    <span class="text-indigo-600 font-bold">
-                        {{ group.price }} ₸
-                    </span>
-                </div>
-            </a>
-            {% empty %}
-            <div class="col-span-full bg-white rounded-xl p-12 text-center text-gray-400">
-                <p class="text-5xl mb-3">📭</p>
-                <p class="text-lg">Пока нет групп</p>
+            <div
+                class="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-200 p-6 border border-gray-100 group relative">
+                <a href="{% url 'group_detail' group.id %}" class="block">
+                    <div class="flex justify-between items-start mb-4">
+                        <h3 class="text-lg font-bold text-gray-800 group-hover:text-indigo-600 transition">{{ group.name }}</h3>
+                        <span class="text-2xl">📚</span>
+                    </div>
+                    <p class="text-gray-500 text-sm mb-3">📅 {{ group.schedule }}</p>
+                    <p class="text-gray-500 text-sm mb-3">👨‍🏫 {{ group.teacher.username }}</p>
+                    <div class="flex justify-between items-center pt-3 border-t border-gray-100">
+                        <span class="text-gray-600 text-sm">
+                            👥 {{ group.enrollments.count }} учеников
+                        </span>
+                        <span class="text-indigo-600 font-bold">
+                            {{ group.price }} ₸
+                        </span>
+                    </div>
+                </a>
+            
+                {% if role == 'admin' or role == 'developer' %}
+                <a href="{% url 'delete_group' group.id %}" onclick="return confirm('Удалить группу {{ group.name }}?')"
+                    class="absolute top-3 right-3 text-red-400 hover:text-red-600 text-sm">
+                    🗑
+                </a>
+                {% endif %}
             </div>
             {% endfor %}
             
@@ -203,39 +237,7 @@
     </main>
     
     {% if role == 'admin' or role == 'developer' %}
-    <script>
-        const ctx = document.getElementById('paymentChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'],
-                datasets: [{
-                    label: 'Оплаченные счета',
-                    data: {{ payment_stats|safe }},
-                    backgroundColor: 'rgba(99, 102, 241, 0.6)',
-                    borderColor: 'rgb(99, 102, 241)',
-                    borderWidth: 1,
-                    borderRadius: 5,
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1
-                        }
-                    }
-                }
-            }
-        });
-    </script>
+    <!-- Скрипт для графика удалён -->
     {% endif %}
     
 </body>

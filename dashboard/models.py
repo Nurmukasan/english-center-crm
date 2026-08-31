@@ -20,7 +20,13 @@ class Student(models.Model):
 
 class Group(models.Model):
     """Группа"""
+    GROUP_TYPE_CHOICES = [
+        ('group', 'Групповая'),
+        ('individual', 'Индивидуальная'),
+    ]
+    
     name = models.CharField(max_length=100, verbose_name="Название группы")
+    group_type = models.CharField(max_length=20, choices=GROUP_TYPE_CHOICES, default='group', verbose_name="Тип")
     teacher = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='teaching_groups', verbose_name="Учитель")
     schedule = models.CharField(max_length=200, blank=True, verbose_name="Расписание")
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Цена за месяц")
