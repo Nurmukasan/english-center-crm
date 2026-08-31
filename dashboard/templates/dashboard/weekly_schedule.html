@@ -2,53 +2,74 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Расписание — English Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     
-    <header class="bg-white shadow-sm sticky top-0 z-20">
+    <header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-20 transition-colors">
         <div class="max-w-full mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-gray-800">← Назад</a>
+                <a href="{% url 'dashboard' %}" class="text-gray-600 dark:text-gray-300 hover:text-gray-800 transition">
+                    <i class="fas fa-arrow-left"></i> Назад
+                </a>
                 <div class="flex items-center gap-2">
-                    <span class="text-2xl">📅</span>
-                    <h1 class="text-xl font-bold text-gray-800">Расписание на неделю</h1>
+                    <i class="fas fa-calendar text-2xl text-indigo-600"></i>
+                    <h1 class="text-xl font-bold text-gray-800 dark:text-white">Расписание на неделю</h1>
                 </div>
             </div>
             <div class="flex items-center gap-4">
+                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                    <i class="fas fa-moon dark:hidden text-gray-600"></i>
+                    <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
+                </button>
                 <a href="{% url 'profile' %}" class="flex items-center gap-2 hover:opacity-80 transition">
                     {% if request.user.profile.photo %}
-                    <img src="{{ request.user.profile.photo.url }}" alt="Фото"
-                        class="w-8 h-8 rounded-full object-cover border border-gray-200">
+                    <img src="{{ request.user.profile.photo.url }}" alt="Фото" class="w-8 h-8 rounded-full object-cover border border-gray-200">
                     {% else %}
-                    <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-sm">👤</div>
+                    <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-sm">
+                        <i class="fas fa-user text-indigo-600"></i>
+                    </div>
                     {% endif %}
-                    <span class="text-gray-600 text-sm hidden sm:inline">{{ request.user.username }}</span>
+                    <span class="text-gray-600 dark:text-gray-300 text-sm hidden sm:inline">{{ request.user.username }}</span>
                 </a>
-                <a href="{% url 'logout' %}" class="text-red-600 font-medium text-sm">Выйти</a>
+                <a href="{% url 'logout' %}" class="text-red-600 text-sm">
+                    <i class="fas fa-sign-out-alt"></i> Выйти
+                </a>
             </div>
         </div>
     </header>
     
-    <main class="max-w-full mx-auto px-4 py-6">
+    <main class="max-w-full mx-auto px-4 py-6 fade-in">
         
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
             <div class="overflow-x-auto">
                 <table class="w-full min-w-[900px] table-fixed border-collapse" id="schedule-table">
                     
                     <thead>
                         <tr>
-                            <th class="px-2 py-4 border-b-2 border-gray-200 bg-gray-50 w-20 sticky left-0 z-10">
+                            <th class="px-2 py-4 border-b-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 w-20 sticky left-0 z-10">
                                 <span class="text-xs text-gray-400 font-medium">Время</span>
                             </th>
                             {% for day in days %}
-                            <th class="px-2 py-4 border-b-2 border-gray-200 text-center
-                                       {% if day.is_today %}bg-indigo-50{% endif %}">
-                                <p class="font-bold text-gray-800 {% if day.is_today %}text-indigo-600{% endif %}">
+                            <th class="px-2 py-4 border-b-2 border-gray-200 dark:border-gray-700 text-center
+                                       {% if day.is_today %}bg-indigo-50 dark:bg-indigo-900/30{% endif %}">
+                                <p class="font-bold text-gray-800 dark:text-white {% if day.is_today %}text-indigo-600 dark:text-indigo-400{% endif %}">
                                     {{ day.date }}
                                 </p>
                                 <p class="text-sm text-gray-400">{{ day.name }}</p>
@@ -63,20 +84,18 @@
                     <tbody>
                         {% for slot in time_slots %}
                         <tr>
-                            <!-- Время -->
-                            <td class="px-2 py-0 border-b border-gray-200 bg-gray-50 text-right sticky left-0 z-10">
+                            <td class="px-2 py-0 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-right sticky left-0 z-10">
                                 {% if slot.minute == 0 %}
-                                <span class="text-xs font-bold text-gray-600">{{ slot.label }}</span>
+                                <span class="text-xs font-bold text-gray-600 dark:text-gray-300">{{ slot.label }}</span>
                                 {% else %}
                                 <span class="text-[10px] text-gray-400">{{ slot.label }}</span>
                                 {% endif %}
                             </td>
                             
-                            <!-- Ячейки дней -->
                             {% for day in days %}
-                            <td class="schedule-cell border-b border-gray-200 border-r border-gray-100 relative h-8 p-0
-                                       {% if day.is_today %}bg-indigo-50/30{% endif %}
-                                       {% if slot.minute == 0 %}border-t-2 border-t-gray-300{% endif %}"
+                            <td class="schedule-cell border-b border-gray-200 dark:border-gray-700 border-r border-gray-100 dark:border-gray-700 relative h-8 p-0
+                                       {% if day.is_today %}bg-indigo-50/30 dark:bg-indigo-900/20{% endif %}
+                                       {% if slot.minute == 0 %}border-t-2 border-t-gray-300 dark:border-t-gray-600{% endif %}"
                                 data-day="{{ day.num }}"
                                 data-hour="{{ slot.hour }}"
                                 data-minute="{{ slot.minute }}">
@@ -92,7 +111,7 @@
                                          data-group-url="{% url 'group_detail' item.group.id %}"
                                          style="height: calc({{ item.duration_slots }} * 2rem + ({{ item.duration_slots|add:'-1' }} * 2px)); z-index: 5;">
                                         <p class="text-[11px] font-bold leading-tight">{{ item.group.name }}</p>
-                                        <p class="text-[9px] opacity-70">👥 {{ item.group.enrollments.count }} • {{ item.group.teacher.username }}</p>
+                                        <p class="text-[9px] opacity-70"><i class="fas fa-users"></i> {{ item.group.enrollments.count }} • {{ item.group.teacher.username }}</p>
                                     </div>
                                     
                                     {% endif %}
@@ -112,6 +131,10 @@
     </main>
     
     <script>
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+        }
+        
         document.addEventListener('DOMContentLoaded', function() {
             const groupBlocks = document.querySelectorAll('.group-block');
             
@@ -127,12 +150,11 @@
                 
                 let currentRow = cell.closest('tr');
                 
-                // Делаем кликабельными все ячейки под блоком
                 for (let i = 0; i < slotsCount; i++) {
                     if (!currentRow) break;
                     
                     const cells = currentRow.querySelectorAll('.schedule-cell');
-                    const targetCell = cells[day]; // day уже 0-6, колонка времени НЕ считается
+                    const targetCell = cells[day];
                     
                     if (targetCell) {
                         targetCell.style.cursor = 'pointer';

@@ -5,110 +5,110 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>История уроков — {{ group.name }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     
-    <header class="bg-white shadow-sm sticky top-0 z-10">
+    <header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10 transition-colors">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <a href="{% url 'group_detail' group.id %}" class="text-gray-600 hover:text-gray-800">← Назад</a>
+                <a href="{% url 'group_detail' group.id %}" class="text-gray-600 dark:text-gray-300 hover:text-gray-800">
+                    <i class="fas fa-arrow-left"></i> Назад
+                </a>
                 <div class="flex items-center gap-2">
-                    <span class="text-2xl">📅</span>
-                    <h1 class="text-xl font-bold text-gray-800">История: {{ group.name }}</h1>
+                    <i class="fas fa-history text-2xl text-indigo-600"></i>
+                    <h1 class="text-xl font-bold text-gray-800 dark:text-white">История: {{ group.name }}</h1>
                 </div>
             </div>
             <div class="flex items-center gap-4">
-                <a href="{% url 'profile' %}" class="flex items-center gap-2 hover:opacity-80 transition">
-                    {% if request.user.profile.photo %}
-                    <img src="{{ request.user.profile.photo.url }}" alt="Фото"
-                        class="w-8 h-8 rounded-full object-cover border border-gray-200">
-                    {% else %}
-                    <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-sm">👤</div>
-                    {% endif %}
-                    <span class="text-gray-600 text-sm hidden sm:inline">{{ request.user.username }}</span>
+                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                    <i class="fas fa-moon dark:hidden text-gray-600"></i>
+                    <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
+                </button>
+                <a href="{% url 'logout' %}" class="text-red-600 text-sm">
+                    <i class="fas fa-sign-out-alt"></i> Выйти
                 </a>
-                <a href="{% url 'logout' %}" class="text-red-600 font-medium text-sm">Выйти</a>
             </div>
         </div>
     </header>
     
-    <main class="max-w-7xl mx-auto px-4 py-8">
+    <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
         
         <div class="space-y-4">
             {% for data in lesson_data %}
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors">
                 
-                <!-- Заголовок урока (кликабельный) -->
                 <button onclick="toggleStudents({{ forloop.counter }})" 
-                        class="w-full flex justify-between items-center p-6 hover:bg-gray-50 transition text-left">
+                        class="w-full flex justify-between items-center p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition text-left">
                     <div class="flex items-center gap-4">
-                        <span class="text-2xl">📖</span>
+                        <i class="fas fa-book-open text-2xl text-indigo-400"></i>
                         <div>
-                            <p class="font-bold text-gray-800 text-lg">{{ data.lesson.date|date:"d.m.Y" }}</p>
+                            <p class="font-bold text-gray-800 dark:text-white text-lg">{{ data.lesson.date|date:"d.m.Y" }}</p>
                             {% if data.lesson.topic %}
-                            <p class="text-gray-500 text-sm">{{ data.lesson.topic }}</p>
+                            <p class="text-gray-500 dark:text-gray-400 text-sm">{{ data.lesson.topic }}</p>
                             {% endif %}
                         </div>
                     </div>
                     <div class="flex items-center gap-4">
                         <div class="flex gap-3 text-sm">
-                            <span class="text-green-600 font-medium">✓ {{ data.present_count }}</span>
-                            <span class="text-red-600 font-medium">✗ {{ data.absent_count }}</span>
+                            <span class="text-green-600 font-medium"><i class="fas fa-check mr-1"></i>{{ data.present_count }}</span>
+                            <span class="text-red-600 font-medium"><i class="fas fa-times mr-1"></i>{{ data.absent_count }}</span>
                         </div>
-                        <span class="text-gray-400" id="arrow-{{ forloop.counter }}">▼</span>
+                        <i class="fas fa-chevron-down text-gray-400" id="arrow-{{ forloop.counter }}"></i>
                     </div>
                 </button>
                 
-                <!-- Прогресс-бар -->
                 <div class="px-6 pb-3">
-                    <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div class="bg-green-500 h-2 rounded-full transition-all" 
                              style="width: {% if data.total_count > 0 %}{% widthratio data.present_count data.total_count 100 %}%{% else %}0%{% endif %}">
                         </div>
                     </div>
                 </div>
                 
-                <!-- Список учеников (скрытый по умолчанию) -->
-                <div id="students-{{ forloop.counter }}" class="hidden border-t border-gray-100 bg-gray-50">
-                    
+                <div id="students-{{ forloop.counter }}" class="hidden border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
                     {% if data.present_students %}
                     <div class="p-6">
-                        <p class="text-sm font-bold text-green-700 mb-3">✅ Присутствовали ({{ data.present_count }}):</p>
+                        <p class="text-sm font-bold text-green-700 dark:text-green-400 mb-3">
+                            <i class="fas fa-check-circle mr-1"></i>Присутствовали ({{ data.present_count }}):
+                        </p>
                         <div class="flex flex-wrap gap-2 mb-4">
                             {% for name in data.present_students %}
-                            <span class="bg-green-100 text-green-800 px-3 py-1.5 rounded-full text-sm font-medium">
-                                {{ name }}
-                            </span>
+                            <span class="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-3 py-1.5 rounded-full text-sm font-medium">{{ name }}</span>
                             {% endfor %}
                         </div>
                     </div>
                     {% endif %}
-                    
                     {% if data.absent_students %}
                     <div class="px-6 pb-6">
-                        <p class="text-sm font-bold text-red-700 mb-3">❌ Отсутствовали ({{ data.absent_count }}):</p>
+                        <p class="text-sm font-bold text-red-700 dark:text-red-400 mb-3">
+                            <i class="fas fa-times-circle mr-1"></i>Отсутствовали ({{ data.absent_count }}):
+                        </p>
                         <div class="flex flex-wrap gap-2">
                             {% for name in data.absent_students %}
-                            <span class="bg-red-100 text-red-800 px-3 py-1.5 rounded-full text-sm font-medium">
-                                {{ name }}
-                            </span>
+                            <span class="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400 px-3 py-1.5 rounded-full text-sm font-medium">{{ name }}</span>
                             {% endfor %}
                         </div>
                     </div>
                     {% endif %}
-                    
-                    {% if not data.present_students and not data.absent_students %}
-                    <div class="p-6 text-center text-gray-400">
-                        Нет данных о посещаемости
-                    </div>
-                    {% endif %}
-                    
                 </div>
                 
             </div>
             {% empty %}
-            <div class="bg-white rounded-xl p-12 text-center text-gray-400">
-                <p class="text-5xl mb-3">📭</p>
+            <div class="bg-white dark:bg-gray-800 rounded-xl p-12 text-center text-gray-400">
+                <i class="fas fa-inbox text-5xl mb-3"></i>
                 <p>Уроков пока не было</p>
             </div>
             {% endfor %}
@@ -117,16 +117,19 @@
     </main>
     
     <script>
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+        }
+        
         function toggleStudents(id) {
-            const studentsDiv = document.getElementById(`students-${id}`);
+            const div = document.getElementById(`students-${id}`);
             const arrow = document.getElementById(`arrow-${id}`);
-            
-            if (studentsDiv.classList.contains('hidden')) {
-                studentsDiv.classList.remove('hidden');
-                arrow.textContent = '▲';
+            if (div.classList.contains('hidden')) {
+                div.classList.remove('hidden');
+                arrow.className = 'fas fa-chevron-up text-gray-400';
             } else {
-                studentsDiv.classList.add('hidden');
-                arrow.textContent = '▼';
+                div.classList.add('hidden');
+                arrow.className = 'fas fa-chevron-down text-gray-400';
             }
         }
     </script>

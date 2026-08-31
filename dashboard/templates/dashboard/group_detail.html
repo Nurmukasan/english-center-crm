@@ -5,92 +5,121 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ group.name }} — English Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .hover-scale { transition: all 0.3s ease; }
+        .hover-scale:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+    </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     
-    <!-- Шапка -->
-    <header class="bg-white shadow-sm sticky top-0 z-10">
+    <header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10 transition-colors">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-gray-800 transition">← Назад</a>
+                <a href="{% url 'dashboard' %}" class="text-gray-600 dark:text-gray-300 hover:text-gray-800 transition">
+                    <i class="fas fa-arrow-left"></i> Назад
+                </a>
                 <div class="flex items-center gap-2">
-                    <span class="text-2xl">📚</span>
-                    <h1 class="text-xl font-bold text-gray-800">{{ group.name }}</h1>
+                    <i class="fas fa-book text-2xl text-indigo-600"></i>
+                    <h1 class="text-xl font-bold text-gray-800 dark:text-white">{{ group.name }}</h1>
                 </div>
             </div>
             <div class="flex items-center gap-4">
+                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                    <i class="fas fa-moon dark:hidden text-gray-600"></i>
+                    <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
+                </button>
                 <a href="{% url 'profile' %}" class="flex items-center gap-2 hover:opacity-80 transition">
                     {% if request.user.profile.photo %}
-                    <img src="{{ request.user.profile.photo.url }}" alt="Фото"
-                        class="w-8 h-8 rounded-full object-cover border border-gray-200">
+                    <img src="{{ request.user.profile.photo.url }}" alt="Фото" class="w-8 h-8 rounded-full object-cover border border-gray-200">
                     {% else %}
-                    <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-sm">👤</div>
+                    <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-sm">
+                        <i class="fas fa-user text-indigo-600"></i>
+                    </div>
                     {% endif %}
-                    <span class="text-gray-600 text-sm">{{ request.user.username }}</span>
+                    <span class="text-gray-600 dark:text-gray-300 text-sm">{{ request.user.username }}</span>
                 </a>
-                <a href="{% url 'logout' %}" class="text-red-600 hover:text-red-700 font-medium text-sm">Выйти</a>
+                <a href="{% url 'logout' %}" class="text-red-600 text-sm">
+                    <i class="fas fa-sign-out-alt"></i> Выйти
+                </a>
             </div>
         </div>
     </header>
     
-    <main class="max-w-7xl mx-auto px-4 py-8">
+    <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
         
         <!-- Инфо о группе -->
-        <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 border border-gray-100 dark:border-gray-700 hover-scale transition-colors">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div>
-                    <p class="text-gray-500 text-sm">Расписание</p>
-                    <p class="font-medium text-gray-800">📅 {{ group.schedule }}</p>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm"><i class="fas fa-calendar mr-1"></i>Расписание</p>
+                    <p class="font-medium text-gray-800 dark:text-white">{{ group.schedule }}</p>
                 </div>
                 <div>
-                    <p class="text-gray-500 text-sm">Учитель</p>
-                    <p class="font-medium text-gray-800">👨‍🏫 {{ group.teacher.username }}</p>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm"><i class="fas fa-user mr-1"></i>Учитель</p>
+                    <p class="font-medium text-gray-800 dark:text-white">{{ group.teacher.username }}</p>
                 </div>
                 <div>
-                    <p class="text-gray-500 text-sm">Учеников</p>
-                    <p class="font-medium text-gray-800">👥 {{ student_data|length }}</p>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm"><i class="fas fa-users mr-1"></i>Учеников</p>
+                    <p class="font-medium text-gray-800 dark:text-white">{{ student_data|length }}</p>
                 </div>
                 <div>
-                    <p class="text-gray-500 text-sm">Цена</p>
-                    <p class="font-medium text-gray-800">💰 {{ group.price }} ₸</p>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm"><i class="fas fa-money-bill mr-1"></i>Цена</p>
+                    <p class="font-medium text-gray-800 dark:text-white">{{ group.price }} ₸</p>
                 </div>
             </div>
         </div>
         
         <!-- Книга группы -->
         {% if group.book %}
-        <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100 flex items-center gap-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 border border-gray-100 dark:border-gray-700 flex items-center gap-6 hover-scale transition-colors">
             {% if group.book.photo %}
             <img src="{{ group.book.photo.url }}" alt="{{ group.book.title }}" class="w-20 h-28 object-cover rounded-lg shadow">
             {% else %}
-            <div class="w-20 h-28 bg-gray-200 rounded-lg flex items-center justify-center text-2xl">📕</div>
+            <div class="w-20 h-28 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center text-3xl">
+                <i class="fas fa-book text-gray-400"></i>
+            </div>
             {% endif %}
             <div>
                 <p class="text-sm text-gray-400">Книга группы</p>
-                <p class="text-xl font-bold text-gray-800">{{ group.book.title }}</p>
+                <p class="text-xl font-bold text-gray-800 dark:text-white">{{ group.book.title }}</p>
             </div>
         </div>
         {% endif %}
         
         <!-- Таблица учеников -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center flex-wrap gap-3">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex justify-between items-center flex-wrap gap-3">
                 <div>
                     {% if lesson %}
-                    <h2 class="font-bold text-gray-800">📋 Урок: {{ today|date:"d.m.Y" }}</h2>
+                    <h2 class="font-bold text-gray-800 dark:text-white">
+                        <i class="fas fa-clipboard-list text-indigo-500 mr-1"></i>Урок: {{ today|date:"d.m.Y" }}
+                    </h2>
                     {% else %}
-                    <h2 class="font-bold text-gray-400">😴 Сегодня нет занятия</h2>
+                    <h2 class="font-bold text-gray-400">
+                        <i class="fas fa-bed mr-1"></i>Сегодня нет занятия
+                    </h2>
                     {% endif %}
                 </div>
                 <div class="flex gap-2">
                     {% if role == 'teacher' or role == 'developer' %}
                     <button onclick="toggleBookRequest()"
                         class="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-700 transition">
-                        📕 Запрос книги
+                        <i class="fas fa-book mr-1"></i> Запрос книги
                     </button>
                     {% endif %}
-                    <a href="{% url 'lesson_history' group.id %}" class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
-                        📅 История уроков →
+                    <a href="{% url 'lesson_history' group.id %}" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 text-sm font-medium">
+                        <i class="fas fa-history mr-1"></i> История уроков →
                     </a>
                 </div>
             </div>
@@ -98,33 +127,31 @@
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead>
-                        <tr class="bg-gray-50 text-left border-b border-gray-100">
-                            <th class="px-6 py-3 text-sm font-medium text-gray-500">Ученик</th>
-                            <th class="px-6 py-3 text-sm font-medium text-gray-500">Посещаемость</th>
+                        <tr class="bg-gray-50 dark:bg-gray-800 text-left border-b border-gray-100 dark:border-gray-700">
+                            <th class="px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Ученик</th>
+                            <th class="px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Посещаемость</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for data in student_data %}
-                        <tr class="border-b border-gray-50 hover:bg-gray-50 transition">
+                        <tr class="border-b border-gray-50 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
                             <td class="px-6 py-4">
-                                <p class="font-medium text-gray-800">{{ data.student.name }}</p>
+                                <p class="font-medium text-gray-800 dark:text-white">{{ data.student.name }}</p>
                                 {% if data.student.phone %}
-                                <p class="text-sm text-gray-400">📱 {{ data.student.phone }}</p>
+                                <p class="text-sm text-gray-400"><i class="fas fa-phone mr-1"></i>{{ data.student.phone }}</p>
                                 {% endif %}
-                            
                                 {% if data.student.school or data.student.grade or data.student.age %}
                                 <p class="text-xs text-gray-400 mt-1">
-                                    {% if data.student.school %}🏫 {{ data.student.school }}{% endif %}
-                                    {% if data.student.grade %} • 📚 {{ data.student.grade }} класс{% endif %}
-                                    {% if data.student.age %} • 🎂 {{ data.student.age }} лет{% endif %}
+                                    {% if data.student.school %}<i class="fas fa-school mr-1"></i>{{ data.student.school }}{% endif %}
+                                    {% if data.student.grade %} • {{ data.student.grade }} класс{% endif %}
+                                    {% if data.student.age %} • {{ data.student.age }} лет{% endif %}
                                 </p>
                                 {% endif %}
-                            
                                 {% if role == 'admin' or role == 'developer' %}
                                 <a href="{% url 'remove_student_from_group' data.student.id group.id %}"
                                     onclick="return confirm('Удалить {{ data.student.name }} из группы?')"
                                     class="text-red-500 text-xs hover:text-red-700 inline-block mt-1">
-                                    🗑 Удалить из группы
+                                    <i class="fas fa-trash mr-1"></i>Удалить из группы
                                 </a>
                                 {% endif %}
                             </td>
@@ -135,17 +162,17 @@
                                             {% if data.attendance_status == 'present' %}
                                                 bg-green-500 text-white shadow
                                             {% else %}
-                                                bg-gray-100 text-gray-500 hover:bg-gray-200
+                                                bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 hover:bg-gray-200
                                             {% endif %}">
-                                        ✓ Был
+                                        <i class="fas fa-check mr-1"></i> Был
                                     </button>
                                     <button onclick="toggleAttendance({{ data.student.id }}, 'absent')" class="px-4 py-2 rounded-lg text-sm font-medium transition-all
                                             {% if data.attendance_status == 'absent' %}
                                                 bg-red-500 text-white shadow
                                             {% else %}
-                                                bg-gray-100 text-gray-500 hover:bg-gray-200
+                                                bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 hover:bg-gray-200
                                             {% endif %}">
-                                        ✗ Не был
+                                        <i class="fas fa-times mr-1"></i> Не был
                                     </button>
                                 </div>
                                 {% else %}
@@ -156,7 +183,7 @@
                         {% empty %}
                         <tr>
                             <td colspan="2" class="px-6 py-12 text-center text-gray-400">
-                                <p class="text-5xl mb-3">📭</p>
+                                <i class="fas fa-inbox text-5xl mb-3"></i>
                                 <p class="text-lg">Нет учеников в группе</p>
                             </td>
                         </tr>
@@ -170,28 +197,24 @@
     
     <!-- Модалка запроса книги -->
     <div id="bookRequestModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-        <div class="bg-white rounded-xl p-6 w-full max-w-lg">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">📕 Каким ученикам нужна книга?</h3>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-lg">
+            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">
+                <i class="fas fa-book text-amber-600 mr-2"></i>Каким ученикам нужна книга?
+            </h3>
             <p class="text-sm text-gray-400 mb-4">Выберите учеников, которым требуется книга</p>
-    
             <div class="space-y-2 max-h-80 overflow-y-auto mb-4">
                 {% for data in student_data %}
-                <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                <label class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                     <input type="checkbox" class="book-checkbox w-5 h-5 text-amber-600" value="{{ data.enrollment.id }}">
-                    <div>
-                        <p class="font-medium text-gray-800">{{ data.student.name }}</p>
-                    </div>
+                    <p class="font-medium text-gray-800 dark:text-white">{{ data.student.name }}</p>
                 </label>
                 {% endfor %}
             </div>
-    
             <div class="flex gap-3">
-                <button onclick="submitBookRequest()"
-                    class="flex-1 bg-amber-600 text-white py-3 rounded-lg font-medium hover:bg-amber-700">
+                <button onclick="submitBookRequest()" class="flex-1 bg-amber-600 text-white py-3 rounded-lg font-medium hover:bg-amber-700 transition">
                     Отправить запрос
                 </button>
-                <button onclick="toggleBookRequest()"
-                    class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300">
+                <button onclick="toggleBookRequest()" class="px-6 py-3 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-white rounded-lg font-medium hover:bg-gray-300 transition">
                     Отмена
                 </button>
             </div>
@@ -199,6 +222,10 @@
     </div>
     
     <script>
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+        }
+        
         function toggleAttendance(studentId, status) {
             fetch(`/group/{{ group.id }}/attendance/`, {
                 method: 'POST',
@@ -210,9 +237,7 @@
             })
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    location.reload();
-                }
+                if (data.success) location.reload();
             });
         }
         
@@ -223,12 +248,10 @@
         function submitBookRequest() {
             const checkboxes = document.querySelectorAll('.book-checkbox:checked');
             const enrollmentIds = Array.from(checkboxes).map(cb => cb.value);
-            
             if (enrollmentIds.length === 0) {
                 alert('Выберите хотя бы одного ученика');
                 return;
             }
-            
             fetch(`/enrollment/toggle-book/`, {
                 method: 'POST',
                 headers: {

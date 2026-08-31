@@ -1,52 +1,85 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Вход — English Center CRM</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.6s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
 </head>
-<body class="bg-gradient-to-br from-indigo-500 to-purple-600 min-h-screen flex items-center justify-center">
+<body class="bg-gradient-to-br from-indigo-500 to-purple-600 min-h-screen flex items-center justify-center p-4">
     
-    <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+    <div class="fade-in w-full max-w-md">
+        
+        <!-- Логотип -->
         <div class="text-center mb-8">
-            <div class="text-4xl mb-2">🎓</div>
-            <h1 class="text-2xl font-bold text-gray-800">English Center</h1>
-            <p class="text-gray-500 mt-1">Войдите в систему</p>
+            <div class="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <i class="fas fa-graduation-cap text-4xl text-indigo-600"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-white">English Center</h1>
+            <p class="text-indigo-200 mt-1">CRM система управления</p>
         </div>
         
-        {% if messages %}
-            {% for message in messages %}
-                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
+        <!-- Карточка логина -->
+        <div class="bg-white rounded-2xl shadow-2xl p-8">
+            
+            <h2 class="text-xl font-bold text-gray-800 mb-6 text-center">Вход в систему</h2>
+            
+            {% if messages %}
+                {% for message in messages %}
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm flex items-center gap-2">
+                    <i class="fas fa-exclamation-circle"></i>
                     {{ message }}
                 </div>
-            {% endfor %}
-        {% endif %}
+                {% endfor %}
+            {% endif %}
+            
+            <form method="POST">
+                {% csrf_token %}
+                
+                <div class="mb-5">
+                    <label class="block text-gray-700 text-sm font-medium mb-2">
+                        <i class="fas fa-user text-gray-400 mr-1"></i>Логин
+                    </label>
+                    <input type="text" name="username" required 
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                           placeholder="Введите логин">
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-medium mb-2">
+                        <i class="fas fa-lock text-gray-400 mr-1"></i>Пароль
+                    </label>
+                    <input type="password" name="password" required 
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                           placeholder="Введите пароль">
+                </div>
+                
+                <button type="submit" 
+                        class="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition-all duration-300 hover:shadow-lg flex items-center justify-center gap-2">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Войти
+                </button>
+            </form>
+            
+            <p class="text-center text-gray-400 text-xs mt-6">
+                © 2026 English Center. Все права защищены.
+            </p>
+            
+        </div>
         
-        <form method="POST">
-            {% csrf_token %}
-            
-            <div class="mb-4">
-                <label class="block text-gray-700 text-sm font-medium mb-2">Логин</label>
-                <input type="text" name="username" required 
-                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                       placeholder="Введите логин">
-            </div>
-            
-            <div class="mb-6">
-                <label class="block text-gray-700 text-sm font-medium mb-2">Пароль</label>
-                <input type="password" name="password" required 
-                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                       placeholder="Введите пароль">
-            </div>
-            
-            <button type="submit" 
-                    class="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition duration-200">
-                Войти
-            </button>
-        </form>
     </div>
     
 </body>

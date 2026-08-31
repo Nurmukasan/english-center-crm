@@ -5,37 +5,59 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Добавить в группу — English Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     
-    <header class="bg-white shadow-sm">
+    <header class="bg-white dark:bg-gray-800 shadow-sm transition-colors">
         <div class="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
-            <a href="{% url 'students_list' %}" class="text-gray-600 hover:text-gray-800">← Назад</a>
-            <h1 class="text-xl font-bold text-gray-800">Добавить в группу</h1>
+            <a href="{% url 'students_list' %}" class="text-gray-600 dark:text-gray-300 hover:text-gray-800">
+                <i class="fas fa-arrow-left"></i> Назад
+            </a>
+            <h1 class="text-xl font-bold text-gray-800 dark:text-white">Добавить в группу</h1>
             <div></div>
         </div>
     </header>
     
-    <main class="max-w-3xl mx-auto px-4 py-8">
+    <main class="max-w-3xl mx-auto px-4 py-8 fade-in">
         
-        <div class="bg-white rounded-xl shadow-sm p-8 border border-gray-100">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 border border-gray-100 dark:border-gray-700 transition-colors">
             
-            <div class="mb-6">
-                <p class="text-sm text-gray-400">Ученик</p>
-                <p class="text-xl font-bold text-gray-800">{{ student.name }}</p>
+            <div class="mb-6 flex items-center gap-4">
+                <div class="w-14 h-14 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center">
+                    <i class="fas fa-user text-xl text-indigo-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-400">Ученик</p>
+                    <p class="text-xl font-bold text-gray-800 dark:text-white">{{ student.name }}</p>
+                </div>
             </div>
             
             <form method="POST">
                 {% csrf_token %}
                 
                 <div class="mb-6">
-                    <label class="block text-gray-700 text-sm font-medium mb-3">Выберите группы</label>
+                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-3">
+                        <i class="fas fa-users text-indigo-500 mr-1"></i>Выберите группы
+                    </label>
                     <div class="space-y-2">
                         {% for group in available_groups %}
-                        <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                        <label class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                             <input type="checkbox" name="groups" value="{{ group.id }}" class="w-5 h-5 text-indigo-600">
                             <div>
-                                <p class="font-medium text-gray-800">{{ group.name }}</p>
+                                <p class="font-medium text-gray-800 dark:text-white">{{ group.name }}</p>
                                 <p class="text-sm text-gray-400">{{ group.schedule }} • {{ group.price }} ₸</p>
                             </div>
                         </label>
@@ -47,7 +69,7 @@
                 
                 <button type="submit"
                         class="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition">
-                    Добавить в группы
+                    <i class="fas fa-plus mr-2"></i>Добавить в группы
                 </button>
                 
             </form>

@@ -5,23 +5,48 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Личный кабинет — English Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .hover-scale { transition: all 0.3s ease; }
+        .hover-scale:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+    </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     
-    <header class="bg-white shadow-sm sticky top-0 z-10">
+    <header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10 transition-colors">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-gray-800">← Назад</a>
+                <a href="{% url 'dashboard' %}" class="text-gray-600 dark:text-gray-300 hover:text-gray-800">
+                    <i class="fas fa-arrow-left"></i> Назад
+                </a>
                 <div class="flex items-center gap-2">
-                    <span class="text-2xl">👤</span>
-                    <h1 class="text-xl font-bold text-gray-800">Личный кабинет</h1>
+                    <i class="fas fa-user-circle text-2xl text-indigo-600"></i>
+                    <h1 class="text-xl font-bold text-gray-800 dark:text-white">Личный кабинет</h1>
                 </div>
             </div>
-            <a href="{% url 'logout' %}" class="text-red-600 font-medium text-sm">Выйти</a>
+            <div class="flex items-center gap-4">
+                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                    <i class="fas fa-moon dark:hidden text-gray-600"></i>
+                    <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
+                </button>
+                <a href="{% url 'logout' %}" class="text-red-600 text-sm">
+                    <i class="fas fa-sign-out-alt"></i> Выйти
+                </a>
+            </div>
         </div>
     </header>
     
-    <main class="max-w-3xl mx-auto px-4 py-8">
+    <main class="max-w-3xl mx-auto px-4 py-8 fade-in">
         
         {% if messages %}
             {% for message in messages %}
@@ -33,54 +58,53 @@
             {% endfor %}
         {% endif %}
         
-        <!-- Информация о пользователе -->
-        <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
-            <h2 class="text-lg font-bold text-gray-800 mb-4">Моя информация</h2>
-            
+        <!-- Информация -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 border border-gray-100 dark:border-gray-700 hover-scale transition-colors">
+            <h2 class="text-lg font-bold text-gray-800 dark:text-white mb-4">
+                <i class="fas fa-info-circle text-indigo-500 mr-2"></i>Моя информация
+            </h2>
             <div class="space-y-4">
                 <div class="flex items-center gap-4">
                     {% if user_profile.photo %}
                     <img src="{{ user_profile.photo.url }}" alt="Фото" class="w-20 h-20 rounded-full object-cover border-2 border-indigo-200">
                     {% else %}
-                    <div class="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center text-3xl">
-                        👤
+                    <div class="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center text-3xl">
+                        <i class="fas fa-user text-indigo-600"></i>
                     </div>
                     {% endif %}
                     <div>
-                        <p class="font-bold text-gray-800 text-lg">{{ request.user.username }}</p>
+                        <p class="font-bold text-gray-800 dark:text-white text-lg">{{ request.user.username }}</p>
                         <span class="inline-block px-3 py-1 rounded-full text-xs font-medium
-                            {% if role == 'admin' %}bg-purple-100 text-purple-700
-                            {% elif role == 'teacher' %}bg-blue-100 text-blue-700
-                            {% else %}bg-gray-100 text-gray-700{% endif %}">
-                            {% if role == 'admin' %}Администратор
-                            {% elif role == 'teacher' %}Учитель
-                            {% else %}{{ role }}{% endif %}
+                            {% if role == 'admin' %}bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400
+                            {% elif role == 'teacher' %}bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400
+                            {% else %}bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300{% endif %}">
+                            {{ role }}
                         </span>
                     </div>
                 </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-100 dark:border-gray-700">
                     <div>
                         <p class="text-sm text-gray-400">Email</p>
-                        <p class="font-medium text-gray-800">{{ request.user.email|default:"Не указан" }}</p>
+                        <p class="font-medium text-gray-800 dark:text-white">{{ request.user.email|default:"Не указан" }}</p>
                     </div>
                     <div>
                         <p class="text-sm text-gray-400">Телефон</p>
-                        <p class="font-medium text-gray-800">{{ user_profile.phone|default:"Не указан" }}</p>
+                        <p class="font-medium text-gray-800 dark:text-white">{{ user_profile.phone|default:"Не указан" }}</p>
                     </div>
                 </div>
                 
                 <!-- Загрузка фото -->
-                <div class="pt-4 border-t border-gray-100">
-                    <p class="text-sm font-medium text-gray-700 mb-3">📸 Фото профиля</p>
+                <div class="pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                        <i class="fas fa-camera text-indigo-500 mr-2"></i>Фото профиля
+                    </p>
                     <form method="POST" enctype="multipart/form-data">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="change_photo">
                         <div class="flex gap-3 items-center">
                             <input type="file" name="photo" accept="image/*"
-                                   class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm">
-                            <button type="submit"
-                                    class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-indigo-700 transition text-sm">
+                                   class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-indigo-700 transition text-sm">
                                 Загрузить
                             </button>
                         </div>
@@ -89,58 +113,50 @@
             </div>
         </div>
         
-        <!-- Смена телефона -->
-        <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
-            <h2 class="text-lg font-bold text-gray-800 mb-4">📱 Изменить телефон</h2>
-            
+        <!-- Телефон -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 border border-gray-100 dark:border-gray-700 hover-scale transition-colors">
+            <h2 class="text-lg font-bold text-gray-800 dark:text-white mb-4">
+                <i class="fas fa-phone text-indigo-500 mr-2"></i>Изменить телефон
+            </h2>
             <form method="POST">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="change_phone">
-                
                 <div class="flex gap-3">
                     <input type="text" name="phone" value="{{ user_profile.phone|default:'' }}"
-                           class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                           class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                            placeholder="+7 777 123 4567">
-                    <button type="submit"
-                            class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition">
+                    <button type="submit" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition">
                         Сохранить
                     </button>
                 </div>
             </form>
         </div>
         
-        <!-- Смена пароля -->
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <h2 class="text-lg font-bold text-gray-800 mb-4">🔒 Сменить пароль</h2>
-            
+        <!-- Пароль -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 hover-scale transition-colors">
+            <h2 class="text-lg font-bold text-gray-800 dark:text-white mb-4">
+                <i class="fas fa-lock text-indigo-500 mr-2"></i>Сменить пароль
+            </h2>
             <form method="POST">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="change_password">
-                
                 <div class="space-y-4">
                     <div>
-                        <label class="block text-gray-700 text-sm font-medium mb-2">Текущий пароль</label>
+                        <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Текущий пароль</label>
                         <input type="password" name="old_password" required
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                               placeholder="Введите текущий пароль">
+                               class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
-                    
                     <div>
-                        <label class="block text-gray-700 text-sm font-medium mb-2">Новый пароль</label>
+                        <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Новый пароль</label>
                         <input type="password" name="new_password" required
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                               placeholder="Минимум 6 символов">
+                               class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
-                    
                     <div>
-                        <label class="block text-gray-700 text-sm font-medium mb-2">Повторите новый пароль</label>
+                        <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Повторите пароль</label>
                         <input type="password" name="confirm_password" required
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                               placeholder="Повторите новый пароль">
+                               class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
-                    
-                    <button type="submit"
-                            class="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition">
+                    <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition">
                         Сменить пароль
                     </button>
                 </div>
@@ -148,6 +164,12 @@
         </div>
         
     </main>
+    
+    <script>
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+        }
+    </script>
     
 </body>
 </html>

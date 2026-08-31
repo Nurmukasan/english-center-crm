@@ -5,88 +5,103 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Добавить ученика — English Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     
-    <header class="bg-white shadow-sm">
+    <header class="bg-white dark:bg-gray-800 shadow-sm transition-colors">
         <div class="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
-            <a href="{% url 'students_list' %}" class="text-gray-600 hover:text-gray-800">← Назад</a>
-            <h1 class="text-xl font-bold text-gray-800">Добавить ученика</h1>
-            <a href="{% url 'profile' %}" class="flex items-center gap-2 hover:opacity-80 transition">
-                {% if request.user.profile.photo %}
-                <img src="{{ request.user.profile.photo.url }}" alt="Фото"
-                    class="w-8 h-8 rounded-full object-cover border border-gray-200">
-                {% else %}
-                <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-sm">👤</div>
-                {% endif %}
+            <a href="{% url 'students_list' %}" class="text-gray-600 dark:text-gray-300 hover:text-gray-800">
+                <i class="fas fa-arrow-left"></i> Назад
             </a>
+            <h1 class="text-xl font-bold text-gray-800 dark:text-white">Добавить ученика</h1>
+            <div></div>
         </div>
     </header>
     
-    <main class="max-w-3xl mx-auto px-4 py-8">
+    <main class="max-w-3xl mx-auto px-4 py-8 fade-in">
         
-        <div class="bg-white rounded-xl shadow-sm p-8 border border-gray-100">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 border border-gray-100 dark:border-gray-700 transition-colors">
             
             <form method="POST">
                 {% csrf_token %}
                 
                 <div class="mb-6">
-                    <label class="block text-gray-700 text-sm font-medium mb-2">Имя ученика *</label>
+                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
+                        <i class="fas fa-user text-indigo-500 mr-1"></i>Имя ученика *
+                    </label>
                     <input type="text" name="name" required
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                            placeholder="Например: Алия Маратова">
                 </div>
                 
                 <div class="mb-6">
-                    <label class="block text-gray-700 text-sm font-medium mb-2">Телефон ученика</label>
+                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
+                        <i class="fas fa-phone text-indigo-500 mr-1"></i>Телефон
+                    </label>
                     <input type="text" name="phone"
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                            placeholder="+7 777 123 4567">
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div>
+                        <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Школа</label>
+                        <input type="text" name="school"
+                               class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                               placeholder="НИШ">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Класс</label>
+                        <input type="text" name="grade"
+                               class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                               placeholder="9Б">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Возраст</label>
+                        <input type="number" name="age"
+                               class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                               placeholder="14">
+                    </div>
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>
-                        <label class="block text-gray-700 text-sm font-medium mb-2">Родитель</label>
+                        <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Родитель</label>
                         <input type="text" name="parent_name"
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                               class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                placeholder="Имя родителя">
                     </div>
                     <div>
-                        <label class="block text-gray-700 text-sm font-medium mb-2">Телефон родителя</label>
+                        <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Телефон родителя</label>
                         <input type="text" name="parent_phone"
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                               class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                placeholder="+7 777 987 6543">
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        <div>
-                            <label class="block text-gray-700 text-sm font-medium mb-2">Школа</label>
-                            <input type="text" name="school"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder="Например: НИШ">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 text-sm font-medium mb-2">Класс</label>
-                            <input type="text" name="grade"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder="Например: 9Б">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 text-sm font-medium mb-2">Возраст</label>
-                            <input type="number" name="age"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder="Например: 14">
-                        </div>
                     </div>
                 </div>
                 
                 <div class="mb-6">
-                    <label class="block text-gray-700 text-sm font-medium mb-3">Группы</label>
+                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-3">
+                        <i class="fas fa-users text-indigo-500 mr-1"></i>Группы
+                    </label>
                     <div class="space-y-2">
                         {% for group in groups %}
-                        <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                        <label class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                             <input type="checkbox" name="groups" value="{{ group.id }}" class="w-5 h-5 text-indigo-600">
                             <div>
-                                <p class="font-medium text-gray-800">{{ group.name }}</p>
+                                <p class="font-medium text-gray-800 dark:text-white">{{ group.name }}</p>
                                 <p class="text-sm text-gray-400">{{ group.schedule }}</p>
                             </div>
                         </label>
@@ -96,7 +111,7 @@
                 
                 <button type="submit"
                         class="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition">
-                    Добавить ученика
+                    <i class="fas fa-user-plus mr-2"></i>Добавить ученика
                 </button>
                 
             </form>

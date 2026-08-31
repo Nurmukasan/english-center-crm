@@ -5,76 +5,106 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Статистика — English Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     
-    <header class="bg-white shadow-sm sticky top-0 z-10">
+    <header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10 transition-colors">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-gray-800">← Назад</a>
+                <a href="{% url 'dashboard' %}" class="text-gray-600 dark:text-gray-300 hover:text-gray-800">
+                    <i class="fas fa-arrow-left"></i> Назад
+                </a>
                 <div class="flex items-center gap-2">
-                    <span class="text-2xl">📊</span>
-                    <h1 class="text-xl font-bold text-gray-800">Статистика доходов</h1>
+                    <i class="fas fa-chart-bar text-2xl text-purple-600"></i>
+                    <h1 class="text-xl font-bold text-gray-800 dark:text-white">Статистика доходов</h1>
                 </div>
             </div>
             <div class="flex items-center gap-4">
-                <a href="{% url 'payment_management' %}" class="text-indigo-600 text-sm">💰 Оплаты</a>
-                <a href="{% url 'logout' %}" class="text-red-600 text-sm">Выйти</a>
+                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                    <i class="fas fa-moon dark:hidden text-gray-600"></i>
+                    <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
+                </button>
+                <a href="{% url 'logout' %}" class="text-red-600 text-sm">
+                    <i class="fas fa-sign-out-alt"></i> Выйти
+                </a>
             </div>
         </div>
     </header>
     
-    <main class="max-w-7xl mx-auto px-4 py-8">
+    <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
         
         <!-- Фильтры -->
-        <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 border border-gray-100 dark:border-gray-700 transition-colors">
             <form method="GET" class="flex flex-wrap gap-4 items-end">
                 <div>
-                    <label class="block text-sm text-gray-500 mb-1">Период</label>
-                    <select name="period" class="px-4 py-2 border border-gray-300 rounded-lg">
+                    <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">Период</label>
+                    <select name="period" class="px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
                         <option value="month" {% if period == 'month' %}selected{% endif %}>За месяц</option>
                         <option value="3months" {% if period == '3months' %}selected{% endif %}>За 3 месяца</option>
                         <option value="year" {% if period == 'year' %}selected{% endif %}>За год</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm text-gray-500 mb-1">Группа</label>
-                    <select name="group" class="px-4 py-2 border border-gray-300 rounded-lg">
+                    <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">Группа</label>
+                    <select name="group" class="px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
                         <option value="all" {% if group_filter == 'all' %}selected{% endif %}>Все группы</option>
                         {% for group in all_groups %}
                         <option value="{{ group.id }}" {% if group_filter == group.id|stringformat:"s" %}selected{% endif %}>{{ group.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+                <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition">
                     Применить
                 </button>
                 <a href="{% url 'export_income_excel' %}?period={{ period }}&group={{ group_filter }}"
-                   class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700">
-                    📊 Excel
+                   class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition">
+                    <i class="fas fa-file-excel mr-1"></i> Excel
                 </a>
             </form>
         </div>
         
         <!-- Общий доход -->
-        <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-8 mb-8 text-white shadow-lg">
-            <p class="text-sm opacity-80 mb-2">Общий доход за период</p>
+        <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-8 mb-8 text-white shadow-lg fade-in">
+            <p class="text-sm opacity-80 mb-2"><i class="fas fa-money-bill mr-1"></i>Общий доход</p>
             <p class="text-4xl font-bold">{{ total_income|floatformat:0 }} ₸</p>
             <p class="text-sm opacity-80 mt-2">{{ start_date|date:"d.m.Y" }} — {{ end_date|date:"d.m.Y" }}</p>
         </div>
         
+        <!-- График -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8 border border-gray-100 dark:border-gray-700 transition-colors">
+            <h3 class="font-bold text-gray-800 dark:text-white mb-4">
+                <i class="fas fa-chart-line text-indigo-500 mr-2"></i>Доход по месяцам
+            </h3>
+            <canvas id="incomeChart" height="100"></canvas>
+        </div>
+        
         <!-- По группам -->
-        <div class="bg-white rounded-xl shadow-sm p-6 mb-8 border border-gray-100">
-            <h3 class="font-bold text-gray-800 mb-4">📚 По группам</h3>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 transition-colors">
+            <h3 class="font-bold text-gray-800 dark:text-white mb-4">
+                <i class="fas fa-users text-indigo-500 mr-2"></i>По группам
+            </h3>
             <div class="space-y-4">
                 {% for stat in groups_stats %}
-                <div class="flex items-center justify-between border-b border-gray-50 pb-3">
+                <div class="flex items-center justify-between border-b border-gray-50 dark:border-gray-700 pb-3">
                     <div>
-                        <p class="font-medium text-gray-800">{{ stat.group.name }}</p>
+                        <p class="font-medium text-gray-800 dark:text-white">{{ stat.group.name }}</p>
                         <p class="text-sm text-gray-400">{{ stat.count }} оплат</p>
                     </div>
-                    <p class="font-bold text-indigo-600">{{ stat.income|floatformat:0 }} ₸</p>
+                    <p class="font-bold text-indigo-600 dark:text-indigo-400">{{ stat.income|floatformat:0 }} ₸</p>
                 </div>
                 {% empty %}
                 <p class="text-gray-400 text-center py-4">Нет данных</p>
@@ -82,15 +112,13 @@
             </div>
         </div>
         
-        <!-- График -->
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <h3 class="font-bold text-gray-800 mb-4">📈 Доход по месяцам</h3>
-            <canvas id="incomeChart" height="100"></canvas>
-        </div>
-        
     </main>
     
     <script>
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+        }
+        
         const ctx = document.getElementById('incomeChart').getContext('2d');
         new Chart(ctx, {
             type: 'line',
@@ -107,16 +135,8 @@
             },
             options: {
                 responsive: true,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                    }
-                }
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
             }
         });
     </script>
