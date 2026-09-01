@@ -1201,6 +1201,8 @@ def add_group(request):
                 is_active=True,
             )
             additional_teacher_ids = request.POST.getlist('additional_teachers', [])
+            # Исключаем основного учителя
+            additional_teacher_ids = [tid for tid in additional_teacher_ids if int(tid) != int(teacher_id)]
             if additional_teacher_ids:
                 group.teachers.set(additional_teacher_ids)
             messages.success(request, f'Группа "{name}" создана!')
