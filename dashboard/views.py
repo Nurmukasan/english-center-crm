@@ -1453,7 +1453,7 @@ def edit_group(request, group_id):
         group.teacher_id = request.POST.get('teacher', group.teacher_id)
         group.schedule = request.POST.get('schedule', '')
         group.price = request.POST.get('price', group.price)
-        group.is_active = request.POST.get('is_active') == 'on'
+        group.is_active = True
         group.save()
         
         messages.success(request, f'Группа "{group.name}" обновлена!')
