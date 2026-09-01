@@ -50,6 +50,8 @@ def dashboard(request):
     role = get_user_role(request.user)
     
     
+    search_query = request.GET.get('search', '')
+    
     if role == 'teacher':
         groups = Group.objects.filter(teacher=request.user, is_active=True)
         total_students = Enrollment.objects.filter(group__teacher=request.user).count()
@@ -59,14 +61,22 @@ def dashboard(request):
             date=today
         ).count()
         
+        if search_query:
+            groups = groups.filter(name__icontains=search_query)
+        
         context = {
             'role': 'teacher',
             'groups': groups,
             'total_students': total_students,
             'today_lessons': today_lessons,
+            'search_query': search_query,
         }
     else:
         groups = Group.objects.filter(is_active=True)
+        
+        if search_query:
+            groups = groups.filter(name__icontains=search_query)
+        
         total_students = Student.objects.count()
         total_groups = groups.count()
 
@@ -112,6 +122,7 @@ def dashboard(request):
             'present_count': present_count,
             'total_attendance': total_attendance,
             'top_debtors': top_debtors,
+            'search_query': search_query,
         }
     
     return render(request, 'dashboard/dashboard.html', context)
@@ -300,6 +311,10 @@ def students_list(request):
         ).distinct()
     else:
         students = Student.objects.all()
+
+    search_query = request.GET.get('search', '')
+    if search_query:
+        students = students.filter(name__icontains=search_query)
     
     student_data = []
     for student in students:
@@ -313,6 +328,7 @@ def students_list(request):
     context = {
         'student_data': student_data,
         'role': role,
+        'search_query': search_query,
     }
     
     return render(request, 'dashboard/students_list.html', context)
