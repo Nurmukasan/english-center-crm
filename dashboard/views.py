@@ -62,7 +62,7 @@ def dashboard(request):
         ).count()
         
         if search_query:
-            groups = groups.filter(name__icontains=search_query)
+            groups = groups.filter(name__iregex=search_query)
         
         context = {
             'role': 'teacher',
@@ -75,7 +75,7 @@ def dashboard(request):
         groups = Group.objects.filter(is_active=True)
         
         if search_query:
-            groups = groups.filter(name__icontains=search_query)
+            groups = groups.filter(name__iregex=search_query)
         
         total_students = Student.objects.count()
         total_groups = groups.count()
@@ -314,7 +314,7 @@ def students_list(request):
 
     search_query = request.GET.get('search', '')
     if search_query:
-        students = students.filter(name__icontains=search_query)
+        students = students.filter(name__iregex=search_query)
     
     student_data = []
     for student in students:
@@ -865,7 +865,7 @@ def payment_management(request):
         students = Student.objects.all()
         
         if search_query:
-            students = students.filter(name__icontains=search_query)
+            students = students.filter(name__iregex=search_query)
         
         students_data = []
         for student in students:
