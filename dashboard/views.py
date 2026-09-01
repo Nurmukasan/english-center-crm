@@ -1186,7 +1186,9 @@ def add_group(request):
         name = request.POST.get('name')
         group_type = request.POST.get('group_type', 'group')
         teacher_id = request.POST.get('teacher')
-        schedule = request.POST.get('schedule', '')
+        days = request.POST.getlist('days', [])
+        time_str = request.POST.get('time', '')
+        schedule = f"{', '.join(days)} {time_str}".strip()
         price = request.POST.get('price', '0')
         
         if name and teacher_id:
@@ -1456,7 +1458,9 @@ def edit_group(request, group_id):
         group.name = request.POST.get('name', group.name)
         group.group_type = request.POST.get('group_type', group.group_type)
         group.teacher_id = request.POST.get('teacher', group.teacher_id)
-        group.schedule = request.POST.get('schedule', '')
+        days = request.POST.getlist('days', [])
+        time_str = request.POST.get('time', '')
+        group.schedule = f"{', '.join(days)} {time_str}".strip()
         group.price = request.POST.get('price', group.price)
         group.is_active = True
         group.save()
