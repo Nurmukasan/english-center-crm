@@ -61,6 +61,20 @@
                         {% endfor %}
                     </select>
                 </div>
+
+                <div class="mb-6">
+                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Дополнительные учителя</label>
+                    <div class="space-y-2">
+                        {% for teacher in teachers %}
+                        <label
+                            class="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                            <input type="checkbox" name="additional_teachers" value="{{ teacher.id }}" {% if teacher in
+                                group.teachers.all %}checked{% endif %} class="w-4 h-4 text-indigo-600">
+                            <span class="text-sm text-gray-700 dark:text-gray-300">{{ teacher.username }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
                 
                 <div class="mb-6">
                     <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-3">

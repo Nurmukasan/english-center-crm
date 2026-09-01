@@ -45,6 +45,7 @@ class Group(models.Model):
     name = models.CharField(max_length=100, verbose_name="Название группы")
     group_type = models.CharField(max_length=20, choices=GROUP_TYPE_CHOICES, default='group', verbose_name="Тип")
     teacher = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='teaching_groups', verbose_name="Учитель")
+    teachers = models.ManyToManyField(User, related_name='group_teachers', blank=True, verbose_name="Дополнительные учителя")
     schedule = models.CharField(max_length=200, blank=True, verbose_name="Расписание")
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Цена за месяц")
     is_active = models.BooleanField(default=True, verbose_name="Активна")

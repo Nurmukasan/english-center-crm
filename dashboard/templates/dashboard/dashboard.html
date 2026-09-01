@@ -235,7 +235,12 @@
                             <i class="fas fa-book text-2xl text-indigo-400"></i>
                         </div>
                         <p class="text-gray-500 dark:text-gray-400 text-sm mb-3"><i class="fas fa-calendar mr-1"></i>{{ group.schedule }}</p>
-                        <p class="text-gray-500 dark:text-gray-400 text-sm mb-3"><i class="fas fa-user mr-1"></i>{{ group.teacher.username }}</p>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">
+                            <i class="fas fa-user mr-1"></i>{{ group.teacher.username }}
+                            {% for teacher in group.teachers.all %}
+                            • {{ teacher.username }}
+                            {% endfor %}
+                        </p>
                         <div class="flex justify-between items-center pt-3 border-t border-gray-200 dark:border-gray-700">
                             <span class="text-gray-600 dark:text-gray-300 text-sm">
                                 <i class="fas fa-users mr-1"></i>{{ group.enrollments.count }} учеников

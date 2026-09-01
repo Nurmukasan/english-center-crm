@@ -67,7 +67,12 @@
                 </div>
                 <div>
                     <p class="text-gray-500 dark:text-gray-400 text-sm"><i class="fas fa-user mr-1"></i>Учитель</p>
-                    <p class="font-medium text-gray-800 dark:text-white">{{ group.teacher.username }}</p>
+                    <p class="font-medium text-gray-800 dark:text-white">
+                        {{ group.teacher.username }}
+                        {% for teacher in group.teachers.all %}
+                        • {{ teacher.username }}
+                        {% endfor %}
+                    </p>
                 </div>
                 <div>
                     <p class="text-gray-500 dark:text-gray-400 text-sm"><i class="fas fa-users mr-1"></i>Учеников</p>
