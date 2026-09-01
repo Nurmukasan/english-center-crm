@@ -19,25 +19,25 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     
-    <header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10 transition-colors">
+    <header class="bg-gray-800 shadow-lg sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <a href="{% url 'group_detail' group.id %}" class="text-gray-600 dark:text-gray-300 hover:text-gray-800">
+                <a href="{% url 'group_detail' group.id %}" class="text-gray-300 hover:text-white">
                     <i class="fas fa-arrow-left"></i> Назад
                 </a>
                 <div class="flex items-center gap-2">
-                    <i class="fas fa-history text-2xl text-indigo-600"></i>
-                    <h1 class="text-xl font-bold text-gray-800 dark:text-white">История: {{ group.name }}</h1>
+                    <i class="fas fa-history text-2xl text-indigo-400"></i>
+                    <h1 class="text-xl font-bold text-white">История: {{ group.name }}</h1>
                 </div>
             </div>
-            <div class="flex items-center gap-4">
-                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                    <i class="fas fa-moon dark:hidden text-gray-600"></i>
+            <div class="flex items-center gap-2 md:gap-4">
+                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
+                    <i class="fas fa-moon dark:hidden text-gray-300"></i>
                     <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
                 </button>
-                <a href="{% url 'logout' %}" class="text-red-600 text-sm">
+                <a href="{% url 'logout' %}" class="text-red-400 text-sm">
                     <i class="fas fa-sign-out-alt"></i> Выйти
                 </a>
             </div>
@@ -48,10 +48,10 @@
         
         <div class="space-y-4">
             {% for data in lesson_data %}
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors">
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
                 
                 <button onclick="toggleStudents({{ forloop.counter }})" 
-                        class="w-full flex justify-between items-center p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition text-left">
+                        class="w-full flex justify-between items-center p-6 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition text-left">
                     <div class="flex items-center gap-4">
                         <i class="fas fa-book-open text-2xl text-indigo-400"></i>
                         <div>
@@ -78,7 +78,7 @@
                     </div>
                 </div>
                 
-                <div id="students-{{ forloop.counter }}" class="hidden border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+                <div id="students-{{ forloop.counter }}" class="hidden border-t border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700/30">
                     {% if data.present_students %}
                     <div class="p-6">
                         <p class="text-sm font-bold text-green-700 dark:text-green-400 mb-3">
@@ -107,7 +107,7 @@
                 
             </div>
             {% empty %}
-            <div class="bg-white dark:bg-gray-800 rounded-xl p-12 text-center text-gray-400">
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-12 text-center text-gray-400 shadow-md border border-gray-300 dark:border-gray-600">
                 <i class="fas fa-inbox text-5xl mb-3"></i>
                 <p>Уроков пока не было</p>
             </div>

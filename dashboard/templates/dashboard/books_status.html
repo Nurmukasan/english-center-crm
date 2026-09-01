@@ -21,35 +21,35 @@
         .hover-scale:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
     </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     
-    <header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10 transition-colors">
+    <header class="bg-gray-800 shadow-lg sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <a href="{% url 'dashboard' %}" class="text-gray-600 dark:text-gray-300 hover:text-gray-800">
+                <a href="{% url 'dashboard' %}" class="text-gray-300 hover:text-white">
                     <i class="fas fa-arrow-left"></i> Назад
                 </a>
                 <div class="flex items-center gap-2">
-                    <i class="fas fa-book text-2xl text-amber-600"></i>
-                    <h1 class="text-xl font-bold text-gray-800 dark:text-white">Книги</h1>
+                    <i class="fas fa-book text-2xl text-amber-400"></i>
+                    <h1 class="text-xl font-bold text-white">Книги</h1>
                 </div>
             </div>
-            <div class="flex items-center gap-4">
-                <div class="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+            <div class="flex items-center gap-2 md:gap-4">
+                <div class="flex bg-gray-700 rounded-lg p-1">
                     <a href="?view=books" class="px-4 py-2 rounded-lg text-sm font-medium transition
-                              {% if view_mode == 'books' %}bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-white{% else %}text-gray-600 dark:text-gray-300{% endif %}">
+                              {% if view_mode == 'books' %}bg-gray-600 shadow text-white{% else %}text-gray-300{% endif %}">
                         📕 Книги
                     </a>
                     <a href="?view=students" class="px-4 py-2 rounded-lg text-sm font-medium transition
-                              {% if view_mode == 'students' %}bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-white{% else %}text-gray-600 dark:text-gray-300{% endif %}">
+                              {% if view_mode == 'students' %}bg-gray-600 shadow text-white{% else %}text-gray-300{% endif %}">
                         👥 Ученики
                     </a>
                 </div>
-                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                    <i class="fas fa-moon dark:hidden text-gray-600"></i>
+                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
+                    <i class="fas fa-moon dark:hidden text-gray-300"></i>
                     <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
                 </button>
-                <a href="{% url 'logout' %}" class="text-red-600 text-sm">
+                <a href="{% url 'logout' %}" class="text-red-400 text-sm">
                     <i class="fas fa-sign-out-alt"></i> Выйти
                 </a>
             </div>
@@ -67,15 +67,15 @@
                 <input type="text" name="search" value="{{ search_query }}"
                        class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                        placeholder="🔍 Поиск по ученику, группе или книге...">
-                <button type="submit" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition">Найти</button>
+                <button type="submit" class="bg-indigo-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-600 transition">Найти</button>
             </form>
         </div>
         
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead>
-                        <tr class="bg-gray-50 dark:bg-gray-800 text-left border-b border-gray-200 dark:border-gray-700">
+                        <tr class="bg-gray-100 dark:bg-gray-700/50 text-left border-b border-gray-300 dark:border-gray-600">
                             <th class="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Ученик</th>
                             <th class="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Группа</th>
                             <th class="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Книга</th>
@@ -84,7 +84,7 @@
                     </thead>
                     <tbody>
                         {% for enrollment in enrollments %}
-                        <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                        <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition">
                             <td class="px-4 py-3 font-medium text-gray-800 dark:text-white">{{ enrollment.student.name }}</td>
                             <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ enrollment.group.name }}</td>
                             <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
@@ -94,7 +94,7 @@
                                 {% if enrollment.has_book %}
                                 <span class="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1 rounded-full text-xs font-medium">✅ Выдана</span>
                                 {% else %}
-                                <button onclick="markHasBook({{ enrollment.id }})" class="bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-medium hover:bg-green-700 transition">
+                                <button onclick="markHasBook({{ enrollment.id }})" class="bg-green-500 text-white px-4 py-2 rounded-lg text-xs font-medium hover:bg-green-600 transition">
                                     ✅ Выдать книгу
                                 </button>
                                 {% endif %}
@@ -118,8 +118,8 @@
         <!-- Вкладка Книги -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for stat in book_stats %}
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover-scale transition-colors">
-                <div class="p-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 flex items-center gap-4">
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden hover-scale transition-colors">
+                <div class="p-4 bg-gray-100 dark:bg-gray-700/50 border-b border-gray-300 dark:border-gray-600 flex items-center gap-4">
                     {% if stat.book.photo %}
                     <img src="{{ stat.book.photo.url }}" alt="{{ stat.book.title }}" class="w-16 h-20 object-cover rounded-lg shadow">
                     {% else %}
@@ -150,7 +150,7 @@
                 </div>
             </div>
             {% empty %}
-            <div class="col-span-full bg-white dark:bg-gray-800 rounded-xl p-12 text-center text-gray-400">
+            <div class="col-span-full bg-gray-50 dark:bg-gray-800 rounded-xl p-12 text-center text-gray-400 shadow-md border border-gray-300 dark:border-gray-600">
                 <i class="fas fa-inbox text-5xl mb-3"></i>
                 <p>Книг пока нет</p>
             </div>

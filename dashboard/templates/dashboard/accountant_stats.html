@@ -20,25 +20,25 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     
-    <header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10 transition-colors">
+    <header class="bg-gray-800 shadow-lg sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <a href="{% url 'dashboard' %}" class="text-gray-600 dark:text-gray-300 hover:text-gray-800">
+                <a href="{% url 'dashboard' %}" class="text-gray-300 hover:text-white">
                     <i class="fas fa-arrow-left"></i> Назад
                 </a>
                 <div class="flex items-center gap-2">
-                    <i class="fas fa-chart-bar text-2xl text-purple-600"></i>
-                    <h1 class="text-xl font-bold text-gray-800 dark:text-white">Статистика доходов</h1>
+                    <i class="fas fa-chart-bar text-2xl text-purple-400"></i>
+                    <h1 class="text-xl font-bold text-white">Статистика доходов</h1>
                 </div>
             </div>
-            <div class="flex items-center gap-4">
-                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                    <i class="fas fa-moon dark:hidden text-gray-600"></i>
+            <div class="flex items-center gap-2 md:gap-4">
+                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
+                    <i class="fas fa-moon dark:hidden text-gray-300"></i>
                     <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
                 </button>
-                <a href="{% url 'logout' %}" class="text-red-600 text-sm">
+                <a href="{% url 'logout' %}" class="text-red-400 text-sm">
                     <i class="fas fa-sign-out-alt"></i> Выйти
                 </a>
             </div>
@@ -48,7 +48,7 @@
     <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
         
         <!-- Фильтры -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 border border-gray-100 dark:border-gray-700 transition-colors">
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6 border border-gray-300 dark:border-gray-600 transition-colors">
             <form method="GET" class="flex flex-wrap gap-4 items-end">
                 <div>
                     <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">Период</label>
@@ -67,25 +67,25 @@
                         {% endfor %}
                     </select>
                 </div>
-                <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition">
+                <button type="submit" class="bg-indigo-500 text-white px-6 py-2 rounded-lg hover:bg-indigo-600 transition">
                     Применить
                 </button>
                 <a href="{% url 'export_income_excel' %}?period={{ period }}&group={{ group_filter }}"
-                   class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition">
+                   class="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition">
                     <i class="fas fa-file-excel mr-1"></i> Excel
                 </a>
             </form>
         </div>
         
         <!-- Общий доход -->
-        <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-8 mb-8 text-white shadow-lg fade-in">
+        <div class="bg-gray-800 rounded-xl p-8 mb-8 text-white shadow-lg fade-in">
             <p class="text-sm opacity-80 mb-2"><i class="fas fa-money-bill mr-1"></i>Общий доход</p>
             <p class="text-4xl font-bold">{{ total_income|floatformat:0 }} ₸</p>
             <p class="text-sm opacity-80 mt-2">{{ start_date|date:"d.m.Y" }} — {{ end_date|date:"d.m.Y" }}</p>
         </div>
         
         <!-- График -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8 border border-gray-100 dark:border-gray-700 transition-colors">
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8 border border-gray-300 dark:border-gray-600 transition-colors">
             <h3 class="font-bold text-gray-800 dark:text-white mb-4">
                 <i class="fas fa-chart-line text-indigo-500 mr-2"></i>Доход по месяцам
             </h3>
@@ -93,13 +93,13 @@
         </div>
         
         <!-- По группам -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 transition-colors">
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-6 border border-gray-300 dark:border-gray-600 transition-colors">
             <h3 class="font-bold text-gray-800 dark:text-white mb-4">
                 <i class="fas fa-users text-indigo-500 mr-2"></i>По группам
             </h3>
             <div class="space-y-4">
                 {% for stat in groups_stats %}
-                <div class="flex items-center justify-between border-b border-gray-50 dark:border-gray-700 pb-3">
+                <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3">
                     <div>
                         <p class="font-medium text-gray-800 dark:text-white">{{ stat.group.name }}</p>
                         <p class="text-sm text-gray-400">{{ stat.count }} оплат</p>

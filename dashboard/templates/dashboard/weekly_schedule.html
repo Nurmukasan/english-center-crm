@@ -20,35 +20,25 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     
-    <header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-20 transition-colors">
+    <header class="bg-gray-800 shadow-lg sticky top-0 z-50">
         <div class="max-w-full mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <a href="{% url 'dashboard' %}" class="text-gray-600 dark:text-gray-300 hover:text-gray-800 transition">
+                <a href="{% url 'dashboard' %}" class="text-gray-300 hover:text-white transition">
                     <i class="fas fa-arrow-left"></i> Назад
                 </a>
                 <div class="flex items-center gap-2">
-                    <i class="fas fa-calendar text-2xl text-indigo-600"></i>
-                    <h1 class="text-xl font-bold text-gray-800 dark:text-white">Расписание на неделю</h1>
+                    <i class="fas fa-calendar text-2xl text-indigo-400"></i>
+                    <h1 class="text-xl font-bold text-white">Расписание на неделю</h1>
                 </div>
             </div>
-            <div class="flex items-center gap-4">
-                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                    <i class="fas fa-moon dark:hidden text-gray-600"></i>
+            <div class="flex items-center gap-2 md:gap-4">
+                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
+                    <i class="fas fa-moon dark:hidden text-gray-300"></i>
                     <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
                 </button>
-                <a href="{% url 'profile' %}" class="flex items-center gap-2 hover:opacity-80 transition">
-                    {% if request.user.profile.photo %}
-                    <img src="{{ request.user.profile.photo.url }}" alt="Фото" class="w-8 h-8 rounded-full object-cover border border-gray-200">
-                    {% else %}
-                    <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-sm">
-                        <i class="fas fa-user text-indigo-600"></i>
-                    </div>
-                    {% endif %}
-                    <span class="text-gray-600 dark:text-gray-300 text-sm hidden sm:inline">{{ request.user.username }}</span>
-                </a>
-                <a href="{% url 'logout' %}" class="text-red-600 text-sm">
+                <a href="{% url 'logout' %}" class="text-red-400 text-sm">
                     <i class="fas fa-sign-out-alt"></i> Выйти
                 </a>
             </div>
@@ -57,24 +47,24 @@
     
     <main class="max-w-full mx-auto px-4 py-6 fade-in">
         
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
             <div class="overflow-x-auto">
                 <table class="w-full min-w-[900px] table-fixed border-collapse" id="schedule-table">
                     
                     <thead>
                         <tr>
-                            <th class="px-2 py-4 border-b-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 w-20 sticky left-0 z-10">
+                            <th class="px-2 py-4 border-b-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700/50 w-20 sticky left-0 z-10">
                                 <span class="text-xs text-gray-400 font-medium">Время</span>
                             </th>
                             {% for day in days %}
-                            <th class="px-2 py-4 border-b-2 border-gray-200 dark:border-gray-700 text-center
-                                       {% if day.is_today %}bg-indigo-50 dark:bg-indigo-900/30{% endif %}">
+                            <th class="px-2 py-4 border-b-2 border-gray-300 dark:border-gray-600 text-center
+                                       {% if day.is_today %}bg-indigo-100 dark:bg-indigo-900/30{% endif %}">
                                 <p class="font-bold text-gray-800 dark:text-white {% if day.is_today %}text-indigo-600 dark:text-indigo-400{% endif %}">
                                     {{ day.date }}
                                 </p>
                                 <p class="text-sm text-gray-400">{{ day.name }}</p>
                                 {% if day.is_today %}
-                                <span class="inline-block bg-indigo-600 text-white px-2 py-0.5 rounded-full text-[10px] mt-1">Сегодня</span>
+                                <span class="inline-block bg-indigo-500 text-white px-2 py-0.5 rounded-full text-[10px] mt-1">Сегодня</span>
                                 {% endif %}
                             </th>
                             {% endfor %}
@@ -84,7 +74,7 @@
                     <tbody>
                         {% for slot in time_slots %}
                         <tr>
-                            <td class="px-2 py-0 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-right sticky left-0 z-10">
+                            <td class="px-2 py-0 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700/50 text-right sticky left-0 z-10">
                                 {% if slot.minute == 0 %}
                                 <span class="text-xs font-bold text-gray-600 dark:text-gray-300">{{ slot.label }}</span>
                                 {% else %}
@@ -93,9 +83,9 @@
                             </td>
                             
                             {% for day in days %}
-                            <td class="schedule-cell border-b border-gray-200 dark:border-gray-700 border-r border-gray-100 dark:border-gray-700 relative h-8 p-0
+                            <td class="schedule-cell border-b border-gray-200 dark:border-gray-700 border-r border-gray-200 dark:border-gray-700 relative h-8 p-0
                                        {% if day.is_today %}bg-indigo-50/30 dark:bg-indigo-900/20{% endif %}
-                                       {% if slot.minute == 0 %}border-t-2 border-t-gray-300 dark:border-t-gray-600{% endif %}"
+                                       {% if slot.minute == 0 %}border-t-2 border-t-gray-400 dark:border-t-gray-500{% endif %}"
                                 data-day="{{ day.num }}"
                                 data-hour="{{ slot.hour }}"
                                 data-minute="{{ slot.minute }}">

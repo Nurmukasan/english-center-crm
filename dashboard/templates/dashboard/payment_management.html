@@ -19,35 +19,35 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     
-    <header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10 transition-colors">
+    <header class="bg-gray-800 shadow-lg sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <a href="{% url 'dashboard' %}" class="text-gray-600 dark:text-gray-300 hover:text-gray-800">
+                <a href="{% url 'dashboard' %}" class="text-gray-300 hover:text-white">
                     <i class="fas fa-arrow-left"></i> Назад
                 </a>
                 <div class="flex items-center gap-2">
-                    <i class="fas fa-money-bill text-2xl text-emerald-600"></i>
-                    <h1 class="text-xl font-bold text-gray-800 dark:text-white">Контроль оплат</h1>
+                    <i class="fas fa-money-bill text-2xl text-emerald-400"></i>
+                    <h1 class="text-xl font-bold text-white">Контроль оплат</h1>
                 </div>
             </div>
-            <div class="flex items-center gap-4">
-                <div class="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+            <div class="flex items-center gap-2 md:gap-4">
+                <div class="flex bg-gray-700 rounded-lg p-1">
                     <a href="?view=periods" class="px-4 py-2 rounded-lg text-sm font-medium transition
-                              {% if view_mode == 'periods' %}bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-white{% else %}text-gray-600 dark:text-gray-300{% endif %}">
+                              {% if view_mode == 'periods' %}bg-gray-600 shadow text-white{% else %}text-gray-300{% endif %}">
                         📅 Периоды
                     </a>
                     <a href="?view=students" class="px-4 py-2 rounded-lg text-sm font-medium transition
-                              {% if view_mode == 'students' %}bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-white{% else %}text-gray-600 dark:text-gray-300{% endif %}">
+                              {% if view_mode == 'students' %}bg-gray-600 shadow text-white{% else %}text-gray-300{% endif %}">
                         👥 Ученики
                     </a>
                 </div>
-                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                    <i class="fas fa-moon dark:hidden text-gray-600"></i>
+                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
+                    <i class="fas fa-moon dark:hidden text-gray-300"></i>
                     <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
                 </button>
-                <a href="{% url 'logout' %}" class="text-red-600 text-sm">
+                <a href="{% url 'logout' %}" class="text-red-400 text-sm">
                     <i class="fas fa-sign-out-alt"></i> Выйти
                 </a>
             </div>
@@ -63,7 +63,7 @@
                 <input type="text" name="search" value="{{ search_query }}"
                        class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                        placeholder="🔍 Поиск ученика...">
-                <button type="submit" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition">
+                <button type="submit" class="bg-indigo-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-600 transition">
                     Найти
                 </button>
             </form>
@@ -79,11 +79,11 @@
             <span class="flex items-center gap-2"><span class="w-3 h-3 bg-green-500 rounded-full"></span> Оплачено</span>
         </div>
         
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead>
-                        <tr class="bg-gray-50 dark:bg-gray-800 text-left border-b border-gray-200 dark:border-gray-700">
+                        <tr class="bg-gray-100 dark:bg-gray-700/50 text-left border-b border-gray-300 dark:border-gray-600">
                             <th class="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Ученик</th>
                             <th class="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Группа</th>
                             <th class="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Период</th>
@@ -94,7 +94,7 @@
                     </thead>
                     <tbody>
                         {% for item in payment_data %}
-                        <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition
+                        <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition
                                    {% if item.status == 'overdue' %}bg-red-50 dark:bg-red-900/20{% elif item.status == 'current' %}bg-yellow-50 dark:bg-yellow-900/20{% elif item.status == 'partial' %}bg-orange-50 dark:bg-orange-900/20{% endif %}">
                             <td class="px-4 py-3">
                                 <p class="font-medium text-gray-800 dark:text-white">{{ item.student.name }}</p>
@@ -121,7 +121,7 @@
                             <td class="px-4 py-3">
                                 <div class="flex gap-2">
                                     {% if item.status != 'paid' %}
-                                    <button onclick="markPaid({{ item.payment.id }})" class="bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-green-700 transition">
+                                    <button onclick="markPaid({{ item.payment.id }})" class="bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-green-600 transition">
                                         ✓ Оплатил
                                     </button>
                                     <button onclick="showPartialModal({{ item.payment.id }}, '{{ item.remaining }}')" class="bg-orange-500 text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-orange-600 transition">
@@ -151,11 +151,11 @@
         {% else %}
         
         <!-- Режим по ученикам -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead>
-                        <tr class="bg-gray-50 dark:bg-gray-800 text-left border-b border-gray-200 dark:border-gray-700">
+                        <tr class="bg-gray-100 dark:bg-gray-700/50 text-left border-b border-gray-300 dark:border-gray-600">
                             <th class="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Ученик</th>
                             <th class="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Группы</th>
                             <th class="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Не оплачено</th>
@@ -164,7 +164,7 @@
                     </thead>
                     <tbody>
                         {% for data in students_data %}
-                        <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                        <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition">
                             <td class="px-4 py-3">
                                 <p class="font-medium text-gray-800 dark:text-white">{{ data.student.name }}</p>
                                 {% if data.student_phone %}<p class="text-xs text-gray-400">{{ data.student_phone }}</p>{% endif %}

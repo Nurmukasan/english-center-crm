@@ -21,35 +21,35 @@
         .hover-scale:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
     </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     
-    <header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10 transition-colors">
+    <header class="bg-gray-800 shadow-lg sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <a href="{% url 'dashboard' %}" class="text-gray-600 dark:text-gray-300 hover:text-gray-800 transition">
+                <a href="{% url 'dashboard' %}" class="text-gray-300 hover:text-white transition">
                     <i class="fas fa-arrow-left"></i> Назад
                 </a>
                 <div class="flex items-center gap-2">
-                    <i class="fas fa-book text-2xl text-indigo-600"></i>
-                    <h1 class="text-xl font-bold text-gray-800 dark:text-white">{{ group.name }}</h1>
+                    <i class="fas fa-book text-2xl text-indigo-400"></i>
+                    <h1 class="text-xl font-bold text-white">{{ group.name }}</h1>
                 </div>
             </div>
-            <div class="flex items-center gap-4">
-                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                    <i class="fas fa-moon dark:hidden text-gray-600"></i>
+            <div class="flex items-center gap-2 md:gap-4">
+                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
+                    <i class="fas fa-moon dark:hidden text-gray-300"></i>
                     <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
                 </button>
                 <a href="{% url 'profile' %}" class="flex items-center gap-2 hover:opacity-80 transition">
                     {% if request.user.profile.photo %}
-                    <img src="{{ request.user.profile.photo.url }}" alt="Фото" class="w-8 h-8 rounded-full object-cover border border-gray-200">
+                    <img src="{{ request.user.profile.photo.url }}" alt="Фото" class="w-8 h-8 rounded-full object-cover border border-gray-500">
                     {% else %}
-                    <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-sm">
-                        <i class="fas fa-user text-indigo-600"></i>
+                    <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-sm">
+                        <i class="fas fa-user text-gray-300"></i>
                     </div>
                     {% endif %}
-                    <span class="text-gray-600 dark:text-gray-300 text-sm">{{ request.user.username }}</span>
+                    <span class="text-gray-300 text-sm hidden sm:inline">{{ request.user.username }}</span>
                 </a>
-                <a href="{% url 'logout' %}" class="text-red-600 text-sm">
+                <a href="{% url 'logout' %}" class="text-red-400 text-sm">
                     <i class="fas fa-sign-out-alt"></i> Выйти
                 </a>
             </div>
@@ -59,7 +59,7 @@
     <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
         
         <!-- Инфо о группе -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 border border-gray-100 dark:border-gray-700 hover-scale transition-colors">
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6 border border-gray-300 dark:border-gray-600 hover-scale transition-colors">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div>
                     <p class="text-gray-500 dark:text-gray-400 text-sm"><i class="fas fa-calendar mr-1"></i>Расписание</p>
@@ -82,7 +82,7 @@
         
         <!-- Книга группы -->
         {% if group.book %}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 border border-gray-100 dark:border-gray-700 flex items-center gap-6 hover-scale transition-colors">
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6 border border-gray-300 dark:border-gray-600 flex items-center gap-6 hover-scale transition-colors">
             {% if group.book.photo %}
             <img src="{{ group.book.photo.url }}" alt="{{ group.book.title }}" class="w-20 h-28 object-cover rounded-lg shadow">
             {% else %}
@@ -98,8 +98,8 @@
         {% endif %}
         
         <!-- Таблица учеников -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors">
-            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex justify-between items-center flex-wrap gap-3">
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
+            <div class="px-6 py-4 border-b border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700/50 flex justify-between items-center flex-wrap gap-3">
                 <div>
                     {% if lesson %}
                     <h2 class="font-bold text-gray-800 dark:text-white">
@@ -114,11 +114,11 @@
                 <div class="flex gap-2">
                     {% if role == 'teacher' or role == 'developer' %}
                     <button onclick="toggleBookRequest()"
-                        class="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-700 transition">
+                        class="bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-600 transition">
                         <i class="fas fa-book mr-1"></i> Запрос книги
                     </button>
                     {% endif %}
-                    <a href="{% url 'lesson_history' group.id %}" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 text-sm font-medium">
+                    <a href="{% url 'lesson_history' group.id %}" class="text-indigo-500 hover:text-indigo-600 text-sm font-medium">
                         <i class="fas fa-history mr-1"></i> История уроков →
                     </a>
                 </div>
@@ -127,14 +127,14 @@
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead>
-                        <tr class="bg-gray-50 dark:bg-gray-800 text-left border-b border-gray-100 dark:border-gray-700">
+                        <tr class="bg-gray-100 dark:bg-gray-700/50 text-left border-b border-gray-300 dark:border-gray-600">
                             <th class="px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Ученик</th>
                             <th class="px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Посещаемость</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for data in student_data %}
-                        <tr class="border-b border-gray-50 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                        <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition">
                             <td class="px-6 py-4">
                                 <p class="font-medium text-gray-800 dark:text-white">{{ data.student.name }}</p>
                                 {% if data.student.phone %}
@@ -162,7 +162,7 @@
                                             {% if data.attendance_status == 'present' %}
                                                 bg-green-500 text-white shadow
                                             {% else %}
-                                                bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 hover:bg-gray-200
+                                                bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 hover:bg-gray-300
                                             {% endif %}">
                                         <i class="fas fa-check mr-1"></i> Был
                                     </button>
@@ -170,7 +170,7 @@
                                             {% if data.attendance_status == 'absent' %}
                                                 bg-red-500 text-white shadow
                                             {% else %}
-                                                bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 hover:bg-gray-200
+                                                bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 hover:bg-gray-300
                                             {% endif %}">
                                         <i class="fas fa-times mr-1"></i> Не был
                                     </button>
@@ -211,7 +211,7 @@
                 {% endfor %}
             </div>
             <div class="flex gap-3">
-                <button onclick="submitBookRequest()" class="flex-1 bg-amber-600 text-white py-3 rounded-lg font-medium hover:bg-amber-700 transition">
+                <button onclick="submitBookRequest()" class="flex-1 bg-amber-500 text-white py-3 rounded-lg font-medium hover:bg-amber-600 transition">
                     Отправить запрос
                 </button>
                 <button onclick="toggleBookRequest()" class="px-6 py-3 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-white rounded-lg font-medium hover:bg-gray-300 transition">
