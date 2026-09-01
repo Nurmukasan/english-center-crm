@@ -32,7 +32,8 @@ urlpatterns = [
     path('enrollment/<int:enrollment_id>/toggle-book/', views.toggle_book_status, name='toggle_book_status'),
     path('books-status/', views.books_status, name='books_status'),
     path('enrollment/toggle-book/', views.toggle_book_status, name='toggle_book_status_bulk'),
+    path('student/<int:student_id>/edit/', views.edit_student, name='edit_student'),
+    path('group/<int:group_id>/edit/', views.edit_group, name='edit_group'),
 ]
-
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

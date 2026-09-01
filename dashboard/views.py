@@ -1376,3 +1376,78 @@ def books_status(request):
         }
     
     return render(request, 'dashboard/books_status.html', context)
+
+@login_required
+def edit_student(request, student_id):
+    """Редактирование ученика"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('students_list')
+    
+    student = get_object_or_404(Student, id=student_id)
+    
+    if request.method == 'POST':
+        student.name = request.POST.get('name', student.name)
+        student.phone = request.POST.get('phone', '')
+        student.parent_name = request.POST.get('parent_name', '')
+        student.parent_phone = request.POST.get('parent_phone', '')
+        student.school = request.POST.get('school', '')
+        student.grade = request.POST.get('grade', '')
+        student.age = request.POST.get('age') or None
+        student.save()
+        
+        # Обновляем группы
+        group_ids = request.POST.getlist('groups')
+        Enrollment.objects.filter(student=student).delete()
+        for group_id in group_ids:
+            group = Group.objects.get(id=group_id)
+            Enrollment.objects.create(student=student, group=group)
+        
+        messages.success(request, f'Ученик {student.name} обновлён!')
+        return redirect('students_list')
+    
+    groups = Group.objects.filter(is_active=True)
+    student_groups = Enrollment.objects.filter(student=student).values_list('group_id', flat=True)
+    
+    context = {
+        'student': student,
+        'groups': groups,
+        'student_groups': student_groups,
+    }
+    
+    return render(request, 'dashboard/edit_student.html', context)
+
+
+@login_required
+def edit_group(request, group_id):
+    """Редактирование группы"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    group = get_object_or_404(Group, id=group_id)
+    
+    if request.method == 'POST':
+        group.name = request.POST.get('name', group.name)
+        group.group_type = request.POST.get('group_type', group.group_type)
+        group.teacher_id = request.POST.get('teacher', group.teacher_id)
+        group.schedule = request.POST.get('schedule', '')
+        group.price = request.POST.get('price', group.price)
+        group.is_active = request.POST.get('is_active') == 'on'
+        group.save()
+        
+        messages.success(request, f'Группа "{group.name}" обновлена!')
+        return redirect('dashboard')
+    
+    teachers = User.objects.filter(profile__role='teacher')
+    
+    context = {
+        'group': group,
+        'teachers': teachers,
+    }
+    
+    return render(request, 'dashboard/edit_group.html', context)
