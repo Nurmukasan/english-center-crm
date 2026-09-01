@@ -1462,6 +1462,8 @@ def edit_group(request, group_id):
         group.group_type = request.POST.get('group_type', group.group_type)
         group.teacher_id = request.POST.get('teacher', group.teacher_id)
         additional_teacher_ids = request.POST.getlist('additional_teachers', [])
+        # Исключаем основного учителя
+        additional_teacher_ids = [tid for tid in additional_teacher_ids if int(tid) != group.teacher_id]
         group.teachers.set(additional_teacher_ids)
         days = request.POST.getlist('days', [])
         time_str = request.POST.get('time', '')
