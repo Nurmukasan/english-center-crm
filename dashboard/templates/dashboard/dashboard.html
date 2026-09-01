@@ -210,28 +210,38 @@
         
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for group in groups %}
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm hover-scale p-6 border border-gray-100 dark:border-gray-700 group relative">
-                <a href="{% url 'group_detail' group.id %}" class="block">
-                    <div class="flex justify-between items-start mb-4">
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-white group-hover:text-indigo-600 transition">{{ group.name }}</h3>
-                        <i class="fas fa-book text-2xl text-indigo-400"></i>
-                    </div>
-                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-3"><i class="fas fa-calendar mr-1"></i>{{ group.schedule }}</p>
-                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-3"><i class="fas fa-user mr-1"></i>{{ group.teacher.username }}</p>
-                    <div class="flex justify-between items-center pt-3 border-t border-gray-100 dark:border-gray-700">
-                        <span class="text-gray-600 dark:text-gray-300 text-sm">
-                            <i class="fas fa-users mr-1"></i>{{ group.enrollments.count }} учеников
-                        </span>
-                        <span class="text-indigo-600 dark:text-indigo-400 font-bold">{{ group.price }} ₸</span>
-                    </div>
-                </a>
-                {% if role == 'admin' or role == 'developer' %}
-                <a href="{% url 'delete_group' group.id %}"
-                   onclick="return confirm('Удалить группу {{ group.name }}?')"
-                   class="absolute top-3 right-3 text-red-400 hover:text-red-600">
-                    <i class="fas fa-trash"></i>
-                </a>
+            <div class="rounded-xl shadow-sm hover-scale p-6 border border-gray-100 dark:border-gray-700 group relative overflow-hidden
+                        {% if group.photo %}bg-cover bg-center{% else %}bg-white dark:bg-gray-800{% endif %}"
+                 {% if group.photo %}style="background-image: url('{{ group.photo.url }}');"{% endif %}>
+                
+                {% if group.photo %}
+                <div class="absolute inset-0 bg-white/75 dark:bg-gray-900/75"></div>
                 {% endif %}
+                
+                <div class="relative z-10">
+                    <a href="{% url 'group_detail' group.id %}" class="block">
+                        <div class="flex justify-between items-start mb-4">
+                            <h3 class="text-lg font-bold text-gray-800 dark:text-white group-hover:text-indigo-600 transition">{{ group.name }}</h3>
+                            <i class="fas fa-book text-2xl text-indigo-400"></i>
+                        </div>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm mb-3"><i class="fas fa-calendar mr-1"></i>{{ group.schedule }}</p>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm mb-3"><i class="fas fa-user mr-1"></i>{{ group.teacher.username }}</p>
+                        <div class="flex justify-between items-center pt-3 border-t border-gray-100 dark:border-gray-700">
+                            <span class="text-gray-600 dark:text-gray-300 text-sm">
+                                <i class="fas fa-users mr-1"></i>{{ group.enrollments.count }} учеников
+                            </span>
+                            <span class="text-indigo-600 dark:text-indigo-400 font-bold">{{ group.price }} ₸</span>
+                        </div>
+                    </a>
+                    {% if role == 'admin' or role == 'developer' %}
+                    <a href="{% url 'delete_group' group.id %}"
+                       onclick="return confirm('Удалить группу {{ group.name }}?')"
+                       class="absolute top-3 right-3 text-red-400 hover:text-red-600">
+                        <i class="fas fa-trash"></i>
+                    </a>
+                    {% endif %}
+                </div>
+                
             </div>
             {% empty %}
             <div class="col-span-full bg-white dark:bg-gray-800 rounded-xl p-12 text-center text-gray-400">

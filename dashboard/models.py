@@ -50,6 +50,7 @@ class Group(models.Model):
     is_active = models.BooleanField(default=True, verbose_name="Активна")
     created_at = models.DateTimeField(auto_now_add=True)
     book = models.ForeignKey(Book, on_delete=models.SET_NULL, null=True, blank=True, related_name='groups', verbose_name="Книга")
+    photo = models.ImageField(upload_to='group_photos/', blank=True, null=True, verbose_name="Фото группы")
 
     def __str__(self):
         return self.name
