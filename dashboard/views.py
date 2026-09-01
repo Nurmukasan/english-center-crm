@@ -511,11 +511,16 @@ def weekly_schedule(request):
             start_minute = int(time_match.group(2))
             end_hour = int(time_match.group(3))
             end_minute = int(time_match.group(4))
+            
+            # Округляем минуты до ближайших 30
+            start_minute = 0 if start_minute < 30 else 30
+            end_minute = 0 if end_minute < 30 else 30
         else:
             time_match = re.search(r'(\d{1,2})[:.](\d{2})', schedule_text)
             if time_match:
                 start_hour = int(time_match.group(1))
                 start_minute = int(time_match.group(2))
+                start_minute = 0 if start_minute < 30 else 30
                 end_hour = start_hour + 1
                 end_minute = start_minute + 30
                 if end_minute >= 60:
