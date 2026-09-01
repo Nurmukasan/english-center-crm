@@ -1200,6 +1200,9 @@ def add_group(request):
                 price=price,
                 is_active=True,
             )
+            additional_teacher_ids = request.POST.getlist('additional_teachers', [])
+            if additional_teacher_ids:
+                group.teachers.set(additional_teacher_ids)
             messages.success(request, f'Группа "{name}" создана!')
             return redirect('dashboard')
         else:
@@ -1458,6 +1461,8 @@ def edit_group(request, group_id):
         group.name = request.POST.get('name', group.name)
         group.group_type = request.POST.get('group_type', group.group_type)
         group.teacher_id = request.POST.get('teacher', group.teacher_id)
+        additional_teacher_ids = request.POST.getlist('additional_teachers', [])
+        group.teachers.set(additional_teacher_ids)
         days = request.POST.getlist('days', [])
         time_str = request.POST.get('time', '')
         group.schedule = f"{', '.join(days)} {time_str}".strip()
