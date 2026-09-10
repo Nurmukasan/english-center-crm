@@ -222,7 +222,7 @@ def mark_attendance(request, group_id):
         group = get_object_or_404(Group, id=group_id)
         role = get_user_role(request.user)
         
-        if role not in ['teacher', 'developer']:
+        if role not in ['admin','teacher', 'developer']:
             return JsonResponse({'success': False, 'error': 'Нет доступа'})
         
         if role == 'teacher' and group.teacher != request.user:
