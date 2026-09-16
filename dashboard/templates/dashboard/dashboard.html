@@ -276,6 +276,19 @@
         function toggleTheme() {
             document.documentElement.classList.toggle('dark');
         }
+        // Сохраняем позицию скролла при уходе со страницы
+        window.addEventListener('beforeunload', function() {
+            sessionStorage.setItem('scrollPos', window.scrollY);
+        });
+
+        // Восстанавливаем при загрузке
+        window.addEventListener('load', function() {
+            const scrollPos = sessionStorage.getItem('scrollPos');
+            if (scrollPos) {
+                window.scrollTo(0, parseInt(scrollPos));
+                sessionStorage.removeItem('scrollPos');
+            }
+        });
     </script>
     
 </body>
