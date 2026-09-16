@@ -38,7 +38,7 @@
             <form method="POST">
                 {% csrf_token %}
                 <input type="hidden" name="is_active" value="on">
-                
+                <input type="hidden" name="return_url" value="{{ request.META.HTTP_REFERER|default:'' }}">
                 <div class="mb-6">
                     <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Название</label>
                     <input type="text" name="name" value="{{ group.name }}" required
