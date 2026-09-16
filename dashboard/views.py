@@ -1234,7 +1234,7 @@ def remove_student_from_group(request, student_id, group_id):
     Enrollment.objects.filter(student=student, group=group).delete()
     messages.success(request, f'{student.name} удалён из группы {group.name}')
     
-    return redirect('students_list')
+    return redirect('group_detail', group_id=group.id)
 
 
 @login_required
