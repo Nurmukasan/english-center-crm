@@ -1434,7 +1434,7 @@ def edit_student(request, student_id):
             Enrollment.objects.create(student=student, group=group)
         
         messages.success(request, f'Ученик {student.name} обновлён!')
-        return redirect('students_list')
+        return redirect('edit_student', student_id=student.id)
     
     groups = Group.objects.filter(is_active=True)
     student_groups = Enrollment.objects.filter(student=student).values_list('group_id', flat=True)
@@ -1475,7 +1475,7 @@ def edit_group(request, group_id):
         group.save()
         
         messages.success(request, f'Группа "{group.name}" обновлена!')
-        return redirect('dashboard')
+        return redirect('edit_group', group_id=group.id)
     
     teachers = User.objects.filter(profile__role='teacher')
     
