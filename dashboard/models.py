@@ -60,6 +60,30 @@ class Group(models.Model):
         verbose_name = "Группа"
         verbose_name_plural = "Группы"
 
+class ScheduleSlot(models.Model):
+    """Время занятия для конкретного дня недели"""
+    DAY_CHOICES = [
+        (0, 'Пн'),
+        (1, 'Вт'),
+        (2, 'Ср'),
+        (3, 'Чт'),
+        (4, 'Пт'),
+        (5, 'Сб'),
+        (6, 'Вс'),
+    ]
+    
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='schedule_slots', verbose_name="Группа")
+    day_of_week = models.IntegerField(choices=DAY_CHOICES, verbose_name="День недели")
+    start_time = models.TimeField(verbose_name="Начало")
+    end_time = models.TimeField(verbose_name="Конец")
+    
+    def __str__(self):
+        return f"{self.get_day_of_week_display()} {self.start_time}-{self.end_time}"
+    
+    class Meta:
+        verbose_name = "Расписание"
+        verbose_name_plural = "Расписания"
+        ordering = ['day_of_week', 'start_time']
 
 class Enrollment(models.Model):
     """Запись ученика в группу"""

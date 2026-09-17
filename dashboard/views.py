@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.http import JsonResponse
 from datetime import datetime, timedelta
-from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book
+from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book, ScheduleSlot
 from users.models import Profile
 from decimal import Decimal
 
@@ -1186,9 +1186,6 @@ def add_group(request):
         name = request.POST.get('name')
         group_type = request.POST.get('group_type', 'group')
         teacher_id = request.POST.get('teacher')
-        days = request.POST.getlist('days', [])
-        time_str = request.POST.get('time', '')
-        schedule = f"{', '.join(days)} {time_str}".strip()
         price = request.POST.get('price', '0')
         
         if name and teacher_id:
@@ -1196,10 +1193,36 @@ def add_group(request):
                 name=name,
                 group_type=group_type,
                 teacher_id=teacher_id,
-                schedule=schedule,
                 price=price,
                 is_active=True,
             )
+            
+            # Создаём расписание
+            import re
+            for i in range(7):
+                if request.POST.get(f'day_{i}') == '1':
+                    start = request.POST.get(f'start_{i}', '').strip()
+                    end = request.POST.get(f'end_{i}', '').strip()
+                    
+                    if re.match(r'^\d{1,2}:\d{2}$', start) and re.match(r'^\d{1,2}:\d{2}$', end):
+                        try:
+                            ScheduleSlot.objects.create(
+                                group=group,
+                                day_of_week=i,
+                                start_time=start,
+                                end_time=end,
+                            )
+                        except Exception as e:
+                            messages.error(request, f'Ошибка в дне {i}: {e}')
+            # Обновляем текстовое поле schedule
+            slots = group.schedule_slots.all().order_by('day_of_week')
+            days_names = {0: 'Пн', 1: 'Вт', 2: 'Ср', 3: 'Чт', 4: 'Пт', 5: 'Сб', 6: 'Вс'}
+            schedule_parts = []
+            for slot in slots:
+                schedule_parts.append(f"{days_names[slot.day_of_week]} {slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}")
+            group.schedule = ', '.join(schedule_parts)
+            group.save()
+            
             additional_teacher_ids = request.POST.getlist('additional_teachers', [])
             # Исключаем основного учителя
             additional_teacher_ids = [tid for tid in additional_teacher_ids if int(tid) != int(teacher_id)]
@@ -1470,11 +1493,38 @@ def edit_group(request, group_id):
         # Исключаем основного учителя
         additional_teacher_ids = [tid for tid in additional_teacher_ids if int(tid) != group.teacher_id]
         group.teachers.set(additional_teacher_ids)
-        days = request.POST.getlist('days', [])
-        time_str = request.POST.get('time', '')
-        group.schedule = f"{', '.join(days)} {time_str}".strip()
         group.price = request.POST.get('price', group.price)
         group.is_active = True
+        group.save()
+        
+        # Удаляем старое расписание
+        group.schedule_slots.all().delete()
+        
+        # Создаём новое
+        import re
+        for i in range(7):
+            if request.POST.get(f'day_{i}') == '1':
+                start = request.POST.get(f'start_{i}', '').strip()
+                end = request.POST.get(f'end_{i}', '').strip()
+                
+                # Проверяем формат ЧЧ:ММ
+                if re.match(r'^\d{1,2}:\d{2}$', start) and re.match(r'^\d{1,2}:\d{2}$', end):
+                    try:
+                        ScheduleSlot.objects.create(
+                            group=group,
+                            day_of_week=i,
+                            start_time=start,
+                            end_time=end,
+                        )
+                    except Exception as e:
+                        messages.error(request, f'Ошибка в дне {i}: {e}')
+        # Обновляем текстовое поле schedule
+        slots = group.schedule_slots.all().order_by('day_of_week')
+        days_names = {0: 'Пн', 1: 'Вт', 2: 'Ср', 3: 'Чт', 4: 'Пт', 5: 'Сб', 6: 'Вс'}
+        schedule_parts = []
+        for slot in slots:
+            schedule_parts.append(f"{days_names[slot.day_of_week]} {slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}")
+        group.schedule = ', '.join(schedule_parts)
         group.save()
         
         messages.success(request, f'Группа "{group.name}" обновлена!')
@@ -1484,10 +1534,12 @@ def edit_group(request, group_id):
         return redirect('dashboard')
     
     teachers = User.objects.filter(profile__role='teacher')
+    schedule_slots = {str(s.day_of_week): s for s in group.schedule_slots.all()}
     
     context = {
         'group': group,
         'teachers': teachers,
+        'schedule_slots': schedule_slots,
     }
     
     return render(request, 'dashboard/edit_group.html', context)
