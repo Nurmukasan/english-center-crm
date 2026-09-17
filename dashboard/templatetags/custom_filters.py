@@ -6,3 +6,7 @@ register = template.Library()
 def get_item(dictionary, key):
     """Получает значение из словаря по ключу"""
     return dictionary.get(key, [])
+
+@register.filter
+def get_item(dictionary, key):
+    return dictionary.get(key)

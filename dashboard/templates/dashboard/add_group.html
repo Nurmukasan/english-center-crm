@@ -5,19 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Создать группу — Enjoy English</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = { darkMode: 'class' }
-    </script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <style>
-        * { font-family: 'Inter', sans-serif; }
-        .fade-in { animation: fadeIn 0.4s ease; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
+    <style>* { font-family: 'Inter', sans-serif; }</style>
 </head>
 <body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     
@@ -31,7 +22,7 @@
         </div>
     </header>
     
-    <main class="max-w-3xl mx-auto px-4 py-8 fade-in">
+    <main class="max-w-3xl mx-auto px-4 py-8">
         
         {% if messages %}
             {% for message in messages %}
@@ -43,17 +34,15 @@
             {% endfor %}
         {% endif %}
         
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-8 border border-gray-300 dark:border-gray-600 transition-colors">
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-8 border border-gray-300 dark:border-gray-600">
             
             <form method="POST">
                 {% csrf_token %}
                 
                 <div class="mb-6">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
-                        <i class="fas fa-book text-indigo-500 mr-1"></i>Название группы *
-                    </label>
+                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Название группы *</label>
                     <input type="text" name="name" required
-                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg"
                            placeholder="Например: Pre-Intermediate A2">
                 </div>
                 
@@ -66,9 +55,7 @@
                 </div>
                 
                 <div class="mb-6">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
-                        <i class="fas fa-user-tie text-indigo-500 mr-1"></i>Учитель *
-                    </label>
+                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Учитель *</label>
                     <select name="teacher" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
                         {% for teacher in teachers %}
                         <option value="{{ teacher.id }}">{{ teacher.username }}</option>
@@ -76,76 +63,92 @@
                         <option value="">Нет учителей</option>
                         {% endfor %}
                     </select>
-                    <div class="mb-6">
-                        <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Дополнительные учителя</label>
-                        <div class="space-y-2">
-                            {% for teacher in teachers %}
-                            <label class="flex items-center gap-2">
-                                <input type="checkbox" name="additional_teachers" value="{{ teacher.id }}" class="w-4 h-4 text-indigo-600">
-                                <span class="text-sm text-gray-700 dark:text-gray-300">{{ teacher.username }}</span>
-                            </label>
-                            {% endfor %}
-                        </div>
-                    </div>
                 </div>
                 
                 <div class="mb-6">
                     <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-3">
                         <i class="fas fa-calendar text-indigo-500 mr-1"></i>Расписание
                     </label>
-                
-                    <!-- Дни недели -->
-                    <div class="flex flex-wrap gap-2 mb-4">
-                        <label
-                            class="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                            <input type="checkbox" name="days" value="Пн" class="day-checkbox w-4 h-4 text-indigo-600">
-                            <span class="text-sm text-gray-700 dark:text-gray-300">Пн</span>
-                        </label>
-                        <label
-                            class="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                            <input type="checkbox" name="days" value="Вт" class="day-checkbox w-4 h-4 text-indigo-600">
-                            <span class="text-sm text-gray-700 dark:text-gray-300">Вт</span>
-                        </label>
-                        <label
-                            class="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                            <input type="checkbox" name="days" value="Ср" class="day-checkbox w-4 h-4 text-indigo-600">
-                            <span class="text-sm text-gray-700 dark:text-gray-300">Ср</span>
-                        </label>
-                        <label
-                            class="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                            <input type="checkbox" name="days" value="Чт" class="day-checkbox w-4 h-4 text-indigo-600">
-                            <span class="text-sm text-gray-700 dark:text-gray-300">Чт</span>
-                        </label>
-                        <label
-                            class="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                            <input type="checkbox" name="days" value="Пт" class="day-checkbox w-4 h-4 text-indigo-600">
-                            <span class="text-sm text-gray-700 dark:text-gray-300">Пт</span>
-                        </label>
-                        <label
-                            class="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                            <input type="checkbox" name="days" value="Сб" class="day-checkbox w-4 h-4 text-indigo-600">
-                            <span class="text-sm text-gray-700 dark:text-gray-300">Сб</span>
-                        </label>
-                        <label
-                            class="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                            <input type="checkbox" name="days" value="Вс" class="day-checkbox w-4 h-4 text-indigo-600">
-                            <span class="text-sm text-gray-700 dark:text-gray-300">Вс</span>
-                        </label>
-                    </div>
-                
-                    <!-- Время -->
-                    <div class="flex gap-3 items-center">
-                        <input type="text" name="time" placeholder="18:00-19:30"
-                            class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
+                    <div class="space-y-2">
+                        {% for day_num, day_name in "0:Пн,1:Вт,2:Ср,3:Чт,4:Пт,5:Сб,6:Вс"|split %}
+                        {% endfor %}
+                        
+                        <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
+                            <label class="flex items-center gap-2 w-20">
+                                <input type="checkbox" name="day_0" value="1" class="w-4 h-4 text-indigo-600">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Пн</span>
+                            </label>
+                            <input type="time" name="start_0" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <span class="text-gray-400">—</span>
+                            <input type="time" name="end_0" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                        </div>
+                        
+                        <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
+                            <label class="flex items-center gap-2 w-20">
+                                <input type="checkbox" name="day_1" value="1" class="w-4 h-4 text-indigo-600">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Вт</span>
+                            </label>
+                            <input type="time" name="start_1" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <span class="text-gray-400">—</span>
+                            <input type="time" name="end_1" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                        </div>
+                        
+                        <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
+                            <label class="flex items-center gap-2 w-20">
+                                <input type="checkbox" name="day_2" value="1" class="w-4 h-4 text-indigo-600">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Ср</span>
+                            </label>
+                            <input type="time" name="start_2" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <span class="text-gray-400">—</span>
+                            <input type="time" name="end_2" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                        </div>
+                        
+                        <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
+                            <label class="flex items-center gap-2 w-20">
+                                <input type="checkbox" name="day_3" value="1" class="w-4 h-4 text-indigo-600">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Чт</span>
+                            </label>
+                            <input type="time" name="start_3" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <span class="text-gray-400">—</span>
+                            <input type="time" name="end_3" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                        </div>
+                        
+                        <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
+                            <label class="flex items-center gap-2 w-20">
+                                <input type="checkbox" name="day_4" value="1" class="w-4 h-4 text-indigo-600">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Пт</span>
+                            </label>
+                            <input type="time" name="start_4" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <span class="text-gray-400">—</span>
+                            <input type="time" name="end_4" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                        </div>
+                        
+                        <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
+                            <label class="flex items-center gap-2 w-20">
+                                <input type="checkbox" name="day_5" value="1" class="w-4 h-4 text-indigo-600">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Сб</span>
+                            </label>
+                            <input type="time" name="start_5" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <span class="text-gray-400">—</span>
+                            <input type="time" name="end_5" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                        </div>
+                        
+                        <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
+                            <label class="flex items-center gap-2 w-20">
+                                <input type="checkbox" name="day_6" value="1" class="w-4 h-4 text-indigo-600">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Вс</span>
+                            </label>
+                            <input type="time" name="start_6" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <span class="text-gray-400">—</span>
+                            <input type="time" name="end_6" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                        </div>
                     </div>
                 </div>
                 
                 <div class="mb-6">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
-                        <i class="fas fa-money-bill text-indigo-500 mr-1"></i>Цена (₸)
-                    </label>
+                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Цена (₸)</label>
                     <input type="number" name="price" value="0"
-                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
                 </div>
                 
                 <button type="submit"

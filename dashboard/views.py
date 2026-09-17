@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.http import JsonResponse
 from datetime import datetime, timedelta
-from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book
+from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book, ScheduleSlot
 from users.models import Profile
 from decimal import Decimal
 
@@ -1186,9 +1186,6 @@ def add_group(request):
         name = request.POST.get('name')
         group_type = request.POST.get('group_type', 'group')
         teacher_id = request.POST.get('teacher')
-        days = request.POST.getlist('days', [])
-        time_str = request.POST.get('time', '')
-        schedule = f"{', '.join(days)} {time_str}".strip()
         price = request.POST.get('price', '0')
         
         if name and teacher_id:
@@ -1196,10 +1193,22 @@ def add_group(request):
                 name=name,
                 group_type=group_type,
                 teacher_id=teacher_id,
-                schedule=schedule,
                 price=price,
                 is_active=True,
             )
+            
+            # Создаём расписание
+            for i in range(7):
+                if request.POST.get(f'day_{i}') == '1':
+                    start = request.POST.get(f'start_{i}')
+                    end = request.POST.get(f'end_{i}')
+                    if start and end:
+                        ScheduleSlot.objects.create(
+                            group=group,
+                            day_of_week=i,
+                            start_time=start,
+                            end_time=end,
+                        )
             additional_teacher_ids = request.POST.getlist('additional_teachers', [])
             # Исключаем основного учителя
             additional_teacher_ids = [tid for tid in additional_teacher_ids if int(tid) != int(teacher_id)]
@@ -1470,12 +1479,25 @@ def edit_group(request, group_id):
         # Исключаем основного учителя
         additional_teacher_ids = [tid for tid in additional_teacher_ids if int(tid) != group.teacher_id]
         group.teachers.set(additional_teacher_ids)
-        days = request.POST.getlist('days', [])
-        time_str = request.POST.get('time', '')
-        group.schedule = f"{', '.join(days)} {time_str}".strip()
         group.price = request.POST.get('price', group.price)
         group.is_active = True
         group.save()
+        
+        # Удаляем старое расписание
+        group.schedule_slots.all().delete()
+        
+        # Создаём новое
+        for i in range(7):
+            if request.POST.get(f'day_{i}') == '1':
+                start = request.POST.get(f'start_{i}')
+                end = request.POST.get(f'end_{i}')
+                if start and end:
+                    ScheduleSlot.objects.create(
+                        group=group,
+                        day_of_week=i,
+                        start_time=start,
+                        end_time=end,
+                    )
         
         messages.success(request, f'Группа "{group.name}" обновлена!')
         return_url = request.POST.get('return_url', '')
@@ -1484,10 +1506,12 @@ def edit_group(request, group_id):
         return redirect('dashboard')
     
     teachers = User.objects.filter(profile__role='teacher')
+    schedule_slots = {s.day_of_week: s for s in group.schedule_slots.all()}
     
     context = {
         'group': group,
         'teachers': teachers,
+        'schedule_slots': schedule_slots,
     }
     
     return render(request, 'dashboard/edit_group.html', context)
