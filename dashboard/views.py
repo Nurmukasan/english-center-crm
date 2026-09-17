@@ -442,7 +442,6 @@ def weekly_schedule(request):
     """Расписание на неделю"""
     role = get_user_role(request.user)
     
-    # Админ и бухгалтер не видят расписание
     if role in ['admin', 'accountant']:
         messages.error(request, 'Расписание пока недоступно для вашей роли')
         return redirect('dashboard')
@@ -468,9 +467,9 @@ def weekly_schedule(request):
     for i, day in enumerate(days):
         day_date = monday + timedelta(days=i)
         day['date'] = day_date.strftime('%d.%m')
-        day['full_date'] = day_date.strftime('%d %B')
         day['is_today'] = (day_date == today)
     
+    # Слоты времени (каждые 30 минут)
     time_slots = []
     for hour in range(6, 23):
         for minute in [0, 30]:
@@ -480,74 +479,35 @@ def weekly_schedule(request):
                 'label': f'{hour}:{minute:02d}',
             })
     
-    import re
-    
+    # Собираем данные из ScheduleSlot
     schedule_data = []
     for group in groups:
-        schedule_text = group.schedule.lower()
-        
-        day_indexes = []
-        day_keywords = {
-            0: ['пн', 'понедельник'],
-            1: ['вт', 'вторник'],
-            2: ['ср', 'сред'],
-            3: ['чт', 'четверг'],
-            4: ['пт', 'пятниц'],
-            5: ['сб', 'суббот'],
-            6: ['вс', 'воскрес'],
-        }
-        
-        for day_num, keywords in day_keywords.items():
-            if any(keyword in schedule_text for keyword in keywords):
-                day_indexes.append(day_num)
-        
-        if not day_indexes:
-            continue
-        
-        time_match = re.search(r'(\d{1,2})[:.](\d{2})\s*[-–—]\s*(\d{1,2})[:.](\d{2})', schedule_text)
-        
-        if time_match:
-            start_hour = int(time_match.group(1))
-            start_minute = int(time_match.group(2))
-            end_hour = int(time_match.group(3))
-            end_minute = int(time_match.group(4))
+        for slot in group.schedule_slots.all():
+            start_hour = slot.start_time.hour
+            start_minute = slot.start_time.minute
+            end_hour = slot.end_time.hour
+            end_minute = slot.end_time.minute
             
-            # Округляем минуты до ближайших 30
+            # Округляем до 30 минут
             start_minute = 0 if start_minute < 30 else 30
             end_minute = 0 if end_minute < 30 else 30
-        else:
-            time_match = re.search(r'(\d{1,2})[:.](\d{2})', schedule_text)
-            if time_match:
-                start_hour = int(time_match.group(1))
-                start_minute = int(time_match.group(2))
-                start_minute = 0 if start_minute < 30 else 30
-                end_hour = start_hour + 1
-                end_minute = start_minute + 30
-                if end_minute >= 60:
-                    end_hour += 1
-                    end_minute -= 60
-            else:
-                start_hour = 18
-                start_minute = 0
-                end_hour = 19
-                end_minute = 30
-        
-        start_total_minutes = start_hour * 60 + start_minute
-        end_total_minutes = end_hour * 60 + end_minute
-        duration_slots = (end_total_minutes - start_total_minutes) // 30
-        
-        if duration_slots < 1:
-            duration_slots = 1
-        
-        for day_index in day_indexes:
+            
+            start_total = start_hour * 60 + start_minute
+            end_total = end_hour * 60 + end_minute
+            duration_slots = (end_total - start_total) // 30
+            
+            if duration_slots < 1:
+                duration_slots = 1
+            
             schedule_data.append({
                 'group': group,
-                'day_index': day_index,
+                'day_index': slot.day_of_week,
                 'start_hour': start_hour,
                 'start_minute': start_minute,
                 'duration_slots': duration_slots,
             })
     
+    # Цвета для групп
     pastel_colors = [
         {'bg': 'bg-blue-100', 'border': 'border-blue-300', 'text': 'text-blue-800'},
         {'bg': 'bg-green-100', 'border': 'border-green-300', 'text': 'text-green-800'},
@@ -580,8 +540,6 @@ def weekly_schedule(request):
     }
     
     return render(request, 'dashboard/weekly_schedule.html', context)
-
-
 @login_required
 def profile(request):
     """Личный кабинет пользователя"""

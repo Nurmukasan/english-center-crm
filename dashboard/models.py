@@ -56,6 +56,18 @@ class Group(models.Model):
     def __str__(self):
         return self.name
 
+
+
+    
+    def get_schedule_display(self):
+        days_names = {0: 'Пн', 1: 'Вт', 2: 'Ср', 3: 'Чт', 4: 'Пт', 5: 'Сб', 6: 'Вс'}
+        parts = []
+        for slot in self.schedule_slots.all().order_by('day_of_week'):
+            parts.append(f"{days_names[slot.day_of_week]} {slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}")
+        return ', '.join(parts) if parts else self.schedule
+
+
+    
     class Meta:
         verbose_name = "Группа"
         verbose_name_plural = "Группы"
