@@ -8,9 +8,30 @@
     <script>tailwind.config = { darkMode: 'class' }</script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <style>* { font-family: 'Inter', sans-serif; }</style>
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .goog-te-banner-frame { display: none !important; }
+        body { top: 0 !important; }
+        .skiptranslate { display: none !important; }
+        #google_translate_element { display: none !important; }
+        .goog-logo-link { display: none !important; }
+        .goog-te-gadget { display: none !important; }
+    </style>
 </head>
 <body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+    
+    <div class="fixed bottom-4 right-4 z-50 flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-1 border border-gray-200 dark:border-gray-700">
+        <button onclick="changeLang('ru')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇷🇺 RU</button>
+        
+        <button onclick="changeLang('en')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇬🇧 EN</button>
+    </div>
+    
+    <div id="google_translate_element" style="display:none !important;"></div>
     
     <header class="bg-gray-800 shadow-lg">
         <div class="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
@@ -22,7 +43,7 @@
         </div>
     </header>
     
-    <main class="max-w-3xl mx-auto px-4 py-8">
+    <main class="max-w-3xl mx-auto px-4 py-8 fade-in">
         
         {% if messages %}
             {% for message in messages %}
@@ -34,9 +55,9 @@
             {% endfor %}
         {% endif %}
         
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-8 border border-gray-300 dark:border-gray-600">
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-8 border border-gray-300 dark:border-gray-600 transition-colors">
             
-            <form method="POST" id="groupForm">
+            <form method="POST">
                 {% csrf_token %}
                 
                 <div class="mb-6">
@@ -58,11 +79,23 @@
                     <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Учитель *</label>
                     <select name="teacher" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
                         {% for teacher in teachers %}
-                        <option value="{{ teacher.id }}">{{ teacher.username }}</option>
+                        <option value="{{ teacher.id }}"><span class="notranslate"></span>{{ teacher.username }}</span></option>
                         {% empty %}
                         <option value="">Нет учителей</option>
                         {% endfor %}
                     </select>
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Дополнительные учителя</label>
+                    <div class="space-y-2">
+                        {% for teacher in teachers %}
+                        <label class="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                            <input type="checkbox" name="additional_teachers" value="{{ teacher.id }}" class="w-4 h-4 text-indigo-600">
+                            <span class="text-sm text-gray-700 dark:text-gray-300">{{ teacher.username }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
                 </div>
                 
                 <div class="mb-6">
@@ -167,10 +200,9 @@
     </main>
     
     <script>
-        // Автодополнение: вводишь "2000" → становится "20:00"
         document.querySelectorAll('input[pattern*="[0-9]"]').forEach(input => {
             input.addEventListener('input', function() {
-                let val = this.value.replace(/\D/g, ''); // только цифры
+                let val = this.value.replace(/\D/g, '');
                 if (val.length >= 3) {
                     this.value = val.slice(0, val.length - 2) + ':' + val.slice(-2);
                 } else {
@@ -178,7 +210,22 @@
                 }
             });
         });
+        
+        function changeLang(lang) {
+            document.cookie = `googtrans=/ru/${lang}; path=/`;
+            document.cookie = `googtrans=/ru/${lang}; domain=.${location.hostname}; path=/`;
+            location.reload();
+        }
+        
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'ru',
+                includedLanguages: 'ru,kk,en',
+                autoDisplay: false
+            }, 'google_translate_element');
+        }
     </script>
+    <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
     
 </body>
 </html>

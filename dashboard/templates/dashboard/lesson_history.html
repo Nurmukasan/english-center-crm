@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>История уроков — {{ group.name }}</title>
+    <title>История уроков — Enjoy English</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = { darkMode: 'class' }
@@ -17,11 +17,28 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        /* Google Translate */
+        .goog-te-banner-frame { display: none !important; }
+        body { top: 0 !important; }
+        .goog-te-gadget { font-size: 0 !important; }
+        .goog-te-gadget select {
+            font-size: 14px !important;
+            padding: 6px 10px !important;
+            border-radius: 8px !important;
+            border: 1px solid #ccc !important;
+            background: white !important;
+            cursor: pointer !important;
+        }
+        .goog-logo-link { display: none !important; }
+        .skiptranslate iframe { display: none !important; }
     </style>
 </head>
 <body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     
-    <header class="bg-gray-800 shadow-lg sticky top-0 z-50">
+    <!-- Google Translate -->
+    <div id="google_translate_element" class="fixed bottom-4 right-4 z-50 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-2"></div>
+    
+    <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
                 <a href="{% url 'group_detail' group.id %}" class="text-gray-300 hover:text-white">
@@ -133,6 +150,17 @@
             }
         }
     </script>
+    <script>
+    function googleTranslateElementInit() {
+        new google.translate.TranslateElement({
+            pageLanguage: 'ru',
+            includedLanguages: 'ru,kk,en',
+            layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+            autoDisplay: false
+        }, 'google_translate_element');
+    }
+    </script>
+    <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
     
 </body>
 </html>
