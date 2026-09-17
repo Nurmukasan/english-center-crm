@@ -5,11 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Дашборд — Enjoy English CRM</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-        }
-    </script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
@@ -21,12 +17,28 @@
         }
         .hover-scale { transition: all 0.3s ease; }
         .hover-scale:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        /* Google Translate скрываем */
+        .goog-te-banner-frame { display: none !important; }
+        body { top: 0 !important; }
+        .skiptranslate { display: none !important; }
+        #google_translate_element { display: none !important; }
+        .goog-logo-link { display: none !important; }
+        .goog-te-gadget { display: none !important; }
     </style>
 </head>
 <body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     
-    <!-- Шапка -->
-    <header class="bg-gray-800 shadow-lg sticky top-0 z-50">
+    <!-- Переключатель языков -->
+    <div class="fixed bottom-4 right-4 z-50 flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-1 border border-gray-200 dark:border-gray-700">
+        <button onclick="changeLang('ru')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇷🇺 RU</button>
+        
+        <button onclick="changeLang('en')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇬🇧 EN</button>
+    </div>
+    
+    <!-- Скрытый Google виджет -->
+    <div id="google_translate_element" style="display:none !important;"></div>
+    
+    <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-3">
                 <img src="/media/logo/logo.png" alt="Enjoy English" class="h-12 w-12 object-cover rounded-full">
@@ -37,36 +49,31 @@
             </div>
             <div class="flex items-center gap-2 md:gap-3 flex-wrap justify-end">
                 {% if role == 'teacher' or role == 'developer' %}
-                <a href="{% url 'weekly_schedule' %}"
-                    class="bg-cyan-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-cyan-600 transition">
+                <a href="{% url 'weekly_schedule' %}" class="bg-cyan-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-cyan-600 transition">
                     <i class="fas fa-calendar mr-1"></i> Расписание
                 </a>
                 {% endif %}
     
                 {% if role != 'teacher' %}
-                <a href="{% url 'export_excel' %}"
-                    class="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-600 transition">
+                <a href="{% url 'export_excel' %}" class="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-600 transition">
                     <i class="fas fa-file-excel mr-1"></i> Excel
                 </a>
                 {% endif %}
     
                 {% if role == 'admin' or role == 'accountant' or role == 'developer' %}
-                <a href="{% url 'payment_management' %}"
-                    class="bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-600 transition">
+                <a href="{% url 'payment_management' %}" class="bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-600 transition">
                     <i class="fas fa-money-bill mr-1"></i> Оплаты
                 </a>
                 {% endif %}
                 
                 {% if role == 'admin' or role == 'developer' %}
-                <a href="{% url 'books_status' %}"
-                    class="bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-600 transition">
+                <a href="{% url 'books_status' %}" class="bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-600 transition">
                     <i class="fas fa-book mr-1"></i> Книги
                 </a>
                 {% endif %}
                 
                 {% if role == 'accountant' or role == 'developer' %}
-                <a href="{% url 'accountant_stats' %}"
-                    class="bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-600 transition">
+                <a href="{% url 'accountant_stats' %}" class="bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-600 transition">
                     <i class="fas fa-chart-bar mr-1"></i> Статистика
                 </a>
                 {% endif %}
@@ -78,8 +85,7 @@
     
                 <a href="{% url 'profile' %}" class="flex items-center gap-2 hover:opacity-80 transition">
                     {% if request.user.profile.photo %}
-                    <img src="{{ request.user.profile.photo.url }}" alt="Фото"
-                        class="w-8 h-8 rounded-full object-cover border border-gray-500">
+                    <img src="{{ request.user.profile.photo.url }}" alt="Фото" class="w-8 h-8 rounded-full object-cover border border-gray-500">
                     {% else %}
                     <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-sm">
                         <i class="fas fa-user text-gray-300"></i>
@@ -103,25 +109,16 @@
         </div>
     </header>
     
-    <!-- Контент -->
     <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
         
-        <!-- Приветствие -->
         <div class="mb-8">
-            <h2 class="text-2xl font-bold text-gray-800 dark:text-white">
-                👋 Привет, {{ request.user.username }}!
-            </h2>
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-white">👋 Привет, {{ request.user.username }}!</h2>
             <p class="text-gray-500 dark:text-gray-400 mt-1">
-                {% if role == 'teacher' %}
-                    Вот ваши группы и расписание
-                {% else %}
-                    Обзор всего учебного центра
-                {% endif %}
+                {% if role == 'teacher' %}Вот ваши группы и расписание{% else %}Обзор всего учебного центра{% endif %}
             </p>
         </div>
         
         {% if role == 'admin' or role == 'developer' %}
-        <!-- Статистика -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 border border-gray-300 dark:border-gray-600 shadow-md hover-scale">
                 <p class="text-gray-500 dark:text-gray-400 text-sm">Всего учеников</p>
@@ -141,7 +138,6 @@
             </div>
         </div>
         
-        <!-- Быстрые действия -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <a href="{% url 'add_group' %}" class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 border border-gray-300 dark:border-gray-600 shadow-md hover-scale text-center">
                 <i class="fas fa-users text-3xl text-indigo-600 mb-2"></i>
@@ -153,7 +149,6 @@
             </a>
         </div>
         
-        <!-- Топ должников -->
         <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 border border-gray-300 dark:border-gray-600 shadow-md mb-8">
             <h3 class="font-bold text-gray-800 dark:text-white mb-4"><i class="fas fa-bell text-amber-500 mr-2"></i>Топ должников</h3>
             {% if top_debtors %}
@@ -162,9 +157,7 @@
                 <div class="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-3">
                     <div>
                         <p class="font-medium text-gray-800 dark:text-white">{{ debtor.student.name }}</p>
-                        {% if debtor.phone %}
-                        <p class="text-xs text-gray-400">{{ debtor.phone }}</p>
-                        {% endif %}
+                        {% if debtor.phone %}<p class="text-xs text-gray-400">{{ debtor.phone }}</p>{% endif %}
                     </div>
                     <span class="font-bold text-red-600">{{ debtor.debt|floatformat:0 }} ₸</span>
                 </div>
@@ -201,19 +194,16 @@
             </div>
         </div>
         {% endif %}
-        <!-- Поиск по группам -->
+        
         <div class="mb-6">
             <form method="GET" class="flex gap-3">
                 <input type="text" name="search" value="{{ search_query }}"
                     class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="🔍 Поиск группы...">
-                <button type="submit"
-                    class="bg-indigo-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-600 transition">
-                    Найти
-                </button>
+                <button type="submit" class="bg-indigo-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-600 transition">Найти</button>
             </form>
         </div>
-        <!-- Группы -->
+        
         <h3 class="text-xl font-bold text-gray-800 dark:text-white mb-4">
             {% if role == 'teacher' %}Мои группы{% else %}Все группы{% endif %}
         </h3>
@@ -237,30 +227,20 @@
                         <p class="text-gray-500 dark:text-gray-400 text-sm mb-3"><i class="fas fa-calendar mr-1"></i>{{ group.get_schedule_display }}</p>
                         <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">
                             <i class="fas fa-user mr-1"></i>{{ group.teacher.username }}
-                            {% for teacher in group.teachers.all %}
-                            • {{ teacher.username }}
-                            {% endfor %}
+                            {% for teacher in group.teachers.all %} • {{ teacher.username }}{% endfor %}
                         </p>
                         <div class="flex justify-between items-center pt-3 border-t border-gray-200 dark:border-gray-700">
-                            <span class="text-gray-600 dark:text-gray-300 text-sm">
-                                <i class="fas fa-users mr-1"></i>{{ group.enrollments.count }} учеников
-                            </span>
+                            <span class="text-gray-600 dark:text-gray-300 text-sm"><i class="fas fa-users mr-1"></i>{{ group.enrollments.count }} учеников</span>
                             <span class="text-indigo-600 dark:text-indigo-400 font-bold">{{ group.price }} ₸</span>
                         </div>
                     </a>
                     {% if role == 'admin' or role == 'developer' %}
                     <div class="absolute top-3 right-3 flex gap-2">
-                        <a href="{% url 'edit_group' group.id %}?return={{ request.get_full_path|urlencode }}" class="text-blue-500 hover:text-blue-700">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        <a href="{% url 'delete_group' group.id %}" onclick="return confirm('Удалить группу {{ group.name }}?')"
-                            class="text-red-400 hover:text-red-600">
-                            <i class="fas fa-trash"></i>
-                        </a>
+                        <a href="{% url 'edit_group' group.id %}" class="text-blue-500 hover:text-blue-700"><i class="fas fa-edit"></i></a>
+                        <a href="{% url 'delete_group' group.id %}" onclick="return confirm('Удалить группу {{ group.name }}?')" class="text-red-400 hover:text-red-600"><i class="fas fa-trash"></i></a>
                     </div>
                     {% endif %}
                 </div>
-                
             </div>
             {% empty %}
             <div class="col-span-full bg-gray-50 dark:bg-gray-800 rounded-xl p-12 text-center text-gray-400">
@@ -276,12 +256,25 @@
         function toggleTheme() {
             document.documentElement.classList.toggle('dark');
         }
-        // Сохраняем позицию скролла при уходе со страницы
+        
+        function changeLang(lang) {
+            document.cookie = `googtrans=/ru/${lang}; path=/`;
+            document.cookie = `googtrans=/ru/${lang}; domain=.${location.hostname}; path=/`;
+            location.reload();
+        }
+        
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'ru',
+                includedLanguages: 'ru,kk,en',
+                autoDisplay: false
+            }, 'google_translate_element');
+        }
+        
+        // Сохраняем позицию скролла
         window.addEventListener('beforeunload', function() {
             sessionStorage.setItem('scrollPos', window.scrollY);
         });
-
-        // Восстанавливаем при загрузке
         window.addEventListener('load', function() {
             const scrollPos = sessionStorage.getItem('scrollPos');
             if (scrollPos) {
@@ -290,6 +283,7 @@
             }
         });
     </script>
+    <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
     
 </body>
 </html>

@@ -9,9 +9,32 @@
     <script>tailwind.config = { darkMode: 'class' }</script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <style>* { font-family: 'Inter', sans-serif; }</style>
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Google Translate скрываем */
+        .goog-te-banner-frame { display: none !important; }
+        body { top: 0 !important; }
+        .skiptranslate { display: none !important; }
+        #google_translate_element { display: none !important; }
+        .goog-logo-link { display: none !important; }
+        .goog-te-gadget { display: none !important; }
+    </style>
 </head>
 <body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+    
+    <!-- Переключатель языков -->
+    <div class="fixed bottom-4 right-4 z-50 flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-1 border border-gray-200 dark:border-gray-700">
+        <button onclick="changeLang('ru')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇷🇺 RU</button>
+        
+        <button onclick="changeLang('en')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇬🇧 EN</button>
+    </div>
+    
+    <div id="google_translate_element" style="display:none !important;"></div>
     
     <header class="bg-gray-800 shadow-lg">
         <div class="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
@@ -23,9 +46,9 @@
         </div>
     </header>
     
-    <main class="max-w-3xl mx-auto px-4 py-8">
+    <main class="max-w-3xl mx-auto px-4 py-8 fade-in">
         
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-8 border border-gray-300 dark:border-gray-600">
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-8 border border-gray-300 dark:border-gray-600 transition-colors">
             
             <form method="POST">
                 {% csrf_token %}
@@ -171,7 +194,6 @@
     </main>
     
     <script>
-        // Автодополнение: вводишь "2000" → становится "20:00"
         document.querySelectorAll('input[pattern*="[0-9]"]').forEach(input => {
             input.addEventListener('input', function() {
                 let val = this.value.replace(/\D/g, '');
@@ -182,7 +204,22 @@
                 }
             });
         });
+        
+        function changeLang(lang) {
+            document.cookie = `googtrans=/ru/${lang}; path=/`;
+            document.cookie = `googtrans=/ru/${lang}; domain=.${location.hostname}; path=/`;
+            location.reload();
+        }
+        
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'ru',
+                includedLanguages: 'ru,kk,en',
+                autoDisplay: false
+            }, 'google_translate_element');
+        }
     </script>
+    <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
     
 </body>
 </html>

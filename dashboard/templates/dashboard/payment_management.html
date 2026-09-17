@@ -5,9 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Контроль оплат — Enjoy English</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = { darkMode: 'class' }
-    </script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
@@ -17,11 +15,27 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        /* Google Translate скрываем */
+        .goog-te-banner-frame { display: none !important; }
+        body { top: 0 !important; }
+        .skiptranslate { display: none !important; }
+        #google_translate_element { display: none !important; }
+        .goog-logo-link { display: none !important; }
+        .goog-te-gadget { display: none !important; }
     </style>
 </head>
 <body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     
-    <header class="bg-gray-800 shadow-lg sticky top-0 z-50">
+    <!-- Переключатель языков -->
+    <div class="fixed bottom-4 right-4 z-50 flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-1 border border-gray-200 dark:border-gray-700">
+        <button onclick="changeLang('ru')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇷🇺 RU</button>
+        
+        <button onclick="changeLang('en')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇬🇧 EN</button>
+    </div>
+    
+    <div id="google_translate_element" style="display:none !important;"></div>
+    
+    <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
                 <a href="{% url 'dashboard' %}" class="text-gray-300 hover:text-white">
@@ -36,11 +50,11 @@
                 <div class="flex bg-gray-700 rounded-lg p-1">
                     <a href="?view=periods" class="px-4 py-2 rounded-lg text-sm font-medium transition
                               {% if view_mode == 'periods' %}bg-gray-600 shadow text-white{% else %}text-gray-300{% endif %}">
-                        📅 Периоды
+                        📅 По периодам
                     </a>
                     <a href="?view=students" class="px-4 py-2 rounded-lg text-sm font-medium transition
                               {% if view_mode == 'students' %}bg-gray-600 shadow text-white{% else %}text-gray-300{% endif %}">
-                        👥 Ученики
+                        👥 По ученикам
                     </a>
                 </div>
                 <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
@@ -71,7 +85,6 @@
         
         {% if view_mode == 'periods' %}
         
-        <!-- Легенда -->
         <div class="flex gap-6 mb-6 text-sm flex-wrap">
             <span class="flex items-center gap-2"><span class="w-3 h-3 bg-red-500 rounded-full"></span> Просрочено</span>
             <span class="flex items-center gap-2"><span class="w-3 h-3 bg-yellow-500 rounded-full"></span> Текущий</span>
@@ -150,7 +163,6 @@
         
         {% else %}
         
-        <!-- Режим по ученикам -->
         <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
             <div class="overflow-x-auto">
                 <table class="w-full">
@@ -192,7 +204,7 @@
         
     </main>
     
-    <!-- Модалка -->
+    <!-- Модалка частичной оплаты -->
     <div id="partialModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
         <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
             <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">Частичная оплата</h3>
@@ -210,6 +222,12 @@
         
         function toggleTheme() {
             document.documentElement.classList.toggle('dark');
+        }
+        
+        function changeLang(lang) {
+            document.cookie = `googtrans=/ru/${lang}; path=/`;
+            document.cookie = `googtrans=/ru/${lang}; domain=.${location.hostname}; path=/`;
+            location.reload();
         }
         
         function markPaid(paymentId) {
@@ -247,7 +265,16 @@
             .then(response => response.json())
             .then(data => { if (data.success) location.reload(); });
         }
+        
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'ru',
+                includedLanguages: 'ru,kk,en',
+                autoDisplay: false
+            }, 'google_translate_element');
+        }
     </script>
+    <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
     
 </body>
 </html>
