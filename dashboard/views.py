@@ -209,7 +209,7 @@ def group_detail(request, group_id):
         'role': role,
         'lessons_history': lessons_history,
         'lesson': lesson,
-        'can_mark_attendance': role in ['teacher', 'developer'],
+        'can_mark_attendance': role in ['teacher', 'developer', 'admin'],
     }
     
     return render(request, 'dashboard/group_detail.html', context)
