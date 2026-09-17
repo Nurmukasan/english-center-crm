@@ -1198,17 +1198,31 @@ def add_group(request):
             )
             
             # Создаём расписание
+            import re
             for i in range(7):
                 if request.POST.get(f'day_{i}') == '1':
-                    start = request.POST.get(f'start_{i}')
-                    end = request.POST.get(f'end_{i}')
-                    if start and end:
-                        ScheduleSlot.objects.create(
-                            group=group,
-                            day_of_week=i,
-                            start_time=start,
-                            end_time=end,
-                        )
+                    start = request.POST.get(f'start_{i}', '').strip()
+                    end = request.POST.get(f'end_{i}', '').strip()
+                    
+                    if re.match(r'^\d{1,2}:\d{2}$', start) and re.match(r'^\d{1,2}:\d{2}$', end):
+                        try:
+                            ScheduleSlot.objects.create(
+                                group=group,
+                                day_of_week=i,
+                                start_time=start,
+                                end_time=end,
+                            )
+                        except Exception as e:
+                            messages.error(request, f'Ошибка в дне {i}: {e}')
+            # Обновляем текстовое поле schedule
+            slots = group.schedule_slots.all().order_by('day_of_week')
+            days_names = {0: 'Пн', 1: 'Вт', 2: 'Ср', 3: 'Чт', 4: 'Пт', 5: 'Сб', 6: 'Вс'}
+            schedule_parts = []
+            for slot in slots:
+                schedule_parts.append(f"{days_names[slot.day_of_week]} {slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}")
+            group.schedule = ', '.join(schedule_parts)
+            group.save()
+            
             additional_teacher_ids = request.POST.getlist('additional_teachers', [])
             # Исключаем основного учителя
             additional_teacher_ids = [tid for tid in additional_teacher_ids if int(tid) != int(teacher_id)]
@@ -1487,17 +1501,31 @@ def edit_group(request, group_id):
         group.schedule_slots.all().delete()
         
         # Создаём новое
+        import re
         for i in range(7):
             if request.POST.get(f'day_{i}') == '1':
-                start = request.POST.get(f'start_{i}')
-                end = request.POST.get(f'end_{i}')
-                if start and end:
-                    ScheduleSlot.objects.create(
-                        group=group,
-                        day_of_week=i,
-                        start_time=start,
-                        end_time=end,
-                    )
+                start = request.POST.get(f'start_{i}', '').strip()
+                end = request.POST.get(f'end_{i}', '').strip()
+                
+                # Проверяем формат ЧЧ:ММ
+                if re.match(r'^\d{1,2}:\d{2}$', start) and re.match(r'^\d{1,2}:\d{2}$', end):
+                    try:
+                        ScheduleSlot.objects.create(
+                            group=group,
+                            day_of_week=i,
+                            start_time=start,
+                            end_time=end,
+                        )
+                    except Exception as e:
+                        messages.error(request, f'Ошибка в дне {i}: {e}')
+        # Обновляем текстовое поле schedule
+        slots = group.schedule_slots.all().order_by('day_of_week')
+        days_names = {0: 'Пн', 1: 'Вт', 2: 'Ср', 3: 'Чт', 4: 'Пт', 5: 'Сб', 6: 'Вс'}
+        schedule_parts = []
+        for slot in slots:
+            schedule_parts.append(f"{days_names[slot.day_of_week]} {slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}")
+        group.schedule = ', '.join(schedule_parts)
+        group.save()
         
         messages.success(request, f'Группа "{group.name}" обновлена!')
         return_url = request.POST.get('return_url', '')
@@ -1506,7 +1534,7 @@ def edit_group(request, group_id):
         return redirect('dashboard')
     
     teachers = User.objects.filter(profile__role='teacher')
-    schedule_slots = {s.day_of_week: s for s in group.schedule_slots.all()}
+    schedule_slots = {str(s.day_of_week): s for s in group.schedule_slots.all()}
     
     context = {
         'group': group,

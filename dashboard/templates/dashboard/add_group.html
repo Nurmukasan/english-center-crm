@@ -36,7 +36,7 @@
         
         <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-8 border border-gray-300 dark:border-gray-600">
             
-            <form method="POST">
+            <form method="POST" id="groupForm">
                 {% csrf_token %}
                 
                 <div class="mb-6">
@@ -70,77 +70,81 @@
                         <i class="fas fa-calendar text-indigo-500 mr-1"></i>Расписание
                     </label>
                     <div class="space-y-2">
-                        {% for day_num, day_name in "0:Пн,1:Вт,2:Ср,3:Чт,4:Пт,5:Сб,6:Вс"|split %}
-                        {% endfor %}
-                        
+                        <!-- Пн -->
                         <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
                             <label class="flex items-center gap-2 w-20">
                                 <input type="checkbox" name="day_0" value="1" class="w-4 h-4 text-indigo-600">
                                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Пн</span>
                             </label>
-                            <input type="time" name="start_0" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <input type="text" name="start_0" placeholder="20:00" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
                             <span class="text-gray-400">—</span>
-                            <input type="time" name="end_0" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <input type="text" name="end_0" placeholder="21:30" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
                         </div>
                         
+                        <!-- Вт -->
                         <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
                             <label class="flex items-center gap-2 w-20">
                                 <input type="checkbox" name="day_1" value="1" class="w-4 h-4 text-indigo-600">
                                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Вт</span>
                             </label>
-                            <input type="time" name="start_1" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <input type="text" name="start_1" placeholder="20:00" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
                             <span class="text-gray-400">—</span>
-                            <input type="time" name="end_1" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <input type="text" name="end_1" placeholder="21:30" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
                         </div>
                         
+                        <!-- Ср -->
                         <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
                             <label class="flex items-center gap-2 w-20">
                                 <input type="checkbox" name="day_2" value="1" class="w-4 h-4 text-indigo-600">
                                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Ср</span>
                             </label>
-                            <input type="time" name="start_2" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <input type="text" name="start_2" placeholder="20:00" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
                             <span class="text-gray-400">—</span>
-                            <input type="time" name="end_2" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <input type="text" name="end_2" placeholder="21:30" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
                         </div>
                         
+                        <!-- Чт -->
                         <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
                             <label class="flex items-center gap-2 w-20">
                                 <input type="checkbox" name="day_3" value="1" class="w-4 h-4 text-indigo-600">
                                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Чт</span>
                             </label>
-                            <input type="time" name="start_3" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <input type="text" name="start_3" placeholder="20:00" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
                             <span class="text-gray-400">—</span>
-                            <input type="time" name="end_3" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <input type="text" name="end_3" placeholder="21:30" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
                         </div>
                         
+                        <!-- Пт -->
                         <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
                             <label class="flex items-center gap-2 w-20">
                                 <input type="checkbox" name="day_4" value="1" class="w-4 h-4 text-indigo-600">
                                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Пт</span>
                             </label>
-                            <input type="time" name="start_4" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <input type="text" name="start_4" placeholder="20:00" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
                             <span class="text-gray-400">—</span>
-                            <input type="time" name="end_4" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <input type="text" name="end_4" placeholder="21:30" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
                         </div>
                         
+                        <!-- Сб -->
                         <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
                             <label class="flex items-center gap-2 w-20">
                                 <input type="checkbox" name="day_5" value="1" class="w-4 h-4 text-indigo-600">
                                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Сб</span>
                             </label>
-                            <input type="time" name="start_5" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <input type="text" name="start_5" placeholder="20:00" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
                             <span class="text-gray-400">—</span>
-                            <input type="time" name="end_5" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <input type="text" name="end_5" placeholder="21:30" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
                         </div>
                         
+                        <!-- Вс -->
                         <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
                             <label class="flex items-center gap-2 w-20">
                                 <input type="checkbox" name="day_6" value="1" class="w-4 h-4 text-indigo-600">
                                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Вс</span>
                             </label>
-                            <input type="time" name="start_6" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <input type="text" name="start_6" placeholder="20:00" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
                             <span class="text-gray-400">—</span>
-                            <input type="time" name="end_6" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                            <input type="text" name="end_6" placeholder="21:30" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
                         </div>
                     </div>
                 </div>
@@ -161,6 +165,20 @@
         </div>
         
     </main>
+    
+    <script>
+        // Автодополнение: вводишь "2000" → становится "20:00"
+        document.querySelectorAll('input[pattern*="[0-9]"]').forEach(input => {
+            input.addEventListener('input', function() {
+                let val = this.value.replace(/\D/g, ''); // только цифры
+                if (val.length >= 3) {
+                    this.value = val.slice(0, val.length - 2) + ':' + val.slice(-2);
+                } else {
+                    this.value = val;
+                }
+            });
+        });
+    </script>
     
 </body>
 </html>
