@@ -1660,3 +1660,16 @@ def toggle_student_payment(request, group_id):
         payment.save()
     
     return JsonResponse({'success': True, 'is_paid': payment.is_paid})
+
+@login_required
+def book_reader(request, book_id):
+    """Reader — просмотр PDF книги"""
+    role = get_user_role(request.user)
+    book = get_object_or_404(Book, id=book_id)
+    
+    context = {
+        'role': role,
+        'book': book,
+    }
+    
+    return render(request, 'dashboard/book_reader.html', context)

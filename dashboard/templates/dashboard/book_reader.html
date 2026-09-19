@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ book.title }} — Reader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        html, body { height: 100%; margin: 0; }
+    </style>
+</head>
+<body class="bg-gray-900 h-screen flex flex-col">
+    
+    <!-- Верхняя панель -->
+    <header class="bg-gray-800 shadow-lg flex-shrink-0">
+        <div class="px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <a href="javascript:history.back()" class="text-gray-300 hover:text-white p-2 rounded-lg hover:bg-gray-700 transition">
+                    <i class="fas fa-times text-xl"></i>
+                </a>
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-book text-amber-400 text-xl"></i>
+                    <h1 class="font-bold text-white notranslate">{{ book.title }}</h1>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                {% if book.pdf_file %}
+                <a href="{{ book.pdf_file.url }}" download
+                   class="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition"
+                   title="Скачать PDF">
+                    <i class="fas fa-download"></i>
+                </a>
+                <a href="{{ book.pdf_file.url }}" target="_blank"
+                   class="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition"
+                   title="Открыть в новой вкладке">
+                    <i class="fas fa-external-link-alt"></i>
+                </a>
+                {% endif %}
+                <button onclick="toggleFullscreen()" class="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition" title="Fullscreen">
+                    <i class="fas fa-expand"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+    
+    <!-- PDF -->
+    <main class="flex-1 bg-gray-900 relative">
+        {% if book.pdf_file %}
+        <iframe src="{{ book.pdf_file.url }}#toolbar=1&navpanes=0&view=FitH" 
+                class="w-full h-full border-0"></iframe>
+        {% else %}
+        <div class="flex items-center justify-center h-full text-gray-400">
+            <div class="text-center">
+                <i class="fas fa-file-pdf text-6xl mb-4 text-gray-600"></i>
+                <p class="text-xl">PDF ещё не загружен</p>
+                <p class="text-sm mt-2">Разработчик должен загрузить PDF через админку</p>
+            </div>
+        </div>
+        {% endif %}
+    </main>
+    
+    <script>
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && !document.fullscreenElement) {
+                history.back();
+            }
+        });
+    </script>
+</body>
+</html>

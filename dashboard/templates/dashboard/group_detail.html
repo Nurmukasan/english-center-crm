@@ -97,19 +97,27 @@
         </div>
         
         {% if group.book %}
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6 border border-gray-300 dark:border-gray-600 flex items-center gap-6 hover-scale transition-colors">
+        <a href="{% url 'book_reader' group.book.id %}"
+            class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6 border-2 border-amber-300 dark:border-amber-600 flex items-center gap-6 hover-scale transition-all hover:border-amber-500 hover:shadow-lg block cursor-pointer">
             {% if group.book.photo %}
             <img src="{{ group.book.photo.url }}" alt="{{ group.book.title }}" class="w-20 h-28 object-cover rounded-lg shadow">
             {% else %}
-            <div class="w-20 h-28 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center text-3xl">
-                <i class="fas fa-book text-gray-400"></i>
+            <div
+                class="w-20 h-28 bg-gradient-to-br from-amber-200 to-amber-400 dark:from-amber-700 dark:to-amber-900 rounded-lg flex items-center justify-center text-3xl">
+                <i class="fas fa-book-open text-white"></i>
             </div>
             {% endif %}
-            <div>
-                <p class="text-sm text-gray-400">Книга группы</p>
-                <p class="text-xl font-bold text-gray-800 dark:text-white">{{ group.book.title }}</p>
+            <div class="flex-1">
+                <p class="text-xs text-amber-600 dark:text-amber-400 font-medium uppercase tracking-wide">📖 Учебник группы</p>
+                <p class="text-xl font-bold text-gray-800 dark:text-white mt-1"><span class="notranslate">{{ group.book.title}}</span></p>
+                <p class="text-sm text-amber-600 dark:text-amber-400 mt-2 font-medium">
+                    <i class="fas fa-hand-pointer mr-1"></i>Нажмите, чтобы открыть книгу
+                </p>
             </div>
-        </div>
+            <div class="text-amber-500 text-3xl">
+                <i class="fas fa-chevron-right"></i>
+            </div>
+        </a>
         {% endif %}
         
         <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
