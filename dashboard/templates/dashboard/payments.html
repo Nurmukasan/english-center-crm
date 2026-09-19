@@ -97,9 +97,9 @@
                             👨‍🏫 <span class="notranslate">{{ data.group.teacher.username }}</span>
                         </p>
                     </div>
-                    <div class="text-right flex-shrink-0">
-                        <p class="text-green-600 font-bold">✅ {{ data.paid_count }}</p>
-                        <p class="text-red-600 font-bold">❌ {{ data.unpaid_count }}</p>
+                    <div class="text-right flex-shrink-0 flex gap-4">
+                        <p class="text-green-600 font-bold text-lg">✅ {{ data.paid_count }}</p>
+                        <p class="text-red-600 font-bold text-lg">❌ {{ data.unpaid_count }}</p>
                     </div>
                 </button>
                 
@@ -148,6 +148,51 @@
                     detail.innerHTML = html;
                     loadedGroups[groupId] = true;
                 });
+        }
+        
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        function togglePayment(groupId, studentId, btn) {
+            const formData = new FormData();
+            formData.append('student_id', studentId);
+            formData.append('year', btn.dataset.year);
+            formData.append('month', btn.dataset.month);
+            
+            fetch(`/payments/group/${groupId}/toggle/`, {
+                method: 'POST',
+                headers: {'X-CSRFToken': getCookie('csrftoken')},
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.is_paid) {
+                        btn.classList.remove('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-200', 'hover:bg-gray-300', 'dark:hover:bg-gray-600');
+                        btn.classList.add('bg-green-500', 'text-white', 'hover:bg-green-600');
+                        btn.textContent = '✅ Оплачено — отменить';
+                    } else {
+                        btn.classList.add('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-200', 'hover:bg-gray-300', 'dark:hover:bg-gray-600');
+                        btn.classList.remove('bg-green-500', 'text-white', 'hover:bg-green-600');
+                        btn.textContent = 'Отметить оплату';
+                    }
+                } else {
+                    alert('Ошибка: ' + (data.error || 'неизвестно'));
+                }
+            })
+            .catch(err => alert('Ошибка сети: ' + err));
         }
         
         function googleTranslateElementInit() {

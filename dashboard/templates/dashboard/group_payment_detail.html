@@ -96,7 +96,9 @@
             {% for data in students_data %}
             <div class="px-5 py-3 flex justify-between items-center">
                 <p class="text-gray-800 dark:text-white notranslate">{{ data.student.name }}</p>
-                <button onclick="togglePayment({{ data.student.id }}, this)"
+                <button onclick="togglePayment({{ group.id }}, {{ data.student.id }}, this)"
+                        data-year="{{ year }}"
+                        data-month="{{ month }}"
                         class="px-4 py-2 rounded-lg text-sm font-medium transition
                         {% if data.is_paid %}
                             bg-green-500 text-white hover:bg-green-600
@@ -113,32 +115,3 @@
     </div>
     
 </div>
-
-<script>
-function togglePayment(studentId, btn) {
-    const formData = new FormData();
-    formData.append('student_id', studentId);
-    formData.append('year', '{{ year }}');
-    formData.append('month', '{{ month }}');
-    
-    fetch(`/payments/group/{{ group.id }}/toggle/`, {
-        method: 'POST',
-        headers: {'X-CSRFToken': '{{ csrf_token }}'},
-        body: formData
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            if (data.is_paid) {
-                btn.classList.remove('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-200', 'hover:bg-gray-300', 'dark:hover:bg-gray-600');
-                btn.classList.add('bg-green-500', 'text-white', 'hover:bg-green-600');
-                btn.textContent = '✅ Оплачено — отменить';
-            } else {
-                btn.classList.add('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-200', 'hover:bg-gray-300', 'dark:hover:bg-gray-600');
-                btn.classList.remove('bg-green-500', 'text-white', 'hover:bg-green-600');
-                btn.textContent = 'Отметить оплату';
-            }
-        }
-    });
-}
-</script>
