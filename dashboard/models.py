@@ -24,6 +24,7 @@ class Book(models.Model):
     """Книга для группы"""
     title = models.CharField(max_length=200, verbose_name="Название книги")
     photo = models.ImageField(upload_to='books/', blank=True, null=True, verbose_name="Фото обложки")
+    pdf_file = models.FileField(upload_to='books_pdf/', blank=True, null=True, verbose_name="PDF книги")
     created_at = models.DateTimeField(auto_now_add=True)
     quantity = models.IntegerField(default=0, verbose_name="Количество книг")
 

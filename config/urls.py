@@ -37,6 +37,7 @@ urlpatterns = [
     path('payments/', views.payments_page, name='payments_page'),
     path('payments/group/<int:group_id>/', views.group_payment_detail, name='group_payment_detail'),
     path('payments/group/<int:group_id>/toggle/', views.toggle_student_payment, name='toggle_student_payment'),
+    path('book/<int:book_id>/read/', views.book_reader, name='book_reader'),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
