@@ -1,0 +1,144 @@
+<div class="p-6">
+    
+    <!-- Календари -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        
+        <!-- Календарь 1 -->
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
+            <h4 class="font-bold text-center mb-3 text-gray-800 dark:text-white">
+                {{ calendar1.name }} {{ calendar1.year }}
+            </h4>
+            <div class="grid grid-cols-7 gap-1 text-xs text-center">
+                <div class="font-bold text-gray-500 py-1">Пн</div>
+                <div class="font-bold text-gray-500 py-1">Вт</div>
+                <div class="font-bold text-gray-500 py-1">Ср</div>
+                <div class="font-bold text-gray-500 py-1">Чт</div>
+                <div class="font-bold text-gray-500 py-1">Пт</div>
+                <div class="font-bold text-gray-500 py-1">Сб</div>
+                <div class="font-bold text-gray-500 py-1">Вс</div>
+                
+                {% for i in "1234567"|make_list %}
+                    {% if forloop.counter0 < calendar1.first_weekday %}
+                    <div></div>
+                    {% endif %}
+                {% endfor %}
+                
+                {% for day in calendar1.days %}
+                <div class="py-2 rounded text-sm
+                    {% if day.has_lesson and day.is_in_period %}
+                        bg-green-500 text-white font-bold
+                    {% elif day.is_in_period %}
+                        bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200
+                    {% else %}
+                        text-gray-300 dark:text-gray-600
+                    {% endif %}
+                    {% if day.is_today %}ring-2 ring-indigo-500{% endif %}">
+                    {{ day.day }}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Календарь 2 -->
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
+            <h4 class="font-bold text-center mb-3 text-gray-800 dark:text-white">
+                {{ calendar2.name }} {{ calendar2.year }}
+            </h4>
+            <div class="grid grid-cols-7 gap-1 text-xs text-center">
+                <div class="font-bold text-gray-500 py-1">Пн</div>
+                <div class="font-bold text-gray-500 py-1">Вт</div>
+                <div class="font-bold text-gray-500 py-1">Ср</div>
+                <div class="font-bold text-gray-500 py-1">Чт</div>
+                <div class="font-bold text-gray-500 py-1">Пт</div>
+                <div class="font-bold text-gray-500 py-1">Сб</div>
+                <div class="font-bold text-gray-500 py-1">Вс</div>
+                
+                {% for i in "1234567"|make_list %}
+                    {% if forloop.counter0 < calendar2.first_weekday %}
+                    <div></div>
+                    {% endif %}
+                {% endfor %}
+                
+                {% for day in calendar2.days %}
+                <div class="py-2 rounded text-sm
+                    {% if day.has_lesson and day.is_in_period %}
+                        bg-green-500 text-white font-bold
+                    {% elif day.is_in_period %}
+                        bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200
+                    {% else %}
+                        text-gray-300 dark:text-gray-600
+                    {% endif %}
+                    {% if day.is_today %}ring-2 ring-indigo-500{% endif %}">
+                    {{ day.day }}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+    </div>
+    
+    <!-- Кол-во уроков -->
+    <div class="text-center mb-6 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-4">
+        <p class="text-lg font-bold text-indigo-700 dark:text-indigo-300">
+            📚 Уроков в периоде: {{ lesson_count }}
+        </p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            {{ period_start|date:"d.m.Y" }} — {{ period_end|date:"d.m.Y" }}
+        </p>
+    </div>
+    
+    <!-- Ученики -->
+    <div class="bg-gray-50 dark:bg-gray-800 rounded-xl overflow-hidden">
+        <div class="px-5 py-3 border-b border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700/50">
+            <p class="font-bold text-gray-800 dark:text-white">👥 Ученики</p>
+        </div>
+        <div class="divide-y divide-gray-200 dark:divide-gray-700">
+            {% for data in students_data %}
+            <div class="px-5 py-3 flex justify-between items-center">
+                <p class="text-gray-800 dark:text-white notranslate">{{ data.student.name }}</p>
+                <button onclick="togglePayment({{ data.student.id }}, this)"
+                        class="px-4 py-2 rounded-lg text-sm font-medium transition
+                        {% if data.is_paid %}
+                            bg-green-500 text-white hover:bg-green-600
+                        {% else %}
+                            bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600
+                        {% endif %}">
+                    {% if data.is_paid %}✅ Оплачено — отменить{% else %}Отметить оплату{% endif %}
+                </button>
+            </div>
+            {% empty %}
+            <div class="px-5 py-8 text-center text-gray-400">Нет учеников</div>
+            {% endfor %}
+        </div>
+    </div>
+    
+</div>
+
+<script>
+function togglePayment(studentId, btn) {
+    const formData = new FormData();
+    formData.append('student_id', studentId);
+    formData.append('year', '{{ year }}');
+    formData.append('month', '{{ month }}');
+    
+    fetch(`/payments/group/{{ group.id }}/toggle/`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token }}'},
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            if (data.is_paid) {
+                btn.classList.remove('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-200', 'hover:bg-gray-300', 'dark:hover:bg-gray-600');
+                btn.classList.add('bg-green-500', 'text-white', 'hover:bg-green-600');
+                btn.textContent = '✅ Оплачено — отменить';
+            } else {
+                btn.classList.add('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-200', 'hover:bg-gray-300', 'dark:hover:bg-gray-600');
+                btn.classList.remove('bg-green-500', 'text-white', 'hover:bg-green-600');
+                btn.textContent = 'Отметить оплату';
+            }
+        }
+    });
+}
+</script>

@@ -1,0 +1,163 @@
+{% load custom_filters %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оплаты — Enjoy English</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .goog-te-banner-frame { display: none !important; }
+        body { top: 0 !important; }
+        .skiptranslate { display: none !important; }
+        #google_translate_element { display: none !important; }
+        .goog-logo-link { display: none !important; }
+        .goog-te-gadget { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+    
+    <div class="fixed bottom-4 right-4 z-50 flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-1 border border-gray-200 dark:border-gray-700">
+        <button onclick="changeLang('ru')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇷🇺 RU</button>
+        <button onclick="changeLang('en')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇬🇧 EN</button>
+    </div>
+    <div id="google_translate_element" style="display:none !important;"></div>
+    
+    <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <a href="{% url 'dashboard' %}" class="text-gray-300 hover:text-white">
+                    <i class="fas fa-arrow-left"></i> Назад
+                </a>
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-money-bill text-2xl text-emerald-400"></i>
+                    <h1 class="text-xl font-bold text-white">Оплаты</h1>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 md:gap-4">
+                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
+                    <i class="fas fa-moon dark:hidden text-gray-300"></i>
+                    <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
+                </button>
+                <a href="{% url 'logout' %}" class="text-red-400 text-sm">
+                    <i class="fas fa-sign-out-alt"></i> Выйти
+                </a>
+            </div>
+        </div>
+    </header>
+    
+    <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
+        
+        <!-- Панель месяцев -->
+        <div class="flex overflow-x-auto gap-2 pb-4 mb-4">
+            {% for m in months_list %}
+            <a href="?year={{ m.year }}&month={{ m.month }}"
+               class="px-4 py-2 rounded-lg whitespace-nowrap transition font-medium text-sm
+                      {% if m.is_selected %}
+                          bg-indigo-500 text-white shadow-lg scale-105
+                      {% elif m.is_current %}
+                          bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300
+                      {% else %}
+                          bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600
+                      {% endif %}">
+                {{ m.name }}
+                {% if m.is_current %}<span class="text-xs">•</span>{% endif %}
+            </a>
+            {% endfor %}
+        </div>
+        
+        <!-- Инфо о периоде -->
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 mb-6 border border-gray-300 dark:border-gray-600">
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-white">{{ month_name }} {{ year }}</h2>
+            <p class="text-gray-500 dark:text-gray-400 mt-1">
+                Период оплаты: {{ period_start|date:"d.m.Y" }} — {{ period_end|date:"d.m.Y" }}
+            </p>
+        </div>
+        
+        <!-- Список групп -->
+        <div class="space-y-4">
+            {% for data in groups_data %}
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden">
+                <button onclick="toggleGroup({{ data.group.id }})"
+                        class="w-full p-5 flex justify-between items-center text-left hover:bg-gray-100 dark:hover:bg-gray-700/50 transition">
+                    <div>
+                        <h3 class="font-bold text-lg text-gray-800 dark:text-white">
+                            <span class="notranslate">{{ data.group.name }}</span>
+                        </h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            👨‍🏫 <span class="notranslate">{{ data.group.teacher.username }}</span>
+                        </p>
+                    </div>
+                    <div class="text-right flex-shrink-0">
+                        <p class="text-green-600 font-bold">✅ {{ data.paid_count }}</p>
+                        <p class="text-red-600 font-bold">❌ {{ data.unpaid_count }}</p>
+                    </div>
+                </button>
+                
+                <div id="group-detail-{{ data.group.id }}" class="hidden border-t border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900"></div>
+            </div>
+            {% empty %}
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-12 text-center text-gray-400">
+                <i class="fas fa-inbox text-5xl mb-3"></i>
+                <p>Нет групп</p>
+            </div>
+            {% endfor %}
+        </div>
+        
+    </main>
+    
+    <script>
+        const loadedGroups = {};
+        
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+        }
+        
+        function changeLang(lang) {
+            document.cookie = `googtrans=/ru/${lang}; path=/`;
+            document.cookie = `googtrans=/ru/${lang}; domain=.${location.hostname}; path=/`;
+            location.reload();
+        }
+        
+        function toggleGroup(groupId) {
+            const detail = document.getElementById(`group-detail-${groupId}`);
+            
+            if (!detail.classList.contains('hidden')) {
+                detail.classList.add('hidden');
+                return;
+            }
+            
+            detail.classList.remove('hidden');
+            
+            if (loadedGroups[groupId]) return;
+            
+            detail.innerHTML = '<div class="text-center py-8 text-gray-400">Загрузка...</div>';
+            
+            fetch(`/payments/group/${groupId}/?year={{ year }}&month={{ month }}`)
+                .then(r => r.text())
+                .then(html => {
+                    detail.innerHTML = html;
+                    loadedGroups[groupId] = true;
+                });
+        }
+        
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'ru',
+                includedLanguages: 'ru,en',
+                autoDisplay: false
+            }, 'google_translate_element');
+        }
+    </script>
+    <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+</body>
+</html>
