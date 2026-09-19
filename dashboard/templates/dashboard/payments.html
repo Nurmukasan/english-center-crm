@@ -60,7 +60,7 @@
         <!-- Панель месяцев -->
         <div class="flex overflow-x-auto gap-2 pb-4 mb-4">
             {% for m in months_list %}
-            <a href="?year={{ m.year }}&month={{ m.month }}"
+            <a href="?year={{ m.year }}&month={{ m.month }}{% if search_query %}&search={{ search_query }}{% endif %}"
                class="px-4 py-2 rounded-lg whitespace-nowrap transition font-medium text-sm
                       {% if m.is_selected %}
                           bg-indigo-500 text-white shadow-lg scale-105
@@ -73,6 +73,25 @@
                 {% if m.is_current %}<span class="text-xs">•</span>{% endif %}
             </a>
             {% endfor %}
+        </div>
+        
+        <!-- Поиск -->
+        <div class="mb-4">
+            <form method="GET" class="flex gap-3">
+                <input type="hidden" name="year" value="{{ year }}">
+                <input type="hidden" name="month" value="{{ month }}">
+                <input type="text" name="search" value="{{ search_query }}"
+                       class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                       placeholder="🔍 Поиск группы...">
+                <button type="submit" class="bg-indigo-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-600 transition">
+                    Найти
+                </button>
+                {% if search_query %}
+                <a href="?year={{ year }}&month={{ month }}" class="bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-6 py-3 rounded-lg font-medium hover:bg-gray-400 dark:hover:bg-gray-600 transition">
+                    Сброс
+                </a>
+                {% endif %}
+            </form>
         </div>
         
         <!-- Инфо о периоде -->
@@ -108,7 +127,7 @@
             {% empty %}
             <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-12 text-center text-gray-400">
                 <i class="fas fa-inbox text-5xl mb-3"></i>
-                <p>Нет групп</p>
+                <p>{% if search_query %}Ничего не найдено{% else %}Нет групп{% endif %}</p>
             </div>
             {% endfor %}
         </div>
