@@ -15,7 +15,7 @@ urlpatterns = [
     path('group/<int:group_id>/payment/', views.toggle_payment, name='toggle_payment'),
     path('students/', views.students_list, name='students_list'),
     path('students/add/', views.add_student, name='add_student'),
-    path('payments/', views.payments_list, name='payments_list'),
+    path('payments-list/', views.payments_list, name='payments_list'),
     path('group/<int:group_id>/history/', views.lesson_history, name='lesson_history'),
     path('schedule/', views.weekly_schedule, name='weekly_schedule'),
     path('export/', views.export_excel, name='export_excel'),
@@ -34,6 +34,9 @@ urlpatterns = [
     path('enrollment/toggle-book/', views.toggle_book_status, name='toggle_book_status_bulk'),
     path('student/<int:student_id>/edit/', views.edit_student, name='edit_student'),
     path('group/<int:group_id>/edit/', views.edit_group, name='edit_group'),
+    path('payments/', views.payments_page, name='payments_page'),
+    path('payments/group/<int:group_id>/', views.group_payment_detail, name='group_payment_detail'),
+    path('payments/group/<int:group_id>/toggle/', views.toggle_student_payment, name='toggle_student_payment'),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
