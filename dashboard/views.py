@@ -1504,8 +1504,14 @@ def payments_page(request):
     
     cycle_num = year * 100 + month
     
+    # Поиск
+    search_query = request.GET.get('search', '')
+    
     groups_data = []
     groups = Group.objects.filter(is_active=True).select_related('teacher').order_by('name')
+    
+    if search_query:
+        groups = groups.filter(name__iregex=search_query)
     
     for group in groups:
         students_count = Enrollment.objects.filter(group=group).count()
@@ -1532,6 +1538,7 @@ def payments_page(request):
         'period_end': period_end,
         'months_list': months_list,
         'groups_data': groups_data,
+        'search_query': search_query,
     }
     
     return render(request, 'dashboard/payments.html', context)
