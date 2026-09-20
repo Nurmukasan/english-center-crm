@@ -1,21 +1,15 @@
 from django.contrib.auth.models import User
+from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from django.http import JsonResponse
-from django.db.models import Q
-from datetime import datetime, timedelta, date
-from calendar import monthrange
+from datetime import datetime, timedelta
 from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book, ScheduleSlot
 from users.models import Profile
 from decimal import Decimal
-
-
-# ========== КОНСТАНТЫ ==========
-MONTHS_RU = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-             'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
 
 
 def login_view(request):
@@ -51,70 +45,24 @@ def get_user_role(user):
         return 'admin'
 
 
-# ========== ПЕРИОДЫ ОПЛАТ ==========
-def get_period(year, month):
-    """Период: с 11 числа этого месяца по 10 число следующего (вкл)"""
-    start = date(year, month, 11)
-    if month == 12:
-        end = date(year + 1, 1, 10)
-    else:
-        end = date(year, month + 1, 10)
-    return start, end
-
-
-def get_current_period():
-    """Текущий период по дате"""
-    today = timezone.localdate()
-    if today.day > 10:
-        return today.year, today.month
-    else:
-        if today.month == 1:
-            return today.year - 1, 12
-        return today.year, today.month - 1
-
-
-def make_calendar(year, month, period_start, period_end, lesson_dates_set):
-    """Структура для календаря"""
-    days_in_month = monthrange(year, month)[1]
-    first_weekday = date(year, month, 1).weekday()  # 0=Пн
-    
-    days = []
-    for d in range(1, days_in_month + 1):
-        current = date(year, month, d)
-        days.append({
-            'day': d,
-            'is_in_period': period_start <= current <= period_end,
-            'has_lesson': current in lesson_dates_set,
-            'is_today': current == timezone.localdate(),
-        })
-    
-    return {
-        'name': MONTHS_RU[month - 1],
-        'year': year,
-        'month': month,
-        'first_weekday': first_weekday,
-        'days': days,
-    }
-
-
-# ========== ГЛАВНЫЙ ДАШБОРД ==========
 @login_required
 def dashboard(request):
     """Главный дашборд"""
     role = get_user_role(request.user)
     
+    
     search_query = request.GET.get('search', '')
     
+    from django.db.models import Q
+
     if role == 'teacher':
         groups = Group.objects.filter(
             Q(teacher=request.user) | Q(teachers=request.user),
             is_active=True
         ).distinct()
-        
         total_students = Enrollment.objects.filter(
             Q(group__teacher=request.user) | Q(group__teachers=request.user)
         ).distinct().count()
-        
         today = timezone.localdate()
         today_lessons = Lesson.objects.filter(
             Q(group__teacher=request.user) | Q(group__teachers=request.user),
@@ -155,11 +103,13 @@ def dashboard(request):
         top_debtors.sort(key=lambda x: x['debt'], reverse=True)
         top_debtors = top_debtors[:5]
         
+        # Статистика оплат (текущие циклы)
         today = timezone.localdate()
         current_payments = Payment.objects.filter(start_date__lte=today, end_date__gte=today)
         paid_count = current_payments.filter(is_paid=True).count()
         unpaid_count = current_payments.filter(is_paid=False).count()
         
+        # Данные для графика (оплаты по циклам)
         payment_stats = []
         for cycle in range(1, 13):
             count = Payment.objects.filter(cycle_number=cycle, is_paid=True).count()
@@ -186,7 +136,6 @@ def dashboard(request):
     return render(request, 'dashboard/dashboard.html', context)
 
 
-# ========== СТРАНИЦА ГРУППЫ ==========
 @login_required
 def group_detail(request, group_id):
     """Страница группы: ученики, посещаемость, оплаты"""
@@ -196,13 +145,14 @@ def group_detail(request, group_id):
     if role == 'teacher':
         is_main = group.teacher == request.user
         is_additional = group.teachers.filter(id=request.user.id).exists()
-        if not (is_main or is_additional):
-            messages.error(request, 'У вас нет доступа к этой группе')
-            return redirect('dashboard')
+    if not (is_main or is_additional):
+        messages.error(request, 'У вас нет доступа к этой группе')
+        return redirect('dashboard')
     
     enrollments = Enrollment.objects.filter(group=group).select_related('student')
     students = [enrollment.student for enrollment in enrollments]
     
+    # Получаем или создаём урок на сегодня (только если сегодня день занятий)
     today = timezone.localdate()
     
     day_keywords = {
@@ -237,11 +187,13 @@ def group_detail(request, group_id):
     else:
         lesson = None
     
+    # Получаем посещаемость (только если урок есть)
     attendance_dict = {}
     if lesson:
         attendances = Attendance.objects.filter(lesson=lesson)
         attendance_dict = {att.student_id: att.status for att in attendances}
     
+    # Получаем оплаты за текущий цикл
     payments = Payment.objects.filter(
         group=group,
         start_date__lte=today,
@@ -281,7 +233,7 @@ def mark_attendance(request, group_id):
         group = get_object_or_404(Group, id=group_id)
         role = get_user_role(request.user)
         
-        if role not in ['admin', 'teacher', 'developer']:
+        if role not in ['admin','teacher', 'developer']:
             return JsonResponse({'success': False, 'error': 'Нет доступа'})
         
         if role == 'teacher':
@@ -358,7 +310,6 @@ def toggle_payment(request, group_id):
     return JsonResponse({'success': False})
 
 
-# ========== УЧЕНИКИ ==========
 @login_required
 def students_list(request):
     """Список всех учеников"""
@@ -370,9 +321,9 @@ def students_list(request):
     
     if role == 'teacher':
         students = Student.objects.filter(
-            Q(enrollments__group__teacher=request.user) |
-            Q(enrollments__group__teachers=request.user)
-        ).distinct()
+        Q(enrollments__group__teacher=request.user) |
+        Q(enrollments__group__teachers=request.user)
+    ).distinct()
     else:
         students = Student.objects.all()
 
@@ -441,271 +392,23 @@ def add_student(request):
 
 
 @login_required
-def edit_student(request, student_id):
-    """Редактирование ученика"""
+def payments_list(request):
+    """Все оплаты"""
     role = get_user_role(request.user)
     
-    if role not in ['admin', 'developer']:
-        messages.error(request, 'У вас нет доступа')
-        return redirect('students_list')
+    payments = Payment.objects.select_related('student', 'group').order_by('-cycle_number')
     
-    student = get_object_or_404(Student, id=student_id)
-    
-    if request.method == 'POST':
-        student.name = request.POST.get('name', student.name)
-        student.phone = request.POST.get('phone', '')
-        student.parent_name = request.POST.get('parent_name', '')
-        student.parent_phone = request.POST.get('parent_phone', '')
-        student.school = request.POST.get('school', '')
-        student.grade = request.POST.get('grade', '')
-        student.age = request.POST.get('age') or None
-        student.save()
-        
-        group_ids = request.POST.getlist('groups')
-        Enrollment.objects.filter(student=student).delete()
-        for group_id in group_ids:
-            group = Group.objects.get(id=group_id)
-            Enrollment.objects.create(student=student, group=group)
-        
-        messages.success(request, f'Ученик {student.name} обновлён!')
-        return_url = request.POST.get('return_url', '')
-        if return_url:
-            return redirect(return_url)
-        return redirect('students_list')
-    
-    groups = Group.objects.filter(is_active=True)
-    student_groups = Enrollment.objects.filter(student=student).values_list('group_id', flat=True)
+    if role == 'teacher':
+        payments = payments.filter(group__teacher=request.user)
     
     context = {
-        'student': student,
-        'groups': groups,
-        'student_groups': student_groups,
+        'payments': payments,
+        'role': role,
     }
     
-    return render(request, 'dashboard/edit_student.html', context)
+    return render(request, 'dashboard/payments_list.html', context)
 
 
-@login_required
-def delete_student(request, student_id):
-    """Удалить ученика из базы"""
-    role = get_user_role(request.user)
-    
-    if role not in ['admin', 'developer']:
-        messages.error(request, 'У вас нет доступа')
-        return redirect('dashboard')
-    
-    student = get_object_or_404(Student, id=student_id)
-    name = student.name
-    student.delete()
-    messages.success(request, f'Ученик {name} удалён из базы')
-    
-    return redirect('students_list')
-
-
-@login_required
-def add_existing_student_to_group(request, student_id):
-    """Добавить существующего ученика в группу"""
-    role = get_user_role(request.user)
-    
-    if role not in ['admin', 'developer']:
-        messages.error(request, 'У вас нет доступа')
-        return redirect('dashboard')
-    
-    student = get_object_or_404(Student, id=student_id)
-    
-    if request.method == 'POST':
-        group_ids = request.POST.getlist('groups')
-        
-        for group_id in group_ids:
-            group = Group.objects.get(id=group_id)
-            Enrollment.objects.get_or_create(student=student, group=group)
-        
-        messages.success(request, f'{student.name} добавлен в выбранные группы')
-        return redirect('students_list')
-    
-    groups = Group.objects.filter(is_active=True)
-    current_groups = Enrollment.objects.filter(student=student).values_list('group_id', flat=True)
-    available_groups = groups.exclude(id__in=current_groups)
-    
-    context = {
-        'student': student,
-        'available_groups': available_groups,
-    }
-    
-    return render(request, 'dashboard/add_to_group.html', context)
-
-
-@login_required
-def remove_student_from_group(request, student_id, group_id):
-    """Удалить ученика из группы"""
-    role = get_user_role(request.user)
-    
-    if role not in ['admin', 'developer']:
-        messages.error(request, 'У вас нет доступа')
-        return redirect('dashboard')
-    
-    student = get_object_or_404(Student, id=student_id)
-    group = get_object_or_404(Group, id=group_id)
-    
-    Enrollment.objects.filter(student=student, group=group).delete()
-    messages.success(request, f'{student.name} удалён из группы {group.name}')
-    
-    return redirect('group_detail', group_id=group.id)
-
-
-# ========== ГРУППЫ ==========
-@login_required
-def add_group(request):
-    """Создание группы"""
-    role = get_user_role(request.user)
-    
-    if role not in ['admin', 'developer']:
-        messages.error(request, 'У вас нет доступа')
-        return redirect('dashboard')
-    
-    if request.method == 'POST':
-        name = request.POST.get('name')
-        group_type = request.POST.get('group_type', 'group')
-        teacher_id = request.POST.get('teacher')
-        price = request.POST.get('price', '0')
-        
-        if name and teacher_id:
-            group = Group.objects.create(
-                name=name,
-                group_type=group_type,
-                teacher_id=teacher_id,
-                price=price,
-                is_active=True,
-            )
-            
-            import re
-            for i in range(7):
-                if request.POST.get(f'day_{i}') == '1':
-                    start = request.POST.get(f'start_{i}', '').strip()
-                    end = request.POST.get(f'end_{i}', '').strip()
-                    
-                    if re.match(r'^\d{1,2}:\d{2}$', start) and re.match(r'^\d{1,2}:\d{2}$', end):
-                        try:
-                            ScheduleSlot.objects.create(
-                                group=group,
-                                day_of_week=i,
-                                start_time=start,
-                                end_time=end,
-                            )
-                        except Exception as e:
-                            messages.error(request, f'Ошибка в дне {i}: {e}')
-            
-            slots = group.schedule_slots.all().order_by('day_of_week')
-            days_names = {0: 'Пн', 1: 'Вт', 2: 'Ср', 3: 'Чт', 4: 'Пт', 5: 'Сб', 6: 'Вс'}
-            schedule_parts = []
-            for slot in slots:
-                schedule_parts.append(f"{days_names[slot.day_of_week]} {slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}")
-            group.schedule = ', '.join(schedule_parts)
-            group.save()
-            
-            additional_teacher_ids = request.POST.getlist('additional_teachers', [])
-            additional_teacher_ids = [tid for tid in additional_teacher_ids if int(tid) != int(teacher_id)]
-            if additional_teacher_ids:
-                group.teachers.set(additional_teacher_ids)
-            messages.success(request, f'Группа "{name}" создана!')
-            return redirect('dashboard')
-        else:
-            messages.error(request, 'Заполните название и выберите учителя')
-    
-    teachers = User.objects.filter(profile__role='teacher')
-    
-    context = {
-        'teachers': teachers,
-    }
-    
-    return render(request, 'dashboard/add_group.html', context)
-
-
-@login_required
-def edit_group(request, group_id):
-    """Редактирование группы"""
-    role = get_user_role(request.user)
-    
-    if role not in ['admin', 'developer']:
-        messages.error(request, 'У вас нет доступа')
-        return redirect('dashboard')
-    
-    group = get_object_or_404(Group, id=group_id)
-    
-    if request.method == 'POST':
-        group.name = request.POST.get('name', group.name)
-        group.group_type = request.POST.get('group_type', group.group_type)
-        group.teacher_id = request.POST.get('teacher', group.teacher_id)
-        additional_teacher_ids = request.POST.getlist('additional_teachers', [])
-        additional_teacher_ids = [tid for tid in additional_teacher_ids if int(tid) != group.teacher_id]
-        group.teachers.set(additional_teacher_ids)
-        group.price = request.POST.get('price', group.price)
-        group.is_active = True
-        group.save()
-        
-        group.schedule_slots.all().delete()
-        
-        import re
-        for i in range(7):
-            if request.POST.get(f'day_{i}') == '1':
-                start = request.POST.get(f'start_{i}', '').strip()
-                end = request.POST.get(f'end_{i}', '').strip()
-                
-                if re.match(r'^\d{1,2}:\d{2}$', start) and re.match(r'^\d{1,2}:\d{2}$', end):
-                    try:
-                        ScheduleSlot.objects.create(
-                            group=group,
-                            day_of_week=i,
-                            start_time=start,
-                            end_time=end,
-                        )
-                    except Exception as e:
-                        messages.error(request, f'Ошибка в дне {i}: {e}')
-        
-        slots = group.schedule_slots.all().order_by('day_of_week')
-        days_names = {0: 'Пн', 1: 'Вт', 2: 'Ср', 3: 'Чт', 4: 'Пт', 5: 'Сб', 6: 'Вс'}
-        schedule_parts = []
-        for slot in slots:
-            schedule_parts.append(f"{days_names[slot.day_of_week]} {slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}")
-        group.schedule = ', '.join(schedule_parts)
-        group.save()
-        
-        messages.success(request, f'Группа "{group.name}" обновлена!')
-        return_url = request.POST.get('return_url', '')
-        if return_url:
-            return redirect(return_url)
-        return redirect('dashboard')
-    
-    teachers = User.objects.filter(profile__role='teacher')
-    schedule_slots = {str(s.day_of_week): s for s in group.schedule_slots.all()}
-    
-    context = {
-        'group': group,
-        'teachers': teachers,
-        'schedule_slots': schedule_slots,
-    }
-    
-    return render(request, 'dashboard/edit_group.html', context)
-
-
-@login_required
-def delete_group(request, group_id):
-    """Удалить группу"""
-    role = get_user_role(request.user)
-    
-    if role not in ['admin', 'developer']:
-        messages.error(request, 'У вас нет доступа')
-        return redirect('dashboard')
-    
-    group = get_object_or_404(Group, id=group_id)
-    name = group.name
-    group.delete()
-    messages.success(request, f'Группа "{name}" удалена')
-    
-    return redirect('dashboard')
-
-
-# ========== ИСТОРИЯ И РАСПИСАНИЕ ==========
 @login_required
 def lesson_history(request, group_id):
     """История уроков группы"""
@@ -715,9 +418,9 @@ def lesson_history(request, group_id):
     if role == 'teacher':
         is_main = group.teacher == request.user
         is_additional = group.teachers.filter(id=request.user.id).exists()
-        if not (is_main or is_additional):
-            messages.error(request, 'У вас нет доступа')
-            return redirect('dashboard')
+    if not (is_main or is_additional):
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
     
     lessons = Lesson.objects.filter(group=group).order_by('-date')
     
@@ -763,9 +466,9 @@ def weekly_schedule(request):
     
     if role == 'teacher':
         groups = Group.objects.filter(
-            Q(teacher=request.user) | Q(teachers=request.user),
-            is_active=True
-        ).distinct()
+        Q(teacher=request.user) | Q(teachers=request.user),
+        is_active=True
+    ).distinct()
     else:
         groups = Group.objects.filter(is_active=True)
     
@@ -787,6 +490,7 @@ def weekly_schedule(request):
         day['date'] = day_date.strftime('%d.%m')
         day['is_today'] = (day_date == today)
     
+    # Слоты времени (каждые 30 минут)
     time_slots = []
     for hour in range(6, 23):
         for minute in [0, 30]:
@@ -796,6 +500,7 @@ def weekly_schedule(request):
                 'label': f'{hour}:{minute:02d}',
             })
     
+    # Собираем данные из ScheduleSlot
     schedule_data = []
     for group in groups:
         for slot in group.schedule_slots.all():
@@ -804,6 +509,7 @@ def weekly_schedule(request):
             end_hour = slot.end_time.hour
             end_minute = slot.end_time.minute
             
+            # Округляем до 30 минут
             start_minute = 0 if start_minute < 30 else 30
             end_minute = 0 if end_minute < 30 else 30
             
@@ -822,6 +528,7 @@ def weekly_schedule(request):
                 'duration_slots': duration_slots,
             })
     
+    # Цвета для групп
     pastel_colors = [
         {'bg': 'bg-blue-100', 'border': 'border-blue-300', 'text': 'text-blue-800'},
         {'bg': 'bg-green-100', 'border': 'border-green-300', 'text': 'text-green-800'},
@@ -854,9 +561,6 @@ def weekly_schedule(request):
     }
     
     return render(request, 'dashboard/weekly_schedule.html', context)
-
-
-# ========== ПРОФИЛЬ ==========
 @login_required
 def profile(request):
     """Личный кабинет пользователя"""
@@ -913,7 +617,6 @@ def profile(request):
     return render(request, 'dashboard/profile.html', context)
 
 
-# ========== ЭКСПОРТ ==========
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from django.http import HttpResponse
@@ -1123,206 +826,10 @@ def export_excel(request):
     return response
 
 
-# ========== СТРАНИЦА ОПЛАТ (НОВАЯ) ==========
 @login_required
 def payment_management(request):
     """Редирект на новую страницу оплат"""
     return redirect('payments_page')
-
-
-@login_required
-def payments_page(request):
-    """Страница оплат по месяцам"""
-    role = get_user_role(request.user)
-    
-    if role not in ['admin', 'accountant', 'developer']:
-        messages.error(request, 'У вас нет доступа')
-        return redirect('dashboard')
-    
-    today = timezone.localdate()
-    default_year, default_month = get_current_period()
-    
-    year = int(request.GET.get('year', default_year))
-    month = int(request.GET.get('month', default_month))
-    
-    if not (1 <= month <= 12):
-        year, month = default_year, default_month
-    
-    period_start, period_end = get_period(year, month)
-    
-    months_list = []
-    for i in range(-6, 7):
-        m = today.month + i
-        y = today.year
-        while m < 1:
-            m += 12
-            y -= 1
-        while m > 12:
-            m -= 12
-            y += 1
-        
-        months_list.append({
-            'year': y,
-            'month': m,
-            'name': MONTHS_RU[m - 1],
-            'is_current': (y == default_year and m == default_month),
-            'is_selected': (y == year and m == month),
-        })
-    
-    cycle_num = year * 100 + month
-    
-    search_query = request.GET.get('search', '')
-    
-    groups_data = []
-    groups = Group.objects.filter(is_active=True).select_related('teacher').order_by('name')
-    
-    if search_query:
-        groups = groups.filter(name__iregex=search_query)
-    
-    for group in groups:
-        students_count = Enrollment.objects.filter(group=group).count()
-        paid_count = Payment.objects.filter(
-            group=group,
-            cycle_number=cycle_num,
-            is_paid=True
-        ).count()
-        unpaid_count = students_count - paid_count
-        
-        groups_data.append({
-            'group': group,
-            'total_students': students_count,
-            'paid_count': paid_count,
-            'unpaid_count': unpaid_count,
-        })
-    
-    context = {
-        'role': role,
-        'year': year,
-        'month': month,
-        'month_name': MONTHS_RU[month - 1],
-        'period_start': period_start,
-        'period_end': period_end,
-        'months_list': months_list,
-        'groups_data': groups_data,
-        'search_query': search_query,
-    }
-    
-    return render(request, 'dashboard/payments.html', context)
-
-
-@login_required
-def group_payment_detail(request, group_id):
-    """AJAX: детали оплаты группы"""
-    role = get_user_role(request.user)
-    
-    if role not in ['admin', 'accountant', 'developer']:
-        return JsonResponse({'error': 'Нет доступа'}, status=403)
-    
-    group = get_object_or_404(Group, id=group_id)
-    
-    year = int(request.GET.get('year'))
-    month = int(request.GET.get('month'))
-    
-    period_start, period_end = get_period(year, month)
-    
-    lesson_dates_set = set()
-    schedule_slots = list(group.schedule_slots.all())
-    lesson_day_of_weeks = set(s.day_of_week for s in schedule_slots)
-    
-    current = period_start
-    while current <= period_end:
-        if current.weekday() in lesson_day_of_weeks:
-            lesson_dates_set.add(current)
-        current += timedelta(days=1)
-    
-    cal1 = make_calendar(year, month, period_start, period_end, lesson_dates_set)
-    
-    if month == 12:
-        y2, m2 = year + 1, 1
-    else:
-        y2, m2 = year, month + 1
-    cal2 = make_calendar(y2, m2, period_start, period_end, lesson_dates_set)
-    
-    cycle_num = year * 100 + month
-    enrollments = Enrollment.objects.filter(group=group).select_related('student').order_by('student__name')
-    
-    students_data = []
-    for enrollment in enrollments:
-        student = enrollment.student
-        payment = Payment.objects.filter(
-            student=student,
-            group=group,
-            cycle_number=cycle_num
-        ).first()
-        
-        students_data.append({
-            'student': student,
-            'is_paid': payment.is_paid if payment else False,
-        })
-    
-    context = {
-        'group': group,
-        'year': year,
-        'month': month,
-        'month_name': MONTHS_RU[month - 1],
-        'period_start': period_start,
-        'period_end': period_end,
-        'calendar1': cal1,
-        'calendar2': cal2,
-        'lesson_count': len(lesson_dates_set),
-        'students_data': students_data,
-    }
-    
-    return render(request, 'dashboard/group_payment_detail.html', context)
-
-
-@login_required
-def toggle_student_payment(request, group_id):
-    """AJAX: отметить/отменить оплату"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False})
-    
-    role = get_user_role(request.user)
-    if role not in ['admin', 'accountant', 'developer']:
-        return JsonResponse({'success': False, 'error': 'Нет доступа'})
-    
-    group = get_object_or_404(Group, id=group_id)
-    
-    student_id = request.POST.get('student_id')
-    year = int(request.POST.get('year'))
-    month = int(request.POST.get('month'))
-    cycle_num = year * 100 + month
-    
-    period_start, period_end = get_period(year, month)
-    
-    payment, created = Payment.objects.get_or_create(
-        student_id=student_id,
-        group=group,
-        cycle_number=cycle_num,
-        defaults={
-            'start_date': period_start,
-            'end_date': period_end,
-            'amount': group.price,
-            'is_paid': True,
-            'paid_amount': group.price,
-            'paid_at': timezone.now(),
-            'marked_by': request.user,
-        }
-    )
-    
-    if not created:
-        payment.is_paid = not payment.is_paid
-        if payment.is_paid:
-            payment.paid_amount = payment.amount
-            payment.paid_at = timezone.now()
-            payment.marked_by = request.user
-        else:
-            payment.paid_amount = 0
-            payment.paid_at = None
-            payment.marked_by = None
-        payment.save()
-    
-    return JsonResponse({'success': True, 'is_paid': payment.is_paid})
 
 
 @login_required
@@ -1337,12 +844,14 @@ def toggle_payment_management(request, payment_id):
         payment = get_object_or_404(Payment, id=payment_id)
         
         if payment.is_paid:
+            # Отменяем оплату
             payment.is_paid = False
             payment.is_partial = False
             payment.paid_amount = 0
             payment.paid_at = None
             payment.marked_by = None
         else:
+            # Полная оплата
             payment.is_paid = True
             payment.is_partial = False
             payment.paid_amount = payment.amount
@@ -1368,6 +877,7 @@ def partial_payment(request, payment_id):
         amount = float(request.POST.get('amount', 0))
         
         if amount > 0:
+            from decimal import Decimal
             payment.paid_amount = Decimal(str(payment.paid_amount)) + Decimal(str(amount))
             payment.is_partial = True
             payment.marked_by = request.user
@@ -1383,8 +893,6 @@ def partial_payment(request, payment_id):
     
     return JsonResponse({'success': False})
 
-
-# ========== БУХГАЛТЕР ==========
 @login_required
 def accountant_stats(request):
     """Статистика для бухгалтера"""
@@ -1396,16 +904,20 @@ def accountant_stats(request):
     
     today = timezone.localdate()
     
+    # Период
     period = request.GET.get('period', 'month')
     group_filter = request.GET.get('group', 'all')
     
+    # Все платежи с положительной суммой (включая частичные)
     payments = Payment.objects.filter(paid_amount__gt=0)
     
     if group_filter != 'all':
         payments = payments.filter(group_id=group_filter)
     
+    # Общий заработок (все оплаты)
     total_income = sum([float(p.paid_amount) for p in payments])
     
+    # По группам
     groups_stats = []
     all_groups = Group.objects.all()
     for group in all_groups:
@@ -1420,6 +932,7 @@ def accountant_stats(request):
     
     groups_stats.sort(key=lambda x: x['income'], reverse=True)
     
+    # График по месяцам за всё время
     monthly_income = []
     for i in range(11, -1, -1):
         month_date = today.replace(day=1) - timedelta(days=i*30)
@@ -1430,6 +943,7 @@ def accountant_stats(request):
             next_month = month_start.replace(month=month_start.month + 1, day=1)
             month_end = next_month - timedelta(days=1)
         
+        # Оплаты с датой оплаты в этом месяце
         paid_with_date = Payment.objects.filter(
             paid_amount__gt=0,
             paid_at__isnull=False,
@@ -1437,6 +951,7 @@ def accountant_stats(request):
             paid_at__date__lte=month_end
         )
         
+        # Частичные оплаты без даты — по дате конца периода
         partial_without_date = Payment.objects.filter(
             paid_amount__gt=0,
             paid_at__isnull=True,
@@ -1544,7 +1059,159 @@ def export_income_excel(request):
     return response
 
 
-# ========== КНИГИ ==========
+@login_required
+def add_group(request):
+    """Создание группы"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        group_type = request.POST.get('group_type', 'group')
+        teacher_id = request.POST.get('teacher')
+        price = request.POST.get('price', '0')
+        
+        if name and teacher_id:
+            group = Group.objects.create(
+                name=name,
+                group_type=group_type,
+                teacher_id=teacher_id,
+                price=price,
+                is_active=True,
+            )
+            
+            # Создаём расписание
+            import re
+            for i in range(7):
+                if request.POST.get(f'day_{i}') == '1':
+                    start = request.POST.get(f'start_{i}', '').strip()
+                    end = request.POST.get(f'end_{i}', '').strip()
+                    
+                    if re.match(r'^\d{1,2}:\d{2}$', start) and re.match(r'^\d{1,2}:\d{2}$', end):
+                        try:
+                            ScheduleSlot.objects.create(
+                                group=group,
+                                day_of_week=i,
+                                start_time=start,
+                                end_time=end,
+                            )
+                        except Exception as e:
+                            messages.error(request, f'Ошибка в дне {i}: {e}')
+            # Обновляем текстовое поле schedule
+            slots = group.schedule_slots.all().order_by('day_of_week')
+            days_names = {0: 'Пн', 1: 'Вт', 2: 'Ср', 3: 'Чт', 4: 'Пт', 5: 'Сб', 6: 'Вс'}
+            schedule_parts = []
+            for slot in slots:
+                schedule_parts.append(f"{days_names[slot.day_of_week]} {slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}")
+            group.schedule = ', '.join(schedule_parts)
+            group.save()
+            
+            additional_teacher_ids = request.POST.getlist('additional_teachers', [])
+            # Исключаем основного учителя
+            additional_teacher_ids = [tid for tid in additional_teacher_ids if int(tid) != int(teacher_id)]
+            if additional_teacher_ids:
+                group.teachers.set(additional_teacher_ids)
+            messages.success(request, f'Группа "{name}" создана!')
+            return redirect('dashboard')
+        else:
+            messages.error(request, 'Заполните название и выберите учителя')
+    
+    teachers = User.objects.filter(profile__role='teacher')
+    
+    context = {
+        'teachers': teachers,
+    }
+    
+    return render(request, 'dashboard/add_group.html', context)
+
+
+@login_required
+def remove_student_from_group(request, student_id, group_id):
+    """Удалить ученика из группы"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    student = get_object_or_404(Student, id=student_id)
+    group = get_object_or_404(Group, id=group_id)
+    
+    Enrollment.objects.filter(student=student, group=group).delete()
+    messages.success(request, f'{student.name} удалён из группы {group.name}')
+    
+    return redirect('group_detail', group_id=group.id)
+
+
+@login_required
+def delete_student(request, student_id):
+    """Удалить ученика из базы"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    student = get_object_or_404(Student, id=student_id)
+    name = student.name
+    student.delete()
+    messages.success(request, f'Ученик {name} удалён из базы')
+    
+    return redirect('students_list')
+
+
+@login_required
+def delete_group(request, group_id):
+    """Удалить группу"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    group = get_object_or_404(Group, id=group_id)
+    name = group.name
+    group.delete()
+    messages.success(request, f'Группа "{name}" удалена')
+    
+    return redirect('dashboard')
+
+
+@login_required
+def add_existing_student_to_group(request, student_id):
+    """Добавить существующего ученика в группу"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    student = get_object_or_404(Student, id=student_id)
+    
+    if request.method == 'POST':
+        group_ids = request.POST.getlist('groups')
+        
+        for group_id in group_ids:
+            group = Group.objects.get(id=group_id)
+            Enrollment.objects.get_or_create(student=student, group=group)
+        
+        messages.success(request, f'{student.name} добавлен в выбранные группы')
+        return redirect('students_list')
+    
+    groups = Group.objects.filter(is_active=True)
+    current_groups = Enrollment.objects.filter(student=student).values_list('group_id', flat=True)
+    available_groups = groups.exclude(id__in=current_groups)
+    
+    context = {
+        'student': student,
+        'available_groups': available_groups,
+    }
+    
+    return render(request, 'dashboard/add_to_group.html', context)
+
 @login_required
 def toggle_book_status(request, enrollment_id=None):
     """Переключить статус книги у ученика"""
@@ -1556,6 +1223,7 @@ def toggle_book_status(request, enrollment_id=None):
         
         action = request.POST.get('action')
         
+        # Если переданы несколько учеников
         enrollment_ids = request.POST.get('enrollment_ids', '')
         if enrollment_ids:
             ids = enrollment_ids.split(',')
@@ -1573,6 +1241,7 @@ def toggle_book_status(request, enrollment_id=None):
                     pass
             return JsonResponse({'success': True})
         
+        # Для одного ученика
         if enrollment_id:
             enrollment = get_object_or_404(Enrollment, id=enrollment_id)
             if action == 'need_book':
@@ -1600,6 +1269,7 @@ def books_status(request):
     search_query = request.GET.get('search', '')
     
     if view_mode == 'students':
+        # Вкладка по ученикам
         enrollments = Enrollment.objects.filter(book_needed=True).select_related('student', 'group', 'group__book')
         
         if search_query:
@@ -1618,6 +1288,7 @@ def books_status(request):
             'role': role,
         }
     else:
+        # Вкладка по книгам
         books = Book.objects.all()
         
         book_stats = []
@@ -1643,30 +1314,373 @@ def books_status(request):
     
     return render(request, 'dashboard/books_status.html', context)
 
+@login_required
+def edit_student(request, student_id):
+    """Редактирование ученика"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('students_list')
+    
+    student = get_object_or_404(Student, id=student_id)
+    
+    if request.method == 'POST':
+        student.name = request.POST.get('name', student.name)
+        student.phone = request.POST.get('phone', '')
+        student.parent_name = request.POST.get('parent_name', '')
+        student.parent_phone = request.POST.get('parent_phone', '')
+        student.school = request.POST.get('school', '')
+        student.grade = request.POST.get('grade', '')
+        student.age = request.POST.get('age') or None
+        student.save()
+        
+        # Обновляем группы
+        group_ids = request.POST.getlist('groups')
+        Enrollment.objects.filter(student=student).delete()
+        for group_id in group_ids:
+            group = Group.objects.get(id=group_id)
+            Enrollment.objects.create(student=student, group=group)
+        
+        messages.success(request, f'Ученик {student.name} обновлён!')
+        return_url = request.POST.get('return_url', '')
+        if return_url:
+            return redirect(return_url)
+        return redirect('students_list')
+    
+    groups = Group.objects.filter(is_active=True)
+    student_groups = Enrollment.objects.filter(student=student).values_list('group_id', flat=True)
+    
+    context = {
+        'student': student,
+        'groups': groups,
+        'student_groups': student_groups,
+    }
+    
+    return render(request, 'dashboard/edit_student.html', context)
+
 
 @login_required
-def book_detail(request, book_id):
-    """Страница книги"""
+def edit_group(request, group_id):
+    """Редактирование группы"""
     role = get_user_role(request.user)
-    book = get_object_or_404(Book, id=book_id)
     
-    groups = Group.objects.filter(book=book, is_active=True).select_related('teacher')
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
     
-    total_students = Enrollment.objects.filter(group__book=book).count()
-    students_with_book = Enrollment.objects.filter(group__book=book, has_book=True).count()
-    students_need_book = Enrollment.objects.filter(group__book=book, book_needed=True).count()
+    group = get_object_or_404(Group, id=group_id)
+    
+    if request.method == 'POST':
+        group.name = request.POST.get('name', group.name)
+        group.group_type = request.POST.get('group_type', group.group_type)
+        group.teacher_id = request.POST.get('teacher', group.teacher_id)
+        additional_teacher_ids = request.POST.getlist('additional_teachers', [])
+        # Исключаем основного учителя
+        additional_teacher_ids = [tid for tid in additional_teacher_ids if int(tid) != group.teacher_id]
+        group.teachers.set(additional_teacher_ids)
+        group.price = request.POST.get('price', group.price)
+        group.is_active = True
+        group.save()
+        
+        # Удаляем старое расписание
+        group.schedule_slots.all().delete()
+        
+        # Создаём новое
+        import re
+        for i in range(7):
+            if request.POST.get(f'day_{i}') == '1':
+                start = request.POST.get(f'start_{i}', '').strip()
+                end = request.POST.get(f'end_{i}', '').strip()
+                
+                # Проверяем формат ЧЧ:ММ
+                if re.match(r'^\d{1,2}:\d{2}$', start) and re.match(r'^\d{1,2}:\d{2}$', end):
+                    try:
+                        ScheduleSlot.objects.create(
+                            group=group,
+                            day_of_week=i,
+                            start_time=start,
+                            end_time=end,
+                        )
+                    except Exception as e:
+                        messages.error(request, f'Ошибка в дне {i}: {e}')
+        # Обновляем текстовое поле schedule
+        slots = group.schedule_slots.all().order_by('day_of_week')
+        days_names = {0: 'Пн', 1: 'Вт', 2: 'Ср', 3: 'Чт', 4: 'Пт', 5: 'Сб', 6: 'Вс'}
+        schedule_parts = []
+        for slot in slots:
+            schedule_parts.append(f"{days_names[slot.day_of_week]} {slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}")
+        group.schedule = ', '.join(schedule_parts)
+        group.save()
+        
+        messages.success(request, f'Группа "{group.name}" обновлена!')
+        return_url = request.POST.get('return_url', '')
+        if return_url:
+            return redirect(return_url)
+        return redirect('dashboard')
+    
+    teachers = User.objects.filter(profile__role='teacher')
+    schedule_slots = {str(s.day_of_week): s for s in group.schedule_slots.all()}
+    
+    context = {
+        'group': group,
+        'teachers': teachers,
+        'schedule_slots': schedule_slots,
+    }
+    
+    return render(request, 'dashboard/edit_group.html', context)
+
+
+from calendar import monthrange
+from datetime import date
+
+MONTHS_RU = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+             'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
+
+
+def get_period(year, month):
+    """Период: с 11 числа этого месяца по 10 число следующего (вкл)"""
+    start = date(year, month, 11)
+    if month == 12:
+        end = date(year + 1, 1, 10)
+    else:
+        end = date(year, month + 1, 10)
+    return start, end
+
+
+def get_current_period():
+    """Текущий период по дате"""
+    today = timezone.localdate()
+    if today.day > 10:
+        return today.year, today.month
+    else:
+        if today.month == 1:
+            return today.year - 1, 12
+        return today.year, today.month - 1
+
+
+def make_calendar(year, month, period_start, period_end, lesson_dates_set):
+    """Структура для календаря"""
+    days_in_month = monthrange(year, month)[1]
+    first_weekday = date(year, month, 1).weekday()  # 0=Пн
+    
+    days = []
+    for d in range(1, days_in_month + 1):
+        current = date(year, month, d)
+        days.append({
+            'day': d,
+            'is_in_period': period_start <= current <= period_end,
+            'has_lesson': current in lesson_dates_set,
+            'is_today': current == timezone.localdate(),
+        })
+    
+    return {
+        'name': MONTHS_RU[month - 1],
+        'year': year,
+        'month': month,
+        'first_weekday': first_weekday,
+        'days': days,
+    }
+
+
+@login_required
+def payments_page(request):
+    """Страница оплат по месяцам"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'accountant', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    today = timezone.localdate()
+    default_year, default_month = get_current_period()
+    
+    year = int(request.GET.get('year', default_year))
+    month = int(request.GET.get('month', default_month))
+    
+    if not (1 <= month <= 12):
+        year, month = default_year, default_month
+    
+    period_start, period_end = get_period(year, month)
+    
+    # Список месяцев
+    months_list = []
+    for i in range(-6, 7):
+        m = today.month + i
+        y = today.year
+        while m < 1:
+            m += 12
+            y -= 1
+        while m > 12:
+            m -= 12
+            y += 1
+        
+        months_list.append({
+            'year': y,
+            'month': m,
+            'name': MONTHS_RU[m - 1],
+            'is_current': (y == default_year and m == default_month),
+            'is_selected': (y == year and m == month),
+        })
+    
+    cycle_num = year * 100 + month
+    
+    # Поиск
+    search_query = request.GET.get('search', '')
+    
+    groups_data = []
+    groups = Group.objects.filter(is_active=True).select_related('teacher').order_by('name')
+    
+    if search_query:
+        groups = groups.filter(name__iregex=search_query)
+    
+    for group in groups:
+        students_count = Enrollment.objects.filter(group=group).count()
+        paid_count = Payment.objects.filter(
+            group=group,
+            cycle_number=cycle_num,
+            is_paid=True
+        ).count()
+        unpaid_count = students_count - paid_count
+        
+        groups_data.append({
+            'group': group,
+            'total_students': students_count,
+            'paid_count': paid_count,
+            'unpaid_count': unpaid_count,
+        })
     
     context = {
         'role': role,
-        'book': book,
-        'groups': groups,
-        'total_students': total_students,
-        'students_with_book': students_with_book,
-        'students_need_book': students_need_book,
+        'year': year,
+        'month': month,
+        'month_name': MONTHS_RU[month - 1],
+        'period_start': period_start,
+        'period_end': period_end,
+        'months_list': months_list,
+        'groups_data': groups_data,
+        'search_query': search_query,
     }
     
-    return render(request, 'dashboard/book_detail.html', context)
+    return render(request, 'dashboard/payments.html', context)
 
+
+@login_required
+def group_payment_detail(request, group_id):
+    """AJAX: детали оплаты группы"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'accountant', 'developer']:
+        return JsonResponse({'error': 'Нет доступа'}, status=403)
+    
+    group = get_object_or_404(Group, id=group_id)
+    
+    year = int(request.GET.get('year'))
+    month = int(request.GET.get('month'))
+    
+    period_start, period_end = get_period(year, month)
+    
+    # Дни с уроками
+    lesson_dates_set = set()
+    schedule_slots = list(group.schedule_slots.all())
+    lesson_day_of_weeks = set(s.day_of_week for s in schedule_slots)
+    
+    current = period_start
+    while current <= period_end:
+        if current.weekday() in lesson_day_of_weeks:
+            lesson_dates_set.add(current)
+        current += timedelta(days=1)
+    
+    # Календари
+    cal1 = make_calendar(year, month, period_start, period_end, lesson_dates_set)
+    
+    if month == 12:
+        y2, m2 = year + 1, 1
+    else:
+        y2, m2 = year, month + 1
+    cal2 = make_calendar(y2, m2, period_start, period_end, lesson_dates_set)
+    
+    # Ученики
+    cycle_num = year * 100 + month
+    enrollments = Enrollment.objects.filter(group=group).select_related('student').order_by('student__name')
+    
+    students_data = []
+    for enrollment in enrollments:
+        student = enrollment.student
+        payment = Payment.objects.filter(
+            student=student,
+            group=group,
+            cycle_number=cycle_num
+        ).first()
+        
+        students_data.append({
+            'student': student,
+            'is_paid': payment.is_paid if payment else False,
+        })
+    
+    context = {
+        'group': group,
+        'year': year,
+        'month': month,
+        'month_name': MONTHS_RU[month - 1],
+        'period_start': period_start,
+        'period_end': period_end,
+        'calendar1': cal1,
+        'calendar2': cal2,
+        'lesson_count': len(lesson_dates_set),
+        'students_data': students_data,
+    }
+    
+    return render(request, 'dashboard/group_payment_detail.html', context)
+
+
+@login_required
+def toggle_student_payment(request, group_id):
+    """AJAX: отметить/отменить оплату"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False})
+    
+    role = get_user_role(request.user)
+    if role not in ['admin', 'accountant', 'developer']:
+        return JsonResponse({'success': False, 'error': 'Нет доступа'})
+    
+    group = get_object_or_404(Group, id=group_id)
+    
+    student_id = request.POST.get('student_id')
+    year = int(request.POST.get('year'))
+    month = int(request.POST.get('month'))
+    cycle_num = year * 100 + month
+    
+    period_start, period_end = get_period(year, month)
+    
+    payment, created = Payment.objects.get_or_create(
+        student_id=student_id,
+        group=group,
+        cycle_number=cycle_num,
+        defaults={
+            'start_date': period_start,
+            'end_date': period_end,
+            'amount': group.price,
+            'is_paid': True,
+            'paid_amount': group.price,
+            'paid_at': timezone.now(),
+            'marked_by': request.user,
+        }
+    )
+    
+    if not created:
+        payment.is_paid = not payment.is_paid
+        if payment.is_paid:
+            payment.paid_amount = payment.amount
+            payment.paid_at = timezone.now()
+            payment.marked_by = request.user
+        else:
+            payment.paid_amount = 0
+            payment.paid_at = None
+            payment.marked_by = None
+        payment.save()
+    
+    return JsonResponse({'success': True, 'is_paid': payment.is_paid})
 
 @login_required
 def book_reader(request, book_id):
