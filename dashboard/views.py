@@ -145,9 +145,9 @@ def group_detail(request, group_id):
     if role == 'teacher':
         is_main = group.teacher == request.user
         is_additional = group.teachers.filter(id=request.user.id).exists()
-    if not (is_main or is_additional):
-        messages.error(request, 'У вас нет доступа к этой группе')
-        return redirect('dashboard')
+        if not (is_main or is_additional):
+            messages.error(request, 'У вас нет доступа к этой группе')
+            return redirect('dashboard')
     
     enrollments = Enrollment.objects.filter(group=group).select_related('student')
     students = [enrollment.student for enrollment in enrollments]
@@ -418,9 +418,9 @@ def lesson_history(request, group_id):
     if role == 'teacher':
         is_main = group.teacher == request.user
         is_additional = group.teachers.filter(id=request.user.id).exists()
-    if not (is_main or is_additional):
-        messages.error(request, 'У вас нет доступа')
-        return redirect('dashboard')
+        if not (is_main or is_additional):
+            messages.error(request, 'У вас нет доступа')
+            return redirect('dashboard')
     
     lessons = Lesson.objects.filter(group=group).order_by('-date')
     
