@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -52,14 +53,21 @@ def dashboard(request):
     
     search_query = request.GET.get('search', '')
     
+    from django.db.models import Q
+
     if role == 'teacher':
-        groups = Group.objects.filter(teacher=request.user, is_active=True)
-        total_students = Enrollment.objects.filter(group__teacher=request.user).count()
+        groups = Group.objects.filter(
+            Q(teacher=request.user) | Q(teachers=request.user),
+            is_active=True
+        ).distinct()
+        total_students = Enrollment.objects.filter(
+            Q(group__teacher=request.user) | Q(group__teachers=request.user)
+        ).distinct().count()
         today = timezone.localdate()
         today_lessons = Lesson.objects.filter(
-            group__teacher=request.user,
+            Q(group__teacher=request.user) | Q(group__teachers=request.user),
             date=today
-        ).count()
+        ).distinct().count()
         
         if search_query:
             groups = groups.filter(name__iregex=search_query)
@@ -134,7 +142,10 @@ def group_detail(request, group_id):
     group = get_object_or_404(Group, id=group_id)
     role = get_user_role(request.user)
     
-    if role == 'teacher' and group.teacher != request.user:
+    if role == 'teacher':
+        is_main = group.teacher == request.user
+        is_additional = group.teachers.filter(id=request.user.id).exists()
+    if not (is_main or is_additional):
         messages.error(request, 'У вас нет доступа к этой группе')
         return redirect('dashboard')
     
@@ -225,8 +236,11 @@ def mark_attendance(request, group_id):
         if role not in ['admin','teacher', 'developer']:
             return JsonResponse({'success': False, 'error': 'Нет доступа'})
         
-        if role == 'teacher' and group.teacher != request.user:
-            return JsonResponse({'success': False, 'error': 'Нет доступа'})
+        if role == 'teacher':
+            is_main = group.teacher == request.user
+            is_additional = group.teachers.filter(id=request.user.id).exists()
+            if not (is_main or is_additional):
+                return JsonResponse({'success': False, 'error': 'Нет доступа'})
         
         today = timezone.localdate()
         day_keywords = {
@@ -307,8 +321,9 @@ def students_list(request):
     
     if role == 'teacher':
         students = Student.objects.filter(
-            enrollments__group__teacher=request.user
-        ).distinct()
+        Q(enrollments__group__teacher=request.user) |
+        Q(enrollments__group__teachers=request.user)
+    ).distinct()
     else:
         students = Student.objects.all()
 
@@ -400,7 +415,10 @@ def lesson_history(request, group_id):
     group = get_object_or_404(Group, id=group_id)
     role = get_user_role(request.user)
     
-    if role == 'teacher' and group.teacher != request.user:
+    if role == 'teacher':
+        is_main = group.teacher == request.user
+        is_additional = group.teachers.filter(id=request.user.id).exists()
+    if not (is_main or is_additional):
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
     
@@ -447,7 +465,10 @@ def weekly_schedule(request):
         return redirect('dashboard')
     
     if role == 'teacher':
-        groups = Group.objects.filter(teacher=request.user, is_active=True)
+        groups = Group.objects.filter(
+        Q(teacher=request.user) | Q(teachers=request.user),
+        is_active=True
+    ).distinct()
     else:
         groups = Group.objects.filter(is_active=True)
     
