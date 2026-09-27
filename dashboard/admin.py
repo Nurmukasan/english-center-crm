@@ -14,6 +14,7 @@ class StudentAdmin(admin.ModelAdmin):
 
 @admin.register(Group)
 class GroupAdmin(admin.ModelAdmin):
+    filter_horizontal = ('books', 'teachers')   # ← ВОТ ЭТО
     list_display = ['name', 'teacher', 'schedule', 'price', 'is_active']
     list_filter = ['is_active', 'teacher']
 

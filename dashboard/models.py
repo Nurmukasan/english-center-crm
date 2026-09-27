@@ -51,7 +51,7 @@ class Group(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Цена за месяц")
     is_active = models.BooleanField(default=True, verbose_name="Активна")
     created_at = models.DateTimeField(auto_now_add=True)
-    book = models.ForeignKey(Book, on_delete=models.SET_NULL, null=True, blank=True, related_name='groups', verbose_name="Книга")
+    books = models.ManyToManyField(Book, related_name='groups', blank=True, verbose_name="Книги")
     photo = models.ImageField(upload_to='group_photos/', blank=True, null=True, verbose_name="Фото группы")
 
     def __str__(self):
@@ -105,6 +105,7 @@ class Enrollment(models.Model):
     enrolled_at = models.DateTimeField(auto_now_add=True)
     has_book = models.BooleanField(default=False, verbose_name="Есть книга")
     book_needed = models.BooleanField(default=False, verbose_name="Требуется книга")
+    book = models.ForeignKey(Book, on_delete=models.SET_NULL, null=True, blank=True,related_name='enrollments', verbose_name="Запрошенная книга")
 
     def __str__(self):
         return f"{self.student.name} → {self.group.name}"
