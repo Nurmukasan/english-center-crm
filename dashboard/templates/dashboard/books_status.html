@@ -101,7 +101,7 @@
                             <td class="px-4 py-3 font-medium text-gray-800 dark:text-white">{{ enrollment.student.name }}</td>
                             <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ enrollment.group.name }}</td>
                             <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
-                                {% if enrollment.group.book %}{{ enrollment.group.book.title }}{% else %}—{% endif %}
+                                {% if enrollment.book %}{{ enrollment.book.title }}{% else %}—{% endif %}
                             </td>
                             <td class="px-4 py-3">
                                 {% if enrollment.has_book %}
