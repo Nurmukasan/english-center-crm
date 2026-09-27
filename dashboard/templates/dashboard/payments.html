@@ -20,24 +20,116 @@
         body { top: 0 !important; }
         .skiptranslate { display: none !important; }
         #google_translate_element { display: none !important; }
-        .goog-logo-link { display: none !important; }
-        .goog-te-gadget { display: none !important; }
+
+                /* ===== СОТЫ ===== */
+        .hex-grid {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 30px 20px;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+        .hex-grid::-webkit-scrollbar {
+            height: 6px;
+        }
+        .hex-grid::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.2);
+            border-radius: 3px;
+        }
+
+        .hex {
+            flex-shrink: 0;
+            width: 130px;
+            height: 112px;
+            clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: #fff;
+            font-weight: 600;
+            transition: filter 0.2s ease;
+            cursor: pointer;
+            text-align: center;
+            padding: 0 22px;
+            box-sizing: border-box;
+            margin-left: calc(130px / -4);
+        }
+        .hex:first-child {
+            margin-left: 0;
+        }
+        .hex:nth-child(even) {
+            margin-top: calc(112px / 2);
+        }
+        .hex:hover {
+            filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.6)) brightness(1.1);
+            z-index: 5;
+        }
+        .hex-past {
+            background: linear-gradient(135deg, #94a3b8, #64748b);
+        }
+        .hex-current {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.5));
+        }
+        .hex-current:hover {
+            filter: drop-shadow(0 0 16px rgba(99, 102, 241, 0.9)) brightness(1.1);
+        }
+        .hex-future {
+            background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+            opacity: 0.75;
+        }
+        .hex-future:hover {
+            opacity: 1;
+        }
+        .hex-title {
+            font-size: 13px;
+            line-height: 1.1;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .hex-count {
+            font-size: 10px;
+            opacity: 0.9;
+            margin-top: 3px;
+        }
+
+        @media (max-width: 500px) {
+            .hex {
+                width: 100px;
+                height: 86px;
+                margin-left: calc(100px / -4);
+                padding: 0 16px;
+            }
+            .hex:nth-child(even) {
+                margin-top: calc(86px / 2);
+            }
+            .hex-title { font-size: 11px; }
+            .hex-count { font-size: 9px; }
+        }
     </style>
 </head>
 <body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
-    
+
     <div class="fixed bottom-4 right-4 z-50 flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-1 border border-gray-200 dark:border-gray-700">
         <button onclick="changeLang('ru')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇷🇺 RU</button>
         <button onclick="changeLang('en')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇬🇧 EN</button>
     </div>
     <div id="google_translate_element" style="display:none !important;"></div>
-    
+
     <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
+                {% if show_details %}
+                <a href="?year={{ year }}" class="text-gray-300 hover:text-white">
+                    <i class="fas fa-arrow-left"></i> К месяцам
+                </a>
+                {% else %}
                 <a href="{% url 'dashboard' %}" class="text-gray-300 hover:text-white">
                     <i class="fas fa-arrow-left"></i> Назад
                 </a>
+                {% endif %}
                 <div class="flex items-center gap-2">
                     <i class="fas fa-money-bill text-2xl text-emerald-400"></i>
                     <h1 class="text-xl font-bold text-white">Оплаты</h1>
@@ -54,29 +146,13 @@
             </div>
         </div>
     </header>
-    
+
     <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
-        
-        <!-- Панель месяцев -->
-        <div class="flex overflow-x-auto gap-2 pb-4 mb-4">
-            {% for m in months_list %}
-            <a href="?year={{ m.year }}&month={{ m.month }}{% if search_query %}&search={{ search_query }}{% endif %}"
-               class="px-4 py-2 rounded-lg whitespace-nowrap transition font-medium text-sm
-                      {% if m.is_selected %}
-                          bg-indigo-500 text-white shadow-lg scale-105
-                      {% elif m.is_current %}
-                          bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300
-                      {% else %}
-                          bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600
-                      {% endif %}">
-                {{ m.name }}
-                {% if m.is_current %}<span class="text-xs">•</span>{% endif %}
-            </a>
-            {% endfor %}
-        </div>
-        
-        <!-- Поиск -->
-        <div class="mb-4">
+
+        {% if show_details %}
+        <!-- ===================== ДЕТАЛИ МЕСЯЦА ===================== -->
+
+        <div class="mb-6">
             <form method="GET" class="flex gap-3">
                 <input type="hidden" name="year" value="{{ year }}">
                 <input type="hidden" name="month" value="{{ month }}">
@@ -93,16 +169,14 @@
                 {% endif %}
             </form>
         </div>
-        
-        <!-- Инфо о периоде -->
+
         <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 mb-6 border border-gray-300 dark:border-gray-600">
             <h2 class="text-2xl font-bold text-gray-800 dark:text-white">{{ month_name }} {{ year }}</h2>
             <p class="text-gray-500 dark:text-gray-400 mt-1">
                 Период оплаты: {{ period_start|date:"d.m.Y" }} — {{ period_end|date:"d.m.Y" }}
             </p>
         </div>
-        
-        <!-- Список групп -->
+
         <div class="space-y-4">
             {% for data in groups_data %}
             <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden">
@@ -121,7 +195,7 @@
                         <p class="text-red-600 font-bold text-lg">❌ {{ data.unpaid_count }}</p>
                     </div>
                 </button>
-                
+
                 <div id="group-detail-{{ data.group.id }}" class="hidden border-t border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900"></div>
             </div>
             {% empty %}
@@ -131,36 +205,60 @@
             </div>
             {% endfor %}
         </div>
-        
+
+        {% else %}
+        <!-- ===================== СЕТКА СОТ ===================== -->
+
+        <div class="text-center mb-4">
+            <div class="flex items-center justify-center gap-6">
+                <a href="?year={{ prev_year }}" class="text-gray-400 hover:text-indigo-500 transition text-3xl leading-none">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+                <h2 class="text-3xl font-bold text-gray-800 dark:text-white">{{ display_year }}</h2>
+                <a href="?year={{ next_year }}" class="text-gray-400 hover:text-indigo-500 transition text-3xl leading-none">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </div>
+            <p class="text-gray-500 dark:text-gray-400 mt-3">Выберите месяц для просмотра оплат</p>
+        </div>
+
+        <div class="hex-grid">
+            {% for m in months_grid %}
+            <a href="?year={{ m.year }}&month={{ m.num }}"
+               class="hex {% if m.is_current %}hex-current{% elif m.is_past %}hex-past{% else %}hex-future{% endif %}">
+                <span class="hex-title notranslate">{{ m.name }}</span>
+                <span class="hex-count">{{ m.paid_count }}/{{ m.total_students }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
     </main>
-    
+
     <script>
         const loadedGroups = {};
-        
+
         function toggleTheme() {
             document.documentElement.classList.toggle('dark');
         }
-        
+
         function changeLang(lang) {
             document.cookie = `googtrans=/ru/${lang}; path=/`;
             document.cookie = `googtrans=/ru/${lang}; domain=.${location.hostname}; path=/`;
             location.reload();
         }
-        
+
         function toggleGroup(groupId) {
             const detail = document.getElementById(`group-detail-${groupId}`);
-            
             if (!detail.classList.contains('hidden')) {
                 detail.classList.add('hidden');
                 return;
             }
-            
             detail.classList.remove('hidden');
-            
             if (loadedGroups[groupId]) return;
-            
+
             detail.innerHTML = '<div class="text-center py-8 text-gray-400">Загрузка...</div>';
-            
+
             fetch(`/payments/group/${groupId}/?year={{ year }}&month={{ month }}`)
                 .then(r => r.text())
                 .then(html => {
@@ -168,7 +266,7 @@
                     loadedGroups[groupId] = true;
                 });
         }
-        
+
         function getCookie(name) {
             let cookieValue = null;
             if (document.cookie && document.cookie !== '') {
@@ -183,13 +281,13 @@
             }
             return cookieValue;
         }
-        
+
         function togglePayment(groupId, studentId, btn) {
             const formData = new FormData();
             formData.append('student_id', studentId);
             formData.append('year', btn.dataset.year);
             formData.append('month', btn.dataset.month);
-            
+
             fetch(`/payments/group/${groupId}/toggle/`, {
                 method: 'POST',
                 headers: {'X-CSRFToken': getCookie('csrftoken')},
@@ -213,7 +311,7 @@
             })
             .catch(err => alert('Ошибка сети: ' + err));
         }
-        
+
         function googleTranslateElementInit() {
             new google.translate.TranslateElement({
                 pageLanguage: 'ru',

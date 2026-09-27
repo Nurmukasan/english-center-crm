@@ -1490,83 +1490,93 @@ def make_calendar(year, month, period_start, period_end, lesson_dates_set):
 
 @login_required
 def payments_page(request):
-    """Страница оплат по месяцам"""
+    """Оплаты: соты месяцев или список групп"""
     role = get_user_role(request.user)
-    
+
     if role not in ['admin', 'accountant', 'developer']:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
-    
+
     today = timezone.localdate()
     default_year, default_month = get_current_period()
-    
-    year = int(request.GET.get('year', default_year))
-    month = int(request.GET.get('month', default_month))
-    
-    if not (1 <= month <= 12):
-        year, month = default_year, default_month
-    
-    period_start, period_end = get_period(year, month)
-    
-    # Список месяцев
-    months_list = []
-    for i in range(-6, 7):
-        m = today.month + i
-        y = today.year
-        while m < 1:
-            m += 12
-            y -= 1
-        while m > 12:
-            m -= 12
-            y += 1
-        
-        months_list.append({
-            'year': y,
-            'month': m,
+
+    year_param = request.GET.get('year')
+    month_param = request.GET.get('month')
+
+    show_details = bool(year_param and month_param)
+    display_year = int(year_param) if year_param else today.year
+
+    total_students_all = Enrollment.objects.filter(group__is_active=True).count()
+
+    months_grid = []
+    for m in range(1, 13):
+        cycle_num = display_year * 100 + m
+        paid_count = Payment.objects.filter(cycle_number=cycle_num, is_paid=True).count()
+
+        is_current = (display_year == default_year and m == default_month)
+        is_past = (display_year < today.year) or (display_year == today.year and m < today.month)
+
+        months_grid.append({
+            'num': m,
             'name': MONTHS_RU[m - 1],
-            'is_current': (y == default_year and m == default_month),
-            'is_selected': (y == year and m == month),
-        })
-    
-    cycle_num = year * 100 + month
-    
-    # Поиск
-    search_query = request.GET.get('search', '')
-    
-    groups_data = []
-    groups = Group.objects.filter(is_active=True).select_related('teacher').order_by('name')
-    
-    if search_query:
-        groups = groups.filter(name__iregex=search_query)
-    
-    for group in groups:
-        students_count = Enrollment.objects.filter(group=group).count()
-        paid_count = Payment.objects.filter(
-            group=group,
-            cycle_number=cycle_num,
-            is_paid=True
-        ).count()
-        unpaid_count = students_count - paid_count
-        
-        groups_data.append({
-            'group': group,
-            'total_students': students_count,
+            'year': display_year,
+            'is_current': is_current,
+            'is_past': is_past,
             'paid_count': paid_count,
-            'unpaid_count': unpaid_count,
+            'total_students': total_students_all,
         })
-    
+
     context = {
         'role': role,
-        'year': year,
-        'month': month,
-        'month_name': MONTHS_RU[month - 1],
-        'period_start': period_start,
-        'period_end': period_end,
-        'months_list': months_list,
-        'groups_data': groups_data,
-        'search_query': search_query,
+        'display_year': display_year,
+        'prev_year': display_year - 1,
+        'next_year': display_year + 1,
+        'months_grid': months_grid,
+        'show_details': show_details,
     }
-    
+
+    if show_details:
+        year = int(year_param)
+        month = int(month_param)
+
+        if not (1 <= month <= 12):
+            year, month = default_year, default_month
+
+        period_start, period_end = get_period(year, month)
+        cycle_num = year * 100 + month
+        search_query = request.GET.get('search', '')
+
+        groups_data = []
+        groups = Group.objects.filter(is_active=True).select_related('teacher').order_by('name')
+
+        if search_query:
+            groups = groups.filter(name__iregex=search_query)
+
+        for group in groups:
+            students_count = Enrollment.objects.filter(group=group).count()
+            paid_count = Payment.objects.filter(
+                group=group,
+                cycle_number=cycle_num,
+                is_paid=True
+            ).count()
+
+            groups_data.append({
+                'group': group,
+                'total_students': students_count,
+                'paid_count': paid_count,
+                'unpaid_count': students_count - paid_count,
+            })
+
+        context.update({
+            'year': year,
+            'month': month,
+            'month_name': MONTHS_RU[month - 1],
+            'period_start': period_start,
+            'period_end': period_end,
+            'groups_data': groups_data,
+            'search_query': search_query,
+        })
+
     return render(request, 'dashboard/payments.html', context)
 
 
