@@ -20,7 +20,7 @@ def copy_books_backward(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('dashboard', '0014_book_pdf_file_delete_bookpage'),  # ← ВСТАВЬ своё имя последней миграции
+        ('dashboard', '0015_merge_20260920_0421'),  # ← ВСТАВЬ своё имя последней миграции
     ]
 
     operations = [
