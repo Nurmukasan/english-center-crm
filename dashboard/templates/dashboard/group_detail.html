@@ -96,28 +96,34 @@
             </div>
         </div>
         
-        {% if group.book %}
-        <a href="{% url 'book_reader' group.book.id %}"
-            class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6 border-2 border-amber-300 dark:border-amber-600 flex items-center gap-6 hover-scale transition-all hover:border-amber-500 hover:shadow-lg block cursor-pointer">
-            {% if group.book.photo %}
-            <img src="{{ group.book.photo.url }}" alt="{{ group.book.title }}" class="w-20 h-28 object-cover rounded-lg shadow">
-            {% else %}
-            <div
-                class="w-20 h-28 bg-gradient-to-br from-amber-200 to-amber-400 dark:from-amber-700 dark:to-amber-900 rounded-lg flex items-center justify-center text-3xl">
-                <i class="fas fa-book-open text-white"></i>
-            </div>
-            {% endif %}
-            <div class="flex-1">
-                <p class="text-xs text-amber-600 dark:text-amber-400 font-medium uppercase tracking-wide">📖 Учебник группы</p>
-                <p class="text-xl font-bold text-gray-800 dark:text-white mt-1"><span class="notranslate">{{ group.book.title}}</span></p>
-                <p class="text-sm text-amber-600 dark:text-amber-400 mt-2 font-medium">
-                    <i class="fas fa-hand-pointer mr-1"></i>Нажмите, чтобы открыть книгу
-                </p>
-            </div>
-            <div class="text-amber-500 text-3xl">
-                <i class="fas fa-chevron-right"></i>
-            </div>
-        </a>
+        {% if group.books.all %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {% for book in group.books.all %}
+            <a href="{% url 'book_reader' book.id %}"
+                class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-6 border-2 border-amber-300 dark:border-amber-600 flex items-center gap-4 hover-scale transition-all hover:border-amber-500 hover:shadow-lg cursor-pointer">
+                {% if book.photo %}
+                <img src="{{ book.photo.url }}" alt="{{ book.title }}" class="w-16 h-24 object-cover rounded-lg shadow">
+                {% else %}
+                <div
+                    class="w-16 h-24 bg-gradient-to-br from-amber-200 to-amber-400 dark:from-amber-700 dark:to-amber-900 rounded-lg flex items-center justify-center text-2xl">
+                    <i class="fas fa-book-open text-white"></i>
+                </div>
+                {% endif %}
+                <div class="flex-1">
+                    <p class="text-xs text-amber-600 dark:text-amber-400 font-medium uppercase tracking-wide">📖 Учебник группы
+                    </p>
+                    <p class="text-lg font-bold text-gray-800 dark:text-white mt-1"><span class="notranslate">{{ book.title
+                            }}</span></p>
+                    <p class="text-xs text-amber-600 dark:text-amber-400 mt-1 font-medium">
+                        <i class="fas fa-hand-pointer mr-1"></i>Открыть
+                    </p>
+                </div>
+                <div class="text-amber-500 text-2xl">
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
         {% endif %}
         
         <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
@@ -215,20 +221,44 @@
             <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">
                 <i class="fas fa-book text-amber-600 mr-2"></i>Каким ученикам нужна книга?
             </h3>
-            <p class="text-sm text-gray-400 mb-4">Выберите учеников, которым требуется книга</p>
-            <div class="space-y-2 max-h-80 overflow-y-auto mb-4">
-                {% for data in student_data %}
-                <label class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-                    <input type="checkbox" class="book-checkbox w-5 h-5 text-amber-600" value="{{ data.enrollment.id }}">
-                    <p class="font-medium text-gray-800 dark:text-white">{{ data.student.name }}</p>
-                </label>
-                {% endfor %}
+    
+            <div class="mb-4">
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">1. Выберите книгу:</p>
+                <div class="space-y-2">
+                    {% for book in group.books.all %}
+                    <label
+                        class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-amber-50 dark:hover:bg-gray-700 transition">
+                        <input type="radio" name="book_choice" class="book-radio w-5 h-5 text-amber-600"
+                            value="{{ book.id }}">
+                        <p class="font-medium text-gray-800 dark:text-white">{{ book.title }}</p>
+                    </label>
+                    {% empty %}
+                    <p class="text-sm text-red-500">У группы нет книг. Сначала добавьте книги.</p>
+                    {% endfor %}
+                </div>
             </div>
+    
+            <div class="mb-4">
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">2. Выберите учеников:</p>
+                <div class="space-y-2 max-h-60 overflow-y-auto">
+                    {% for data in student_data %}
+                    <label
+                        class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                        <input type="checkbox" class="book-checkbox w-5 h-5 text-amber-600"
+                            value="{{ data.enrollment.id }}">
+                        <p class="font-medium text-gray-800 dark:text-white">{{ data.student.name }}</p>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+    
             <div class="flex gap-3">
-                <button onclick="submitBookRequest()" class="flex-1 bg-amber-500 text-white py-3 rounded-lg font-medium hover:bg-amber-600 transition">
+                <button onclick="submitBookRequest()"
+                    class="flex-1 bg-amber-500 text-white py-3 rounded-lg font-medium hover:bg-amber-600 transition">
                     Отправить запрос
                 </button>
-                <button onclick="toggleBookRequest()" class="px-6 py-3 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-white rounded-lg font-medium hover:bg-gray-300 transition">
+                <button onclick="toggleBookRequest()"
+                    class="px-6 py-3 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-white rounded-lg font-medium hover:bg-gray-300 transition">
                     Отмена
                 </button>
             </div>
@@ -266,19 +296,27 @@
         }
         
         function submitBookRequest() {
+            const bookRadio = document.querySelector('.book-radio:checked');
+            if (!bookRadio) {
+                alert('Выберите книгу');
+                return;
+            }
+            const bookId = bookRadio.value;
+
             const checkboxes = document.querySelectorAll('.book-checkbox:checked');
             const enrollmentIds = Array.from(checkboxes).map(cb => cb.value);
             if (enrollmentIds.length === 0) {
                 alert('Выберите хотя бы одного ученика');
                 return;
             }
+
             fetch(`/enrollment/toggle-book/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'X-CSRFToken': '{{ csrf_token }}'
                 },
-                body: `enrollment_ids=${enrollmentIds.join(',')}&action=need_book`
+                body: `enrollment_ids=${enrollmentIds.join(',')}&action=need_book&book_id=${bookId}`
             })
             .then(response => response.json())
             .then(data => {
