@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ book.title }} — Enjoy English</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .hover-scale { transition: all 0.3s ease; }
+        .hover-scale:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+        .goog-te-banner-frame { display: none !important; }
+        body { top: 0 !important; }
+        .skiptranslate { display: none !important; }
+        #google_translate_element { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+
+    <div class="fixed bottom-4 right-4 z-50 flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-1 border border-gray-200 dark:border-gray-700">
+        <button onclick="changeLang('ru')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇷🇺 RU</button>
+        <button onclick="changeLang('en')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇬🇧 EN</button>
+    </div>
+
+    <div id="google_translate_element" style="display:none !important;"></div>
+
+    <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <a href="{% url 'books_status' %}" class="text-gray-300 hover:text-white">
+                    <i class="fas fa-arrow-left"></i> К книгам
+                </a>
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-book text-2xl text-amber-400"></i>
+                    <h1 class="text-xl font-bold text-white">{{ book.title }}</h1>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 md:gap-4">
+                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
+                    <i class="fas fa-moon dark:hidden text-gray-300"></i>
+                    <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
+                </button>
+                <a href="{% url 'logout' %}" class="text-red-400 text-sm">
+                    <i class="fas fa-sign-out-alt"></i> Выйти
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
+
+        <!-- Шапка книги -->
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6 border border-gray-300 dark:border-gray-600 flex items-center gap-6 hover-scale transition-colors">
+            {% if book.photo %}
+            <img src="{{ book.photo.url }}" alt="{{ book.title }}" class="w-24 h-32 object-cover rounded-lg shadow">
+            {% else %}
+            <div class="w-24 h-32 bg-gradient-to-br from-amber-200 to-amber-400 dark:from-amber-700 dark:to-amber-900 rounded-lg flex items-center justify-center text-3xl">
+                <i class="fas fa-book-open text-white"></i>
+            </div>
+            {% endif %}
+            <div class="flex-1">
+                <p class="text-xs text-amber-600 dark:text-amber-400 font-medium uppercase tracking-wide">📖 Книга</p>
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-white mt-1">{{ book.title }}</h2>
+                <div class="flex gap-6 mt-3 text-sm">
+                    <span class="text-gray-500 dark:text-gray-400">На складе: <b class="text-gray-700 dark:text-gray-200">{{ book.quantity }} шт.</b></span>
+                    <span class="text-green-600">Выдано: <b>{{ students_with_book|length }}</b></span>
+                    <span class="text-red-600">Требуется: <b>{{ students_need_book|length }}</b></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <!-- ЛЕВАЯ: У кого есть -->
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
+                <div class="px-6 py-4 border-b border-gray-300 dark:border-gray-600 bg-green-50 dark:bg-green-900/20">
+                    <h3 class="font-bold text-green-700 dark:text-green-400">
+                        <i class="fas fa-check-circle mr-1"></i>
+                        Есть книга ({{ students_with_book|length }})
+                    </h3>
+                </div>
+                <div class="p-4 space-y-2 max-h-[600px] overflow-y-auto" id="haveList">
+                    {% for e in students_with_book %}
+                    <div class="flex items-center gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                        <div class="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                            <i class="fas fa-user text-green-600 dark:text-green-400"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium text-gray-800 dark:text-white truncate">{{ e.student.name }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                <i class="fas fa-users mr-1"></i>{{ e.group.name }}
+                            </p>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-center text-gray-400 py-8">
+                        <i class="fas fa-inbox text-4xl mb-2 block"></i>
+                        Пока никому не выдана
+                    </p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- ПРАВАЯ: Кому требуется -->
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
+                <div class="px-6 py-4 border-b border-gray-300 dark:border-gray-600 bg-red-50 dark:bg-red-900/20">
+                    <h3 class="font-bold text-red-700 dark:text-red-400">
+                        <i class="fas fa-hourglass-half mr-1"></i>
+                        Требуется книга ({{ students_need_book|length }})
+                    </h3>
+                </div>
+                <div class="p-4 space-y-2 max-h-[600px] overflow-y-auto" id="needList">
+                    {% for e in students_need_book %}
+                    <div class="flex items-center gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
+                         id="need-{{ e.id }}">
+                        <div class="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
+                            <i class="fas fa-user text-amber-600 dark:text-amber-400"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium text-gray-800 dark:text-white truncate">{{ e.student.name }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                <i class="fas fa-users mr-1"></i>{{ e.group.name }}
+                            </p>
+                        </div>
+                        <button onclick="giveBook({{ e.id }}, '{{ e.student.name|escapejs }}', '{{ e.group.name|escapejs }}')"
+                                class="bg-green-500 text-white px-4 py-2 rounded-lg text-xs font-medium hover:bg-green-600 transition whitespace-nowrap">
+                            <i class="fas fa-check mr-1"></i>Выдана
+                        </button>
+                    </div>
+                    {% empty %}
+                    <p class="text-center text-gray-400 py-8">
+                        <i class="fas fa-smile text-4xl mb-2 block"></i>
+                        Никому не требуется
+                    </p>
+                    {% endfor %}
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script>
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+        }
+        function changeLang(lang) {
+            document.cookie = `googtrans=/ru/${lang}; path=/`;
+            document.cookie = `googtrans=/ru/${lang}; domain=.${location.hostname}; path=/`;
+            location.reload();
+        }
+
+        function giveBook(enrollmentId, studentName, groupName) {
+            fetch('/enrollment/toggle-book/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: `enrollment_ids=${enrollmentId}&action=has_book`
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) {
+                    alert('Ошибка');
+                    return;
+                }
+
+                // Убираем из правого списка
+                const row = document.getElementById('need-' + enrollmentId);
+                if (row) row.remove();
+
+                // Добавляем в левый
+                const haveList = document.getElementById('haveList');
+                // Удаляем заглушку если была
+                const placeholder = haveList.querySelector('.text-center.text-gray-400');
+                if (placeholder) placeholder.remove();
+
+                const newItem = document.createElement('div');
+                newItem.className = 'flex items-center gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600';
+                newItem.innerHTML = `
+                    <div class="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                        <i class="fas fa-user text-green-600 dark:text-green-400"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium text-gray-800 dark:text-white truncate">${studentName}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            <i class="fas fa-users mr-1"></i>${groupName}
+                        </p>
+                    </div>
+                `;
+                haveList.appendChild(newItem);
+
+                // Обновляем счётчики
+                updateCounters();
+            });
+        }
+
+        function updateCounters() {
+            const haveCount = document.querySelectorAll('#haveList > div').length;
+            const needCount = document.querySelectorAll('#needList > div').length;
+
+            const haveHeader = document.querySelector('.bg-green-50 h3') || document.querySelector('.dark\\:bg-green-900\\/20 h3');
+            const needHeader = document.querySelector('.bg-red-50 h3') || document.querySelector('.dark\\:bg-red-900\\/20 h3');
+
+            if (haveHeader) haveHeader.innerHTML = `<i class="fas fa-check-circle mr-1"></i>Есть книга (${haveCount})`;
+            if (needHeader) needHeader.innerHTML = `<i class="fas fa-hourglass-half mr-1"></i>Требуется книга (${needCount})`;
+        }
+
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'ru',
+                includedLanguages: 'ru,kk,en',
+                autoDisplay: false
+            }, 'google_translate_element');
+        }
+    </script>
+    <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+</body>
+</html>

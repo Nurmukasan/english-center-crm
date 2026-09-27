@@ -1260,63 +1260,64 @@ def toggle_book_status(request, enrollment_id=None):
 
 @login_required
 def books_status(request):
-    """Статус книг для админа и разработчика"""
+    """Сетка всех книг с обложками"""
     role = get_user_role(request.user)
 
     if role not in ['admin', 'developer']:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
 
-    view_mode = request.GET.get('view', 'books')
-    search_query = request.GET.get('search', '')
+    books = Book.objects.all()
 
-    if view_mode == 'students':
-        enrollments = Enrollment.objects.filter(book_needed=True).select_related(
-            'student', 'group', 'book'
-        )
+    book_stats = []
+    for book in books:
+        groups_using = Group.objects.filter(books=book).count()
+        students_with_book = Enrollment.objects.filter(has_book=True, book=book).count()
+        students_need_book = Enrollment.objects.filter(book_needed=True, book=book).count()
 
-        if search_query:
-            enrollments = enrollments.filter(
-                Q(student__name__icontains=search_query) |
-                Q(group__name__icontains=search_query) |
-                Q(book__title__icontains=search_query)
-            )
+        book_stats.append({
+            'book': book,
+            'groups_using': groups_using,
+            'students_with_book': students_with_book,
+            'students_need_book': students_need_book,
+            'missing': students_need_book - book.quantity,
+        })
 
-        context = {
-            'view_mode': view_mode,
-            'enrollments': enrollments,
-            'search_query': search_query,
-            'role': role,
-        }
-    else:
-        books = Book.objects.all()
-
-        book_stats = []
-        for book in books:
-            groups_using = Group.objects.filter(books=book)
-            students_with_book = Enrollment.objects.filter(
-                has_book=True, book=book
-            ).count()
-            students_need_book = Enrollment.objects.filter(
-                book_needed=True, book=book
-            ).count()
-
-            book_stats.append({
-                'book': book,
-                'groups_using': groups_using.count(),
-                'students_with_book': students_with_book,
-                'students_need_book': students_need_book,
-                'missing': students_need_book - book.quantity,
-            })
-
-        context = {
-            'view_mode': view_mode,
-            'book_stats': book_stats,
-            'search_query': search_query,
-            'role': role,
-        }
+    context = {
+        'book_stats': book_stats,
+        'role': role,
+    }
 
     return render(request, 'dashboard/books_status.html', context)
+
+
+@login_required
+def book_detail(request, book_id):
+    """Детали книги: у кого есть, кому нужно"""
+    role = get_user_role(request.user)
+
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+
+    book = get_object_or_404(Book, id=book_id)
+
+    students_with_book = Enrollment.objects.filter(
+        has_book=True, book=book
+    ).select_related('student', 'group').order_by('student__name')
+
+    students_need_book = Enrollment.objects.filter(
+        book_needed=True, book=book
+    ).select_related('student', 'group').order_by('student__name')
+
+    context = {
+        'book': book,
+        'students_with_book': students_with_book,
+        'students_need_book': students_need_book,
+        'role': role,
+    }
+
+    return render(request, 'dashboard/book_detail.html', context)
 
 @login_required
 def edit_student(request, student_id):

@@ -16,27 +16,22 @@
             to { opacity: 1; transform: translateY(0); }
         }
         .hover-scale { transition: all 0.3s ease; }
-        .hover-scale:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
-        /* Google Translate скрываем */
+        .hover-scale:hover { transform: translateY(-3px); box-shadow: 0 12px 25px rgba(0,0,0,0.12); }
         .goog-te-banner-frame { display: none !important; }
         body { top: 0 !important; }
         .skiptranslate { display: none !important; }
         #google_translate_element { display: none !important; }
-        .goog-logo-link { display: none !important; }
-        .goog-te-gadget { display: none !important; }
     </style>
 </head>
 <body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
-    
-    <!-- Переключатель языков -->
+
     <div class="fixed bottom-4 right-4 z-50 flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-1 border border-gray-200 dark:border-gray-700">
         <button onclick="changeLang('ru')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇷🇺 RU</button>
-        
         <button onclick="changeLang('en')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇬🇧 EN</button>
     </div>
-    
+
     <div id="google_translate_element" style="display:none !important;"></div>
-    
+
     <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
@@ -49,16 +44,6 @@
                 </div>
             </div>
             <div class="flex items-center gap-2 md:gap-4">
-                <div class="flex bg-gray-700 rounded-lg p-1">
-                    <a href="?view=books" class="px-4 py-2 rounded-lg text-sm font-medium transition
-                              {% if view_mode == 'books' %}bg-gray-600 shadow text-white{% else %}text-gray-300{% endif %}">
-                        📕 Книги
-                    </a>
-                    <a href="?view=students" class="px-4 py-2 rounded-lg text-sm font-medium transition
-                              {% if view_mode == 'students' %}bg-gray-600 shadow text-white{% else %}text-gray-300{% endif %}">
-                        👥 Ученики
-                    </a>
-                </div>
                 <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
                     <i class="fas fa-moon dark:hidden text-gray-300"></i>
                     <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
@@ -69,98 +54,45 @@
             </div>
         </div>
     </header>
-    
+
     <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
-        
-        {% if view_mode == 'students' %}
-        
-        <div class="mb-6">
-            <form method="GET" class="flex gap-3">
-                <input type="hidden" name="view" value="students">
-                <input type="text" name="search" value="{{ search_query }}"
-                       class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                       placeholder="🔍 Поиск по ученику, группе или книге...">
-                <button type="submit" class="bg-indigo-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-600 transition">Найти</button>
-            </form>
-        </div>
-        
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead>
-                        <tr class="bg-gray-100 dark:bg-gray-700/50 text-left border-b border-gray-300 dark:border-gray-600">
-                            <th class="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Ученик</th>
-                            <th class="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Группа</th>
-                            <th class="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Книга</th>
-                            <th class="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Действие</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for enrollment in enrollments %}
-                        <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition">
-                            <td class="px-4 py-3 font-medium text-gray-800 dark:text-white">{{ enrollment.student.name }}</td>
-                            <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ enrollment.group.name }}</td>
-                            <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
-                                {% if enrollment.book %}{{ enrollment.book.title }}{% else %}—{% endif %}
-                            </td>
-                            <td class="px-4 py-3">
-                                {% if enrollment.has_book %}
-                                <span class="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1 rounded-full text-xs font-medium">✅ Выдана</span>
-                                {% else %}
-                                <button onclick="markHasBook({{ enrollment.id }})" class="bg-green-500 text-white px-4 py-2 rounded-lg text-xs font-medium hover:bg-green-600 transition">
-                                    ✅ Выдать книгу
-                                </button>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="4" class="px-6 py-12 text-center text-gray-400">
-                                <i class="fas fa-smile text-5xl mb-3"></i>
-                                <p>Нет запросов</p>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        
-        {% else %}
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {% for stat in book_stats %}
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden hover-scale transition-colors">
-                <div class="p-4 bg-gray-100 dark:bg-gray-700/50 border-b border-gray-300 dark:border-gray-600 flex items-center gap-4">
+            <a href="{% url 'book_detail' stat.book.id %}"
+               class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden hover-scale transition-colors cursor-pointer block">
+
+                <div class="aspect-[3/4] bg-gradient-to-br from-amber-100 to-amber-300 dark:from-amber-900 dark:to-amber-700 flex items-center justify-center overflow-hidden">
                     {% if stat.book.photo %}
-                    <img src="{{ stat.book.photo.url }}" alt="{{ stat.book.title }}" class="w-16 h-20 object-cover rounded-lg shadow">
+                    <img src="{{ stat.book.photo.url }}" alt="{{ stat.book.title }}" class="w-full h-full object-cover">
                     {% else %}
-                    <div class="w-16 h-20 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center text-2xl">
-                        <i class="fas fa-book text-gray-400"></i>
-                    </div>
+                    <i class="fas fa-book-open text-6xl text-white/70"></i>
                     {% endif %}
-                    <div>
-                        <p class="font-bold text-gray-800 dark:text-white">{{ stat.book.title }}</p>
-                        <p class="text-sm text-gray-400">В наличии: {{ stat.book.quantity }} шт.</p>
-                    </div>
                 </div>
+
                 <div class="p-4">
-                    <div class="space-y-2 text-sm">
+                    <p class="font-bold text-gray-800 dark:text-white text-sm truncate" title="{{ stat.book.title }}">
+                        {{ stat.book.title }}
+                    </p>
+
+                    <div class="mt-3 space-y-1 text-xs">
                         <div class="flex justify-between">
-                            <span class="text-gray-500 dark:text-gray-400">Групп:</span>
-                            <span class="font-medium text-gray-800 dark:text-white">{{ stat.groups_using }}</span>
+                            <span class="text-gray-500 dark:text-gray-400">На складе</span>
+                            <span class="font-medium text-gray-700 dark:text-gray-300">{{ stat.book.quantity }} шт.</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-500 dark:text-gray-400">Выдано:</span>
-                            <span class="font-medium text-gray-800 dark:text-white">{{ stat.students_with_book }}</span>
+                            <span class="text-gray-500 dark:text-gray-400">Выдано</span>
+                            <span class="font-bold text-green-600">{{ stat.students_with_book }}</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-500 dark:text-gray-400">Требуется:</span>
-                            <span class="font-bold {% if stat.students_need_book > 0 %}text-red-600{% else %}text-green-600{% endif %}">{{ stat.students_need_book }}</span>
+                            <span class="text-gray-500 dark:text-gray-400">Требуется</span>
+                            <span class="font-bold {% if stat.students_need_book > 0 %}text-red-600{% else %}text-gray-400{% endif %}">
+                                {{ stat.students_need_book }}
+                            </span>
                         </div>
                     </div>
                 </div>
-            </div>
+            </a>
             {% empty %}
             <div class="col-span-full bg-gray-50 dark:bg-gray-800 rounded-xl p-12 text-center text-gray-400 shadow-md border border-gray-300 dark:border-gray-600">
                 <i class="fas fa-inbox text-5xl mb-3"></i>
@@ -168,35 +100,18 @@
             </div>
             {% endfor %}
         </div>
-        
-        {% endif %}
-        
+
     </main>
-    
+
     <script>
         function toggleTheme() {
             document.documentElement.classList.toggle('dark');
         }
-        
         function changeLang(lang) {
             document.cookie = `googtrans=/ru/${lang}; path=/`;
             document.cookie = `googtrans=/ru/${lang}; domain=.${location.hostname}; path=/`;
             location.reload();
         }
-        
-        function markHasBook(enrollmentId) {
-            fetch(`/enrollment/${enrollmentId}/toggle-book/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-CSRFToken': '{{ csrf_token }}'
-                },
-                body: 'action=has_book'
-            })
-            .then(response => response.json())
-            .then(data => { if (data.success) location.reload(); });
-        }
-        
         function googleTranslateElementInit() {
             new google.translate.TranslateElement({
                 pageLanguage: 'ru',
@@ -206,6 +121,6 @@
         }
     </script>
     <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
-    
+
 </body>
 </html>
