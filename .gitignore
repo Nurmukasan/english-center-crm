@@ -23,3 +23,12 @@ Thumbs.db
 
 config/settings.py
 media/
+db.sqlite3.backup*
+*.sqlite3.backup*
+
+# Static (collectstatic)
+/static/
+staticfiles/
+
+# Media backup
+media_backup/
