@@ -149,24 +149,6 @@
             </a>
         </div>
         
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 border border-gray-300 dark:border-gray-600 shadow-md mb-8">
-            <h3 class="font-bold text-gray-800 dark:text-white mb-4"><i class="fas fa-bell text-amber-500 mr-2"></i>Топ должников</h3>
-            {% if top_debtors %}
-            <div class="space-y-3">
-                {% for debtor in top_debtors %}
-                <div class="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-3">
-                    <div>
-                        <p class="font-medium text-gray-800 dark:text-white">{{ debtor.student.name }}</p>
-                        {% if debtor.phone %}<p class="text-xs text-gray-400">{{ debtor.phone }}</p>{% endif %}
-                    </div>
-                    <span class="font-bold text-red-600">{{ debtor.debt|floatformat:0 }} ₸</span>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <p class="text-gray-400 text-center py-4">🎉 Нет должников!</p>
-            {% endif %}
-        </div>
         {% elif role == 'accountant' %}
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 border border-gray-300 dark:border-gray-600 shadow-md hover-scale">
