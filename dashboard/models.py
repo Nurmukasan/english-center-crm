@@ -11,6 +11,10 @@ class Student(models.Model):
     school = models.CharField(max_length=200, blank=True, verbose_name="Школа")
     grade = models.CharField(max_length=20, blank=True, verbose_name="Класс")
     age = models.IntegerField(null=True, blank=True, verbose_name="Возраст")
+    price_per_lesson = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name="Цена за 1 урок"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -19,6 +23,7 @@ class Student(models.Model):
     class Meta:
         verbose_name = "Ученик"
         verbose_name_plural = "Ученики"
+
 
 class Book(models.Model):
     """Книга для группы"""
@@ -48,7 +53,6 @@ class Group(models.Model):
     teacher = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='teaching_groups', verbose_name="Учитель")
     teachers = models.ManyToManyField(User, related_name='group_teachers', blank=True, verbose_name="Дополнительные учителя")
     schedule = models.CharField(max_length=200, blank=True, verbose_name="Расписание")
-    price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Цена за месяц")
     is_active = models.BooleanField(default=True, verbose_name="Активна")
     created_at = models.DateTimeField(auto_now_add=True)
     books = models.ManyToManyField(Book, related_name='groups', blank=True, verbose_name="Книги")
@@ -57,9 +61,6 @@ class Group(models.Model):
     def __str__(self):
         return self.name
 
-
-
-    
     def get_schedule_display(self):
         days_names = {0: 'Пн', 1: 'Вт', 2: 'Ср', 3: 'Чт', 4: 'Пт', 5: 'Сб', 6: 'Вс'}
         parts = []
@@ -67,11 +68,10 @@ class Group(models.Model):
             parts.append(f"{days_names[slot.day_of_week]} {slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}")
         return ', '.join(parts) if parts else self.schedule
 
-
-    
     class Meta:
         verbose_name = "Группа"
         verbose_name_plural = "Группы"
+
 
 class ScheduleSlot(models.Model):
     """Время занятия для конкретного дня недели"""
@@ -98,6 +98,7 @@ class ScheduleSlot(models.Model):
         verbose_name_plural = "Расписания"
         ordering = ['day_of_week', 'start_time']
 
+
 class Enrollment(models.Model):
     """Запись ученика в группу"""
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='enrollments')
@@ -105,7 +106,7 @@ class Enrollment(models.Model):
     enrolled_at = models.DateTimeField(auto_now_add=True)
     has_book = models.BooleanField(default=False, verbose_name="Есть книга")
     book_needed = models.BooleanField(default=False, verbose_name="Требуется книга")
-    book = models.ForeignKey(Book, on_delete=models.SET_NULL, null=True, blank=True,related_name='enrollments', verbose_name="Запрошенная книга")
+    book = models.ForeignKey(Book, on_delete=models.SET_NULL, null=True, blank=True, related_name='enrollments', verbose_name="Запрошенная книга")
 
     def __str__(self):
         return f"{self.student.name} → {self.group.name}"
@@ -153,7 +154,7 @@ class Attendance(models.Model):
 
 
 class Payment(models.Model):
-    """Оплата за 4-недельный цикл"""
+    """Оплата за цикл"""
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='payments')
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='payments')
     cycle_number = models.IntegerField(default=1, verbose_name="Цикл")
@@ -179,4 +180,3 @@ class Payment(models.Model):
         verbose_name = "Оплата"
         verbose_name_plural = "Оплаты"
         unique_together = ['student', 'group', 'cycle_number']
-

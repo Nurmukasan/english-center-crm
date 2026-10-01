@@ -231,7 +231,7 @@
                         </p>
                         <div class="flex justify-between items-center pt-3 border-t border-gray-200 dark:border-gray-700">
                             <span class="text-gray-600 dark:text-gray-300 text-sm"><i class="fas fa-users mr-1"></i>{{ group.enrollments.count }} учеников</span>
-                            <span class="text-indigo-600 dark:text-indigo-400 font-bold">{{ group.price }} ₸</span>
+                            <span class="text-indigo-600 dark:text-indigo-400 font-bold">{{ group.enrollments.count }} 👥</span>
                         </div>
                     </a>
                     {% if role == 'admin' or role == 'developer' %}

@@ -1,21 +1,22 @@
 from django.contrib import admin
-from .models import Student, Group, Enrollment, Lesson, Attendance, Payment
-from .models import Book
+from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book
+
 
 @admin.register(Book)
 class BookAdmin(admin.ModelAdmin):
     list_display = ['title', 'quantity']
 
+
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
-    list_display = ['name', 'phone', 'parent_name', 'parent_phone']
+    list_display = ['name', 'phone', 'parent_name', 'parent_phone', 'price_per_lesson']
     search_fields = ['name', 'phone']
 
 
 @admin.register(Group)
 class GroupAdmin(admin.ModelAdmin):
-    filter_horizontal = ('books', 'teachers')   # ← ВОТ ЭТО
-    list_display = ['name', 'teacher', 'schedule', 'price', 'is_active']
+    filter_horizontal = ('books', 'teachers')
+    list_display = ['name', 'teacher', 'schedule', 'is_active']
     list_filter = ['is_active', 'teacher']
 
 

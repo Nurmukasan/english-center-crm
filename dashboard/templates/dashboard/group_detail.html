@@ -73,7 +73,7 @@
     <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
         
         <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6 border border-gray-300 dark:border-gray-600 hover-scale transition-colors">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
                 <div>
                     <p class="text-gray-500 dark:text-gray-400 text-sm"><i class="fas fa-calendar mr-1"></i>Расписание</p>
                     <p class="font-medium text-gray-800 dark:text-white">{{ group.get_schedule_display }}</p>
@@ -88,10 +88,6 @@
                 <div>
                     <p class="text-gray-500 dark:text-gray-400 text-sm"><i class="fas fa-users mr-1"></i>Учеников</p>
                     <p class="font-medium text-gray-800 dark:text-white">{{ student_data|length }}</p>
-                </div>
-                <div>
-                    <p class="text-gray-500 dark:text-gray-400 text-sm"><i class="fas fa-money-bill mr-1"></i>Цена</p>
-                    <p class="font-medium text-gray-800 dark:text-white">{{ group.price }} ₸</p>
                 </div>
             </div>
         </div>

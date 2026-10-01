@@ -12,6 +12,27 @@ from users.models import Profile
 from decimal import Decimal
 
 
+def count_lessons_in_period(group, period_start, period_end):
+    """Сколько уроков у группы попадёт в период по расписанию"""
+    lesson_day_of_weeks = set(s.day_of_week for s in group.schedule_slots.all())
+    if not lesson_day_of_weeks:
+        return 0
+    count = 0
+    current = period_start
+    while current <= period_end:
+        if current.weekday() in lesson_day_of_weeks:
+            count += 1
+        current += timedelta(days=1)
+    return count
+
+
+def calculate_cycle_amount(student, group, period_start, period_end):
+    """Сумма за цикл = цена_за_урок × кол-во_уроков"""
+    lessons = count_lessons_in_period(group, period_start, period_end)
+    price = student.price_per_lesson or Decimal('0')
+    return Decimal(str(price)) * lessons
+
+
 def login_view(request):
     """Страница входа"""
     if request.user.is_authenticated:
@@ -49,11 +70,7 @@ def get_user_role(user):
 def dashboard(request):
     """Главный дашборд"""
     role = get_user_role(request.user)
-    
-    
     search_query = request.GET.get('search', '')
-    
-    from django.db.models import Q
 
     if role == 'teacher':
         groups = Group.objects.filter(
@@ -103,13 +120,12 @@ def dashboard(request):
         top_debtors.sort(key=lambda x: x['debt'], reverse=True)
         top_debtors = top_debtors[:5]
         
-        # Статистика оплат (текущие циклы)
+        # Статистика оплат
         today = timezone.localdate()
         current_payments = Payment.objects.filter(start_date__lte=today, end_date__gte=today)
         paid_count = current_payments.filter(is_paid=True).count()
         unpaid_count = current_payments.filter(is_paid=False).count()
         
-        # Данные для графика (оплаты по циклам)
         payment_stats = []
         for cycle in range(1, 13):
             count = Payment.objects.filter(cycle_number=cycle, is_paid=True).count()
@@ -138,7 +154,7 @@ def dashboard(request):
 
 @login_required
 def group_detail(request, group_id):
-    """Страница группы: ученики, посещаемость, оплаты"""
+    """Страница группы"""
     group = get_object_or_404(Group, id=group_id)
     role = get_user_role(request.user)
     
@@ -152,7 +168,6 @@ def group_detail(request, group_id):
     enrollments = Enrollment.objects.filter(group=group).select_related('student')
     students = [enrollment.student for enrollment in enrollments]
     
-    # Получаем или создаём урок на сегодня (только если сегодня день занятий)
     today = timezone.localdate()
     
     day_keywords = {
@@ -187,13 +202,11 @@ def group_detail(request, group_id):
     else:
         lesson = None
     
-    # Получаем посещаемость (только если урок есть)
     attendance_dict = {}
     if lesson:
         attendances = Attendance.objects.filter(lesson=lesson)
         attendance_dict = {att.student_id: att.status for att in attendances}
     
-    # Получаем оплаты за текущий цикл
     payments = Payment.objects.filter(
         group=group,
         start_date__lte=today,
@@ -233,7 +246,7 @@ def mark_attendance(request, group_id):
         group = get_object_or_404(Group, id=group_id)
         role = get_user_role(request.user)
         
-        if role not in ['admin','teacher', 'developer']:
+        if role not in ['admin', 'teacher', 'developer']:
             return JsonResponse({'success': False, 'error': 'Нет доступа'})
         
         if role == 'teacher':
@@ -291,18 +304,35 @@ def toggle_payment(request, group_id):
             return JsonResponse({'success': False, 'error': 'Нет доступа'})
         
         student_id = request.POST.get('student_id')
+        student = get_object_or_404(Student, id=student_id)
         today = timezone.localdate()
+        period_start, period_end = get_period(today.year, today.month)
+        amount = calculate_cycle_amount(student, group, period_start, period_end)
         
         payment, created = Payment.objects.get_or_create(
-            student_id=student_id,
+            student=student,
             group=group,
             start_date__lte=today,
             end_date__gte=today,
-            defaults={'amount': group.price, 'is_paid': True, 'cycle_number': 1}
+            defaults={
+                'amount': amount,
+                'is_paid': True,
+                'paid_amount': amount,
+                'paid_at': timezone.now(),
+                'marked_by': request.user,
+                'cycle_number': 1,
+            }
         )
         
         if not created:
             payment.is_paid = not payment.is_paid
+            if payment.is_paid:
+                payment.amount = amount
+                payment.paid_amount = amount
+                payment.paid_at = timezone.now()
+            else:
+                payment.paid_amount = 0
+                payment.paid_at = None
             payment.save()
         
         return JsonResponse({'success': True, 'is_paid': payment.is_paid})
@@ -321,9 +351,9 @@ def students_list(request):
     
     if role == 'teacher':
         students = Student.objects.filter(
-        Q(enrollments__group__teacher=request.user) |
-        Q(enrollments__group__teachers=request.user)
-    ).distinct()
+            Q(enrollments__group__teacher=request.user) |
+            Q(enrollments__group__teachers=request.user)
+        ).distinct()
     else:
         students = Student.objects.all()
 
@@ -374,6 +404,7 @@ def add_student(request):
                 school=request.POST.get('school', ''),
                 grade=request.POST.get('grade', ''),
                 age=request.POST.get('age') or None,
+                price_per_lesson=request.POST.get('price_per_lesson') or 0,
             )
             
             for group_id in group_ids:
@@ -466,9 +497,9 @@ def weekly_schedule(request):
     
     if role == 'teacher':
         groups = Group.objects.filter(
-        Q(teacher=request.user) | Q(teachers=request.user),
-        is_active=True
-    ).distinct()
+            Q(teacher=request.user) | Q(teachers=request.user),
+            is_active=True
+        ).distinct()
     else:
         groups = Group.objects.filter(is_active=True)
     
@@ -490,7 +521,6 @@ def weekly_schedule(request):
         day['date'] = day_date.strftime('%d.%m')
         day['is_today'] = (day_date == today)
     
-    # Слоты времени (каждые 30 минут)
     time_slots = []
     for hour in range(6, 23):
         for minute in [0, 30]:
@@ -500,7 +530,6 @@ def weekly_schedule(request):
                 'label': f'{hour}:{minute:02d}',
             })
     
-    # Собираем данные из ScheduleSlot
     schedule_data = []
     for group in groups:
         for slot in group.schedule_slots.all():
@@ -509,7 +538,6 @@ def weekly_schedule(request):
             end_hour = slot.end_time.hour
             end_minute = slot.end_time.minute
             
-            # Округляем до 30 минут
             start_minute = 0 if start_minute < 30 else 30
             end_minute = 0 if end_minute < 30 else 30
             
@@ -528,7 +556,6 @@ def weekly_schedule(request):
                 'duration_slots': duration_slots,
             })
     
-    # Цвета для групп
     pastel_colors = [
         {'bg': 'bg-blue-100', 'border': 'border-blue-300', 'text': 'text-blue-800'},
         {'bg': 'bg-green-100', 'border': 'border-green-300', 'text': 'text-green-800'},
@@ -561,6 +588,8 @@ def weekly_schedule(request):
     }
     
     return render(request, 'dashboard/weekly_schedule.html', context)
+
+
 @login_required
 def profile(request):
     """Личный кабинет пользователя"""
@@ -624,7 +653,7 @@ from django.http import HttpResponse
 
 @login_required
 def export_excel(request):
-    """Экспорт данных в Excel для админа"""
+    """Экспорт данных в Excel"""
     role = get_user_role(request.user)
     
     if role not in ['admin', 'accountant', 'developer']:
@@ -636,19 +665,17 @@ def export_excel(request):
     header_font = Font(bold=True, color='FFFFFF', size=12)
     header_fill = PatternFill(start_color='4F46E5', end_color='4F46E5', fill_type='solid')
     border = Border(
-        left=Side(style='thin'),
-        right=Side(style='thin'),
-        top=Side(style='thin'),
-        bottom=Side(style='thin')
+        left=Side(style='thin'), right=Side(style='thin'),
+        top=Side(style='thin'), bottom=Side(style='thin')
     )
     header_alignment = Alignment(horizontal='center', vertical='center')
     cell_alignment = Alignment(vertical='center')
     
-    # Лист 1: Ученики и долги
+    # Лист 1
     ws1 = wb.active
     ws1.title = 'Ученики и долги'
     
-    headers1 = ['Имя', 'Телефон', 'Группы (цены)', 'Общий долг (₸)', 'Не оплачено циклов']
+    headers1 = ['Имя', 'Телефон', 'Группы', 'Общий долг (₸)', 'Не оплачено циклов']
     for col, header in enumerate(headers1, 1):
         cell = ws1.cell(row=1, column=col, value=header)
         cell.font = header_font
@@ -662,8 +689,7 @@ def export_excel(request):
         
         groups_info = []
         for enrollment in enrollments:
-            group_price = float(enrollment.group.price)
-            groups_info.append(f"{enrollment.group.name} ({group_price}₸)")
+            groups_info.append(enrollment.group.name)
         groups_str = ', '.join(groups_info) if groups_info else '—'
         
         total_debt = 0
@@ -702,10 +728,10 @@ def export_excel(request):
     ws1.column_dimensions['D'].width = 20
     ws1.column_dimensions['E'].width = 25
     
-    # Лист 2: Долги по циклам
+    # Лист 2
     ws2 = wb.create_sheet('Долги по циклам')
     
-    headers2 = ['Ученик', 'Телефон', 'Телефон родителя', 'Группа', 'Цена группы', 'Цикл', 'Период', 'Долг', 'Статус']
+    headers2 = ['Ученик', 'Телефон', 'Телефон родителя', 'Группа', 'Цена за урок', 'Цикл', 'Период', 'Долг', 'Статус']
     for col, header in enumerate(headers2, 1):
         cell = ws2.cell(row=1, column=col, value=header)
         cell.font = header_font
@@ -721,7 +747,7 @@ def export_excel(request):
             payment.student.phone or '—',
             payment.student.parent_phone or '—',
             payment.group.name,
-            float(payment.group.price),
+            float(payment.student.price_per_lesson),
             f"Цикл {payment.cycle_number}",
             period,
             float(payment.amount) - float(payment.paid_amount),
@@ -735,20 +761,13 @@ def export_excel(request):
                 cell.fill = PatternFill(start_color='FEE2E2', end_color='FEE2E2', fill_type='solid')
                 cell.font = Font(color='DC2626')
     
-    ws2.column_dimensions['A'].width = 25
-    ws2.column_dimensions['B'].width = 20
-    ws2.column_dimensions['C'].width = 20
-    ws2.column_dimensions['D'].width = 25
-    ws2.column_dimensions['E'].width = 15
-    ws2.column_dimensions['F'].width = 15
-    ws2.column_dimensions['G'].width = 25
-    ws2.column_dimensions['H'].width = 15
-    ws2.column_dimensions['I'].width = 20
+    for letter, width in [('A', 25), ('B', 20), ('C', 20), ('D', 25), ('E', 15), ('F', 15), ('G', 25), ('H', 15), ('I', 20)]:
+        ws2.column_dimensions[letter].width = width
     
-    # Лист 3: Группы
+    # Лист 3
     ws3 = wb.create_sheet('Группы')
     
-    headers3 = ['Название', 'Учитель', 'Расписание', 'Цена', 'Учеников', 'Активна']
+    headers3 = ['Название', 'Учитель', 'Расписание', 'Учеников', 'Активна']
     for col, header in enumerate(headers3, 1):
         cell = ws3.cell(row=1, column=col, value=header)
         cell.font = header_font
@@ -762,7 +781,6 @@ def export_excel(request):
             group.name,
             group.teacher.username if group.teacher else '—',
             group.schedule or '',
-            float(group.price),
             group.enrollments.count(),
             'Да' if group.is_active else 'Нет',
         ]
@@ -771,14 +789,10 @@ def export_excel(request):
             cell.alignment = cell_alignment
             cell.border = border
     
-    ws3.column_dimensions['A'].width = 25
-    ws3.column_dimensions['B'].width = 20
-    ws3.column_dimensions['C'].width = 30
-    ws3.column_dimensions['D'].width = 15
-    ws3.column_dimensions['E'].width = 15
-    ws3.column_dimensions['F'].width = 10
+    for letter, width in [('A', 25), ('B', 20), ('C', 30), ('D', 15), ('E', 10)]:
+        ws3.column_dimensions[letter].width = width
     
-    # Лист 4: Посещаемость
+    # Лист 4
     ws4 = wb.create_sheet('Посещаемость')
     
     headers4 = ['Дата', 'Группа', 'Ученик', 'Статус']
@@ -812,10 +826,8 @@ def export_excel(request):
                 elif attendance.status == 'absent':
                     cell.fill = PatternFill(start_color='FEE2E2', end_color='FEE2E2', fill_type='solid')
     
-    ws4.column_dimensions['A'].width = 15
-    ws4.column_dimensions['B'].width = 25
-    ws4.column_dimensions['C'].width = 25
-    ws4.column_dimensions['D'].width = 20
+    for letter, width in [('A', 15), ('B', 25), ('C', 25), ('D', 20)]:
+        ws4.column_dimensions[letter].width = width
     
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -844,14 +856,12 @@ def toggle_payment_management(request, payment_id):
         payment = get_object_or_404(Payment, id=payment_id)
         
         if payment.is_paid:
-            # Отменяем оплату
             payment.is_paid = False
             payment.is_partial = False
             payment.paid_amount = 0
             payment.paid_at = None
             payment.marked_by = None
         else:
-            # Полная оплата
             payment.is_paid = True
             payment.is_partial = False
             payment.paid_amount = payment.amount
@@ -877,7 +887,6 @@ def partial_payment(request, payment_id):
         amount = float(request.POST.get('amount', 0))
         
         if amount > 0:
-            from decimal import Decimal
             payment.paid_amount = Decimal(str(payment.paid_amount)) + Decimal(str(amount))
             payment.is_partial = True
             payment.marked_by = request.user
@@ -893,6 +902,7 @@ def partial_payment(request, payment_id):
     
     return JsonResponse({'success': False})
 
+
 @login_required
 def accountant_stats(request):
     """Статистика для бухгалтера"""
@@ -903,21 +913,16 @@ def accountant_stats(request):
         return redirect('dashboard')
     
     today = timezone.localdate()
-    
-    # Период
     period = request.GET.get('period', 'month')
     group_filter = request.GET.get('group', 'all')
     
-    # Все платежи с положительной суммой (включая частичные)
     payments = Payment.objects.filter(paid_amount__gt=0)
     
     if group_filter != 'all':
         payments = payments.filter(group_id=group_filter)
     
-    # Общий заработок (все оплаты)
     total_income = sum([float(p.paid_amount) for p in payments])
     
-    # По группам
     groups_stats = []
     all_groups = Group.objects.all()
     for group in all_groups:
@@ -932,7 +937,6 @@ def accountant_stats(request):
     
     groups_stats.sort(key=lambda x: x['income'], reverse=True)
     
-    # График по месяцам за всё время
     monthly_income = []
     for i in range(11, -1, -1):
         month_date = today.replace(day=1) - timedelta(days=i*30)
@@ -943,7 +947,6 @@ def accountant_stats(request):
             next_month = month_start.replace(month=month_start.month + 1, day=1)
             month_end = next_month - timedelta(days=1)
         
-        # Оплаты с датой оплаты в этом месяце
         paid_with_date = Payment.objects.filter(
             paid_amount__gt=0,
             paid_at__isnull=False,
@@ -951,7 +954,6 @@ def accountant_stats(request):
             paid_at__date__lte=month_end
         )
         
-        # Частичные оплаты без даты — по дате конца периода
         partial_without_date = Payment.objects.filter(
             paid_amount__gt=0,
             paid_at__isnull=True,
@@ -1045,11 +1047,8 @@ def export_income_excel(request):
                 top=Side(style='thin'), bottom=Side(style='thin')
             )
     
-    ws.column_dimensions['A'].width = 25
-    ws.column_dimensions['B'].width = 25
-    ws.column_dimensions['C'].width = 15
-    ws.column_dimensions['D'].width = 15
-    ws.column_dimensions['E'].width = 20
+    for letter, width in [('A', 25), ('B', 25), ('C', 15), ('D', 15), ('E', 20)]:
+        ws.column_dimensions[letter].width = width
     
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -1072,18 +1071,15 @@ def add_group(request):
         name = request.POST.get('name')
         group_type = request.POST.get('group_type', 'group')
         teacher_id = request.POST.get('teacher')
-        price = request.POST.get('price', '0')
         
         if name and teacher_id:
             group = Group.objects.create(
                 name=name,
                 group_type=group_type,
                 teacher_id=teacher_id,
-                price=price,
                 is_active=True,
             )
             
-            # Создаём расписание
             import re
             for i in range(7):
                 if request.POST.get(f'day_{i}') == '1':
@@ -1100,7 +1096,7 @@ def add_group(request):
                             )
                         except Exception as e:
                             messages.error(request, f'Ошибка в дне {i}: {e}')
-            # Обновляем текстовое поле schedule
+            
             slots = group.schedule_slots.all().order_by('day_of_week')
             days_names = {0: 'Пн', 1: 'Вт', 2: 'Ср', 3: 'Чт', 4: 'Пт', 5: 'Сб', 6: 'Вс'}
             schedule_parts = []
@@ -1110,7 +1106,6 @@ def add_group(request):
             group.save()
             
             additional_teacher_ids = request.POST.getlist('additional_teachers', [])
-            # Исключаем основного учителя
             additional_teacher_ids = [tid for tid in additional_teacher_ids if int(tid) != int(teacher_id)]
             if additional_teacher_ids:
                 group.teachers.set(additional_teacher_ids)
@@ -1211,6 +1206,7 @@ def add_existing_student_to_group(request, student_id):
     }
     
     return render(request, 'dashboard/add_to_group.html', context)
+
 
 @login_required
 def toggle_book_status(request, enrollment_id=None):
@@ -1319,6 +1315,7 @@ def book_detail(request, book_id):
 
     return render(request, 'dashboard/book_detail.html', context)
 
+
 @login_required
 def edit_student(request, student_id):
     """Редактирование ученика"""
@@ -1338,9 +1335,9 @@ def edit_student(request, student_id):
         student.school = request.POST.get('school', '')
         student.grade = request.POST.get('grade', '')
         student.age = request.POST.get('age') or None
+        student.price_per_lesson = request.POST.get('price_per_lesson') or 0
         student.save()
         
-        # Обновляем группы
         group_ids = request.POST.getlist('groups')
         Enrollment.objects.filter(student=student).delete()
         for group_id in group_ids:
@@ -1381,24 +1378,19 @@ def edit_group(request, group_id):
         group.group_type = request.POST.get('group_type', group.group_type)
         group.teacher_id = request.POST.get('teacher', group.teacher_id)
         additional_teacher_ids = request.POST.getlist('additional_teachers', [])
-        # Исключаем основного учителя
         additional_teacher_ids = [tid for tid in additional_teacher_ids if int(tid) != group.teacher_id]
         group.teachers.set(additional_teacher_ids)
-        group.price = request.POST.get('price', group.price)
         group.is_active = True
         group.save()
         
-        # Удаляем старое расписание
         group.schedule_slots.all().delete()
         
-        # Создаём новое
         import re
         for i in range(7):
             if request.POST.get(f'day_{i}') == '1':
                 start = request.POST.get(f'start_{i}', '').strip()
                 end = request.POST.get(f'end_{i}', '').strip()
                 
-                # Проверяем формат ЧЧ:ММ
                 if re.match(r'^\d{1,2}:\d{2}$', start) and re.match(r'^\d{1,2}:\d{2}$', end):
                     try:
                         ScheduleSlot.objects.create(
@@ -1409,7 +1401,7 @@ def edit_group(request, group_id):
                         )
                     except Exception as e:
                         messages.error(request, f'Ошибка в дне {i}: {e}')
-        # Обновляем текстовое поле schedule
+        
         slots = group.schedule_slots.all().order_by('day_of_week')
         days_names = {0: 'Пн', 1: 'Вт', 2: 'Ср', 3: 'Чт', 4: 'Пт', 5: 'Сб', 6: 'Вс'}
         schedule_parts = []
@@ -1467,7 +1459,7 @@ def get_current_period():
 def make_calendar(year, month, period_start, period_end, lesson_dates_set):
     """Структура для календаря"""
     days_in_month = monthrange(year, month)[1]
-    first_weekday = date(year, month, 1).weekday()  # 0=Пн
+    first_weekday = date(year, month, 1).weekday()
     
     days = []
     for d in range(1, days_in_month + 1):
@@ -1595,7 +1587,6 @@ def group_payment_detail(request, group_id):
     
     period_start, period_end = get_period(year, month)
     
-    # Дни с уроками
     lesson_dates_set = set()
     schedule_slots = list(group.schedule_slots.all())
     lesson_day_of_weeks = set(s.day_of_week for s in schedule_slots)
@@ -1606,7 +1597,6 @@ def group_payment_detail(request, group_id):
             lesson_dates_set.add(current)
         current += timedelta(days=1)
     
-    # Календари
     cal1 = make_calendar(year, month, period_start, period_end, lesson_dates_set)
     
     if month == 12:
@@ -1615,9 +1605,10 @@ def group_payment_detail(request, group_id):
         y2, m2 = year, month + 1
     cal2 = make_calendar(y2, m2, period_start, period_end, lesson_dates_set)
     
-    # Ученики
     cycle_num = year * 100 + month
     enrollments = Enrollment.objects.filter(group=group).select_related('student').order_by('student__name')
+    
+    lesson_count = len(lesson_dates_set)
     
     students_data = []
     for enrollment in enrollments:
@@ -1628,9 +1619,13 @@ def group_payment_detail(request, group_id):
             cycle_number=cycle_num
         ).first()
         
+        amount = calculate_cycle_amount(student, group, period_start, period_end)
+        
         students_data.append({
             'student': student,
             'is_paid': payment.is_paid if payment else False,
+            'amount': amount,
+            'price_per_lesson': student.price_per_lesson,
         })
     
     context = {
@@ -1642,7 +1637,7 @@ def group_payment_detail(request, group_id):
         'period_end': period_end,
         'calendar1': cal1,
         'calendar2': cal2,
-        'lesson_count': len(lesson_dates_set),
+        'lesson_count': lesson_count,
         'students_data': students_data,
     }
     
@@ -1662,22 +1657,24 @@ def toggle_student_payment(request, group_id):
     group = get_object_or_404(Group, id=group_id)
     
     student_id = request.POST.get('student_id')
+    student = get_object_or_404(Student, id=student_id)
     year = int(request.POST.get('year'))
     month = int(request.POST.get('month'))
     cycle_num = year * 100 + month
     
     period_start, period_end = get_period(year, month)
+    amount = calculate_cycle_amount(student, group, period_start, period_end)
     
     payment, created = Payment.objects.get_or_create(
-        student_id=student_id,
+        student=student,
         group=group,
         cycle_number=cycle_num,
         defaults={
             'start_date': period_start,
             'end_date': period_end,
-            'amount': group.price,
+            'amount': amount,
             'is_paid': True,
-            'paid_amount': group.price,
+            'paid_amount': amount,
             'paid_at': timezone.now(),
             'marked_by': request.user,
         }
@@ -1686,7 +1683,8 @@ def toggle_student_payment(request, group_id):
     if not created:
         payment.is_paid = not payment.is_paid
         if payment.is_paid:
-            payment.paid_amount = payment.amount
+            payment.amount = amount
+            payment.paid_amount = amount
             payment.paid_at = timezone.now()
             payment.marked_by = request.user
         else:
@@ -1696,6 +1694,7 @@ def toggle_student_payment(request, group_id):
         payment.save()
     
     return JsonResponse({'success': True, 'is_paid': payment.is_paid})
+
 
 @login_required
 def book_reader(request, book_id):
@@ -1708,4 +1707,4 @@ def book_reader(request, book_id):
         'book': book,
     }
     
-    return render(request, 'dashboard/book_reader.html', context)
+    return render(request, 'dashboard/book_render.html', context)

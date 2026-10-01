@@ -94,12 +94,22 @@
         </div>
         <div class="divide-y divide-gray-200 dark:divide-gray-700">
             {% for data in students_data %}
-            <div class="px-5 py-3 flex justify-between items-center">
-                <p class="text-gray-800 dark:text-white notranslate">{{ data.student.name }}</p>
+            <div class="px-5 py-3 flex justify-between items-center gap-3">
+                <div class="min-w-0 flex-1">
+                    <p class="text-gray-800 dark:text-white notranslate">{{ data.student.name }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {% if data.price_per_lesson %}
+                            {{ data.price_per_lesson|floatformat:0 }} ₸ × {{ lesson_count }} ур. =
+                            <b class="text-indigo-600 dark:text-indigo-400">{{ data.amount|floatformat:0 }} ₸</b>
+                        {% else %}
+                            <span class="text-red-500">⚠️ Цена за урок не задана</span>
+                        {% endif %}
+                    </p>
+                </div>
                 <button onclick="togglePayment({{ group.id }}, {{ data.student.id }}, this)"
                         data-year="{{ year }}"
                         data-month="{{ month }}"
-                        class="px-4 py-2 rounded-lg text-sm font-medium transition
+                        class="px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap
                         {% if data.is_paid %}
                             bg-green-500 text-white hover:bg-green-600
                         {% else %}
