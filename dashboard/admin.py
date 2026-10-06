@@ -1,6 +1,12 @@
 from django.contrib import admin
 from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book
+from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book, LevelCalibration
 
+@admin.register(LevelCalibration)
+class LevelCalibrationAdmin(admin.ModelAdmin):
+    list_display = ['student', 'group', 'direction', 'created_by', 'created_at']
+    list_filter = ['direction', 'group']
+    search_fields = ['student__name', 'comment']
 
 @admin.register(Book)
 class BookAdmin(admin.ModelAdmin):
@@ -34,7 +40,7 @@ class LessonAdmin(admin.ModelAdmin):
 @admin.register(Attendance)
 class AttendanceAdmin(admin.ModelAdmin):
     list_display = ['student', 'lesson', 'status']
-    list_filter = ['status', 'lesson__group']
+    list_filter = ['status','homework_done', 'lesson__group']
 
 
 @admin.register(Payment)

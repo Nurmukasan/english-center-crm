@@ -152,6 +152,7 @@
                     <thead>
                         <tr class="bg-gray-100 dark:bg-gray-700/50 text-left border-b border-gray-300 dark:border-gray-600">
                             <th class="px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Ученик</th>
+                            <th class="px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 text-center">Домашка</th>
                             <th class="px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Посещаемость</th>
                         </tr>
                     </thead>
@@ -159,16 +160,25 @@
                         {% for data in student_data %}
                         <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition">
                             <td class="px-6 py-4">
-                                <p class="font-medium text-gray-800 dark:text-white">{{ data.student.name }}</p>
+                                <button type="button"
+                                    class="student-name-btn text-left"
+                                    data-student-id="{{ data.student.id }}"
+                                    data-name="{{ data.student.name }}"
+                                    data-group="{{ group.name }}"
+                                    data-grade="{{ data.student.grade|default:'' }}"
+                                    data-age="{{ data.student.age|default:'' }}"
+                                    data-school="{{ data.student.school|default:'' }}"
+                                    data-phone="{{ data.student.phone|default:'' }}"
+                                    data-parent-name="{{ data.student.parent_name|default:'' }}"
+                                    data-parent-phone="{{ data.student.parent_phone|default:'' }}"
+                                    onclick="openStudentInfo(this)">
+                                    <p class="font-medium text-gray-800 dark:text-white hover:text-indigo-600 transition inline-flex items-center gap-1">
+                                        {{ data.student.name }}
+                                        <i class="fas fa-info-circle text-xs text-gray-400"></i>
+                                    </p>
+                                </button>
                                 {% if data.student.phone %}
                                 <p class="text-sm text-gray-400"><i class="fas fa-phone mr-1"></i>{{ data.student.phone }}</p>
-                                {% endif %}
-                                {% if data.student.school or data.student.grade or data.student.age %}
-                                <p class="text-xs text-gray-400 mt-1">
-                                    {% if data.student.school %}<i class="fas fa-school mr-1"></i>{{ data.student.school }}{% endif %}
-                                    {% if data.student.grade %} • {{ data.student.grade }} класс{% endif %}
-                                    {% if data.student.age %} • {{ data.student.age }} лет{% endif %}
-                                </p>
                                 {% endif %}
                                 {% if role == 'admin' or role == 'developer' %}
                                 <a href="{% url 'remove_student_from_group' data.student.id group.id %}"
@@ -176,6 +186,17 @@
                                     class="text-red-500 text-xs hover:text-red-700 inline-block mt-1">
                                     <i class="fas fa-trash mr-1"></i>Удалить из группы
                                 </a>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                {% if lesson and can_mark_attendance %}
+                                <button onclick="toggleHomework({{ data.student.id }}, this)"
+                                        class="w-10 h-10 rounded-lg text-lg font-bold transition-all
+                                        {% if data.homework_done %}bg-green-500 text-white shadow{% else %}bg-gray-200 dark:bg-gray-600 text-gray-400 hover:bg-gray-300{% endif %}">
+                                    {% if data.homework_done %}✅{% else %}⬜{% endif %}
+                                </button>
+                                {% else %}
+                                <span class="text-gray-400 text-sm">—</span>
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4">
@@ -197,7 +218,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="2" class="px-6 py-12 text-center text-gray-400">
+                            <td colspan="3" class="px-6 py-12 text-center text-gray-400">
                                 <i class="fas fa-inbox text-5xl mb-3"></i>
                                 <p class="text-lg">Нет учеников в группе</p>
                             </td>
@@ -209,7 +230,104 @@
         </div>
         
     </main>
-    
+    <!-- Мини-окно: Инфо об ученике -->
+    <div id="studentInfoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-sm shadow-2xl">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800 dark:text-white" id="infoName">—</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5" id="infoGroup">—</p>
+                </div>
+                <button onclick="closeStudentInfo()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="space-y-2 text-sm border-t border-b border-gray-200 dark:border-gray-700 py-3 my-3">
+                <div class="flex justify-between">
+                    <span class="text-gray-500 dark:text-gray-400">Класс:</span>
+                    <span class="font-medium text-gray-800 dark:text-white" id="infoGrade">—</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500 dark:text-gray-400">Возраст:</span>
+                    <span class="font-medium text-gray-800 dark:text-white" id="infoAge">—</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500 dark:text-gray-400">Школа:</span>
+                    <span class="font-medium text-gray-800 dark:text-white text-right" id="infoSchool">—</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500 dark:text-gray-400">Телефон:</span>
+                    <span class="font-medium text-gray-800 dark:text-white" id="infoPhone">—</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500 dark:text-gray-400">Родитель:</span>
+                    <span class="font-medium text-gray-800 dark:text-white text-right" id="infoParent">—</span>
+                </div>
+            </div>
+
+            <div class="flex gap-2">
+                <button onclick="openProfile()"
+                        class="flex-1 bg-indigo-500 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-600 transition">
+                    <i class="fas fa-user mr-1"></i>Профиль
+                </button>
+                <button onclick="openCalibration()"
+                        class="flex-1 bg-amber-500 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-amber-600 transition">
+                    <i class="fas fa-balance-scale mr-1"></i>Калибровка
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка калибровки -->
+    <div id="calibrationModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-sm shadow-2xl">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800 dark:text-white">Калибровка уровня</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5" id="calibStudentName">—</p>
+                </div>
+                <button onclick="closeCalibration()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="space-y-2 mb-4">
+                <label class="flex items-center gap-3 p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:border-green-500 transition">
+                    <input type="radio" name="calib_direction" value="up" class="w-5 h-5 text-green-600">
+                    <div>
+                        <p class="font-medium text-gray-800 dark:text-white">⬆️ Уровень выше</p>
+                        <p class="text-xs text-gray-500">Ученик тянет более сильную группу</p>
+                    </div>
+                </label>
+                <label class="flex items-center gap-3 p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:border-red-500 transition">
+                    <input type="radio" name="calib_direction" value="down" class="w-5 h-5 text-red-600">
+                    <div>
+                        <p class="font-medium text-gray-800 dark:text-white">⬇️ Уровень ниже</p>
+                        <p class="text-xs text-gray-500">Ученику тяжело, нужна группа слабее</p>
+                    </div>
+                </label>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Комментарий</label>
+                <textarea id="calibComment" rows="3"
+                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          placeholder="Что заметили на занятиях..."></textarea>
+            </div>
+
+            <div class="flex gap-2">
+                <button onclick="submitCalibration()"
+                        class="flex-1 bg-amber-500 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-amber-600 transition">
+                    <i class="fas fa-save mr-1"></i>Сохранить
+                </button>
+                <button onclick="closeCalibration()"
+                        class="px-4 py-2.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-white rounded-lg text-sm font-medium hover:bg-gray-300 transition">
+                    Отмена
+                </button>
+            </div>
+        </div>
+    </div>
     <!-- Модалка запроса книги -->
     <div id="bookRequestModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
         <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-lg">
@@ -318,7 +436,104 @@
                 if (data.success) location.reload();
             });
         }
-        
+        let currentStudent = null;
+
+        function openStudentInfo(btn) {
+            currentStudent = {
+                id: btn.dataset.studentId,
+                name: btn.dataset.name,
+                group: btn.dataset.group,
+            };
+            document.getElementById('infoName').textContent = btn.dataset.name;
+            document.getElementById('infoGroup').textContent = '👥 ' + btn.dataset.group;
+            document.getElementById('infoGrade').textContent = btn.dataset.grade || '—';
+            document.getElementById('infoAge').textContent = btn.dataset.age ? btn.dataset.age + ' лет' : '—';
+            document.getElementById('infoSchool').textContent = btn.dataset.school || '—';
+            document.getElementById('infoPhone').textContent = btn.dataset.phone || '—';
+            document.getElementById('infoParent').textContent =
+                (btn.dataset.parentName || '—') +
+                (btn.dataset.parentPhone ? ' • ' + btn.dataset.parentPhone : '');
+            document.getElementById('studentInfoModal').classList.remove('hidden');
+        }
+
+        function closeStudentInfo() {
+            document.getElementById('studentInfoModal').classList.add('hidden');
+        }
+
+        function openProfile() {
+            if (!currentStudent) return;
+            // TODO: когда будет страница профиля ученика — заменить
+            alert('Профиль ученика: ' + currentStudent.name + '\n(страница в разработке)');
+        }
+
+        function openCalibration() {
+            if (!currentStudent) return;
+            closeStudentInfo();
+            document.getElementById('calibStudentName').textContent = currentStudent.name;
+            document.getElementById('calibComment').value = '';
+            document.querySelectorAll('input[name="calib_direction"]').forEach(r => r.checked = false);
+            document.getElementById('calibrationModal').classList.remove('hidden');
+        }
+
+        function closeCalibration() {
+            document.getElementById('calibrationModal').classList.add('hidden');
+        }
+
+        function submitCalibration() {
+            if (!currentStudent) return;
+            const direction = document.querySelector('input[name="calib_direction"]:checked');
+            if (!direction) {
+                alert('Выберите направление');
+                return;
+            }
+            const comment = document.getElementById('calibComment').value;
+
+            fetch('/calibration/create/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: `student_id=${currentStudent.id}&group_id={{ group.id }}&direction=${direction.value}&comment=${encodeURIComponent(comment)}`
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    closeCalibration();
+                    alert('✅ Калибровка сохранена');
+                } else {
+                    alert('Ошибка: ' + (data.error || 'неизвестно'));
+                }
+            })
+            .catch(err => alert('Ошибка сети: ' + err));
+        }
+
+        function toggleHomework(studentId, btn) {
+            const isDone = btn.classList.contains('bg-green-500');
+            const newState = !isDone;
+
+            fetch(`/group/{{ group.id }}/homework/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: `student_id=${studentId}&done=${newState ? '1' : '0'}`
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) return;
+                if (data.homework_done) {
+                    btn.classList.remove('bg-gray-200', 'dark:bg-gray-600', 'text-gray-400', 'hover:bg-gray-300');
+                    btn.classList.add('bg-green-500', 'text-white', 'shadow');
+                    btn.textContent = '✅';
+                } else {
+                    btn.classList.add('bg-gray-200', 'dark:bg-gray-600', 'text-gray-400', 'hover:bg-gray-300');
+                    btn.classList.remove('bg-green-500', 'text-white', 'shadow');
+                    btn.textContent = '⬜';
+                }
+            });
+        }
         function googleTranslateElementInit() {
             new google.translate.TranslateElement({
                 pageLanguage: 'ru',

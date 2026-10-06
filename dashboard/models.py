@@ -143,6 +143,7 @@ class Attendance(models.Model):
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='attendances')
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='attendances')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='absent', verbose_name="Статус")
+    homework_done = models.BooleanField(default=False, verbose_name="Домашка сделана")
 
     def __str__(self):
         return f"{self.student.name} — {self.lesson.date} — {self.status}"
@@ -180,3 +181,24 @@ class Payment(models.Model):
         verbose_name = "Оплата"
         verbose_name_plural = "Оплаты"
         unique_together = ['student', 'group', 'cycle_number']
+
+class LevelCalibration(models.Model):
+    """Калибровка уровня ученика"""
+    DIRECTION_CHOICES = [
+        ('up', 'Уровень выше'),
+        ('down', 'Уровень ниже'),
+    ]
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='calibrations')
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='calibrations')
+    direction = models.CharField(max_length=10, choices=DIRECTION_CHOICES, verbose_name="Направление")
+    comment = models.TextField(blank=True, verbose_name="Комментарий")
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='calibrations')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.student.name} — {self.get_direction_display()}"
+
+    class Meta:
+        verbose_name = "Калибровка уровня"
+        verbose_name_plural = "Калибровки уровня"
+        ordering = ['-created_at']

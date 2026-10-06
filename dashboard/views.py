@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.http import JsonResponse
 from datetime import datetime, timedelta
-from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book, ScheduleSlot
+from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book, ScheduleSlot, LevelCalibration
 from users.models import Profile
 from decimal import Decimal
 
@@ -203,9 +203,11 @@ def group_detail(request, group_id):
         lesson = None
     
     attendance_dict = {}
+    homework_dict = {}
     if lesson:
         attendances = Attendance.objects.filter(lesson=lesson)
         attendance_dict = {att.student_id: att.status for att in attendances}
+        homework_dict = {att.student_id: att.homework_done for att in attendances}
     
     payments = Payment.objects.filter(
         group=group,
@@ -220,6 +222,7 @@ def group_detail(request, group_id):
         student_data.append({
             'student': student,
             'attendance_status': attendance_dict.get(student.id, 'absent'),
+            'homework_done': homework_dict.get(student.id, False),
             'is_paid': payment_dict.get(student.id, False),
             'enrollment': enrollment,
         })
@@ -1708,3 +1711,69 @@ def book_reader(request, book_id):
     }
     
     return render(request, 'dashboard/book_render.html', context)
+
+@login_required
+def mark_homework(request, group_id):
+    """Отметка домашки (AJAX)"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False})
+    
+    group = get_object_or_404(Group, id=group_id)
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'teacher', 'developer']:
+        return JsonResponse({'success': False, 'error': 'Нет доступа'})
+    
+    if role == 'teacher':
+        is_main = group.teacher == request.user
+        is_additional = group.teachers.filter(id=request.user.id).exists()
+        if not (is_main or is_additional):
+            return JsonResponse({'success': False, 'error': 'Нет доступа'})
+    
+    today = timezone.localdate()
+    student_id = request.POST.get('student_id')
+    done = request.POST.get('done') == '1'
+    
+    lesson, _ = Lesson.objects.get_or_create(group=group, date=today)
+    
+    attendance, _ = Attendance.objects.get_or_create(
+        lesson=lesson,
+        student_id=student_id,
+        defaults={'status': 'absent'}
+    )
+    attendance.homework_done = done
+    attendance.save()
+    
+    return JsonResponse({'success': True, 'homework_done': done})
+
+
+@login_required
+def create_calibration(request):
+    """Создание калибровки уровня (AJAX)"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False})
+    
+    role = get_user_role(request.user)
+    if role not in ['admin', 'teacher', 'developer']:
+        return JsonResponse({'success': False, 'error': 'Нет доступа'})
+    
+    student_id = request.POST.get('student_id')
+    group_id = request.POST.get('group_id')
+    direction = request.POST.get('direction')
+    comment = request.POST.get('comment', '').strip()
+    
+    if direction not in ['up', 'down']:
+        return JsonResponse({'success': False, 'error': 'Неверное направление'})
+    
+    student = get_object_or_404(Student, id=student_id)
+    group = get_object_or_404(Group, id=group_id)
+    
+    cal = LevelCalibration.objects.create(
+        student=student,
+        group=group,
+        direction=direction,
+        comment=comment,
+        created_by=request.user,
+    )
+    
+    return JsonResponse({'success': True, 'id': cal.id})
