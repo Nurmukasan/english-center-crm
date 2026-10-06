@@ -22,7 +22,7 @@ class StudentAdmin(admin.ModelAdmin):
 @admin.register(Group)
 class GroupAdmin(admin.ModelAdmin):
     filter_horizontal = ('books', 'teachers')
-    list_display = ['name', 'teacher', 'schedule', 'is_active']
+    list_display = ['name', 'teacher', 'schedule', 'cycle_start_day', 'is_active']
     list_filter = ['is_active', 'teacher']
 
 

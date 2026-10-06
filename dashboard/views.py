@@ -308,8 +308,8 @@ def toggle_payment(request, group_id):
         
         student_id = request.POST.get('student_id')
         student = get_object_or_404(Student, id=student_id)
-        today = timezone.localdate()
-        period_start, period_end = get_period(today.year, today.month)
+        year, month = get_current_period(group.cycle_start_day)
+        period_start, period_end = get_period(year, month, group.cycle_start_day)
         amount = calculate_cycle_amount(student, group, period_start, period_end)
         
         payment, created = Payment.objects.get_or_create(
@@ -1076,10 +1076,18 @@ def add_group(request):
         teacher_id = request.POST.get('teacher')
         
         if name and teacher_id:
+            try:
+                cycle_start_day = int(request.POST.get('cycle_start_day', 11))
+                if not (2 <= cycle_start_day <= 28):
+                    cycle_start_day = 11
+            except (ValueError, TypeError):
+                cycle_start_day = 11
+
             group = Group.objects.create(
                 name=name,
                 group_type=group_type,
                 teacher_id=teacher_id,
+                cycle_start_day=cycle_start_day,
                 is_active=True,
             )
             
@@ -1383,6 +1391,13 @@ def edit_group(request, group_id):
         additional_teacher_ids = request.POST.getlist('additional_teachers', [])
         additional_teacher_ids = [tid for tid in additional_teacher_ids if int(tid) != group.teacher_id]
         group.teachers.set(additional_teacher_ids)
+        try:
+            cycle_start_day = int(request.POST.get('cycle_start_day', group.cycle_start_day))
+            if not (2 <= cycle_start_day <= 28):
+                cycle_start_day = group.cycle_start_day
+        except (ValueError, TypeError):
+            cycle_start_day = group.cycle_start_day
+        group.cycle_start_day = cycle_start_day
         group.is_active = True
         group.save()
         
@@ -1438,20 +1453,26 @@ MONTHS_RU = ['Январь', 'Февраль', 'Март', 'Апрель', 'Ма
              'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
 
 
-def get_period(year, month):
-    """Период: с 11 числа этого месяца по 10 число следующего (вкл)"""
-    start = date(year, month, 11)
+def get_period(year, month, cycle_start_day=11):
+    """Период: с cycle_start_day этого месяца по (cycle_start_day-1) следующего (вкл)"""
+    if not (2 <= cycle_start_day <= 28):
+        cycle_start_day = 11
+    start = date(year, month, cycle_start_day)
+    end_day = cycle_start_day - 1
     if month == 12:
-        end = date(year + 1, 1, 10)
+        end = date(year + 1, 1, end_day)
     else:
-        end = date(year, month + 1, 10)
+        end = date(year, month + 1, end_day)
     return start, end
 
 
-def get_current_period():
-    """Текущий период по дате"""
+def get_current_period(cycle_start_day=11):
+    """Текущий цикл по дате"""
+    if not (2 <= cycle_start_day <= 28):
+        cycle_start_day = 11
     today = timezone.localdate()
-    if today.day > 10:
+    cycle_start_this = date(today.year, today.month, cycle_start_day)
+    if today >= cycle_start_this:
         return today.year, today.month
     else:
         if today.month == 1:
@@ -1588,7 +1609,7 @@ def group_payment_detail(request, group_id):
     year = int(request.GET.get('year'))
     month = int(request.GET.get('month'))
     
-    period_start, period_end = get_period(year, month)
+    period_start, period_end = get_period(year, month, group.cycle_start_day)
     
     lesson_dates_set = set()
     schedule_slots = list(group.schedule_slots.all())
@@ -1665,7 +1686,7 @@ def toggle_student_payment(request, group_id):
     month = int(request.POST.get('month'))
     cycle_num = year * 100 + month
     
-    period_start, period_end = get_period(year, month)
+    period_start, period_end = get_period(year, month, group.cycle_start_day)
     amount = calculate_cycle_amount(student, group, period_start, period_end)
     
     payment, created = Payment.objects.get_or_create(

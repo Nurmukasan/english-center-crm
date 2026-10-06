@@ -53,6 +53,11 @@ class Group(models.Model):
     teacher = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='teaching_groups', verbose_name="Учитель")
     teachers = models.ManyToManyField(User, related_name='group_teachers', blank=True, verbose_name="Дополнительные учителя")
     schedule = models.CharField(max_length=200, blank=True, verbose_name="Расписание")
+    cycle_start_day = models.IntegerField(
+        default=11,
+        verbose_name="День начала цикла",
+        help_text="Число месяца, с которого начинается учебный цикл (2-28). Если 6 — цикл идёт с 6 числа этого месяца по 5 число следующего."
+    )
     is_active = models.BooleanField(default=True, verbose_name="Активна")
     created_at = models.DateTimeField(auto_now_add=True)
     books = models.ManyToManyField(Book, related_name='groups', blank=True, verbose_name="Книги")
