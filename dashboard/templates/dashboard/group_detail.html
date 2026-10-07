@@ -597,31 +597,140 @@
         function deleteFromGroupConfirm() {
             return confirm('Удалить ' + (currentStudent ? currentStudent.name : 'ученика') + ' из группы?');
         }
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                } catch(e) { console.warn('Audio not supported', e); }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playStarSound() {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const freqs = [1046.5, 1568]; // C6, G6 — «динь-динь»
+            freqs.forEach((freq, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+
+                const start = now + i * 0.07;
+                gain.gain.setValueAtTime(0, start);
+                gain.gain.linearRampToValueAtTime(0.28, start + 0.008);
+                gain.gain.exponentialRampToValueAtTime(0.001, start + 0.4);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(start);
+                osc.stop(start + 0.45);
+            });
+        }
+
         function toggleStarModal() {
+            initAudio();
             document.getElementById('starModal').classList.toggle('hidden');
         }
 
-        function submitStars() {
+        async function submitStars() {
+            initAudio();
+
             const checkboxes = document.querySelectorAll('.star-checkbox:checked');
             const ids = Array.from(checkboxes).map(cb => cb.value);
             if (ids.length === 0) {
                 alert('Выберите хотя бы одного ученика');
                 return;
             }
-            fetch(`/group/{{ group.id }}/stars/`, {
+
+            // Запоминаем стартовые позиции (где чекбоксы) ДО закрытия модалки
+            const startPositions = {};
+            ids.forEach(sid => {
+                const cb = document.querySelector(`.star-checkbox[value="${sid}"]`);
+                if (cb) {
+                    const r = cb.getBoundingClientRect();
+                    startPositions[sid] = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+                }
+            });
+
+            // Закрываем модалку
+            document.getElementById('starModal').classList.add('hidden');
+
+            // Отправляем запрос параллельно анимации
+            const fetchPromise = fetch(`/group/{{ group.id }}/stars/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'X-CSRFToken': '{{ csrf_token }}'
                 },
                 body: `student_ids=${ids.join(',')}`
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) location.reload();
-                else alert('Ошибка: ' + (data.error || 'неизвестно'));
-            })
-            .catch(err => alert('Ошибка сети: ' + err));
+            }).then(r => r.json());
+
+            // Анимация каждой звезды
+            const animations = ids.map((sid, index) => {
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        const start = startPositions[sid];
+                        const target = document.querySelector(`.student-name-btn[data-student-id="${sid}"]`);
+                        if (!start || !target) { resolve(); return; }
+
+                        const endRect = target.getBoundingClientRect();
+                        const endX = endRect.left + endRect.width / 2;
+                        const endY = endRect.top + endRect.height / 2;
+                        const dx = endX - start.x;
+                        const dy = endY - start.y;
+
+                        const star = document.createElement('div');
+                        star.textContent = '⭐';
+                        Object.assign(star.style, {
+                            position: 'fixed',
+                            left: start.x + 'px',
+                            top: start.y + 'px',
+                            fontSize: '44px',
+                            zIndex: '9999',
+                            pointerEvents: 'none',
+                            transform: 'translate(-50%, -50%)',
+                            filter: 'drop-shadow(0 0 12px rgba(251, 191, 36, 0.9))'
+                        });
+                        document.body.appendChild(star);
+
+                        playStarSound();
+
+                        const anim = star.animate([
+                            { transform: 'translate(-50%, -50%) scale(0.4) rotate(0deg)', opacity: 0.85, offset: 0 },
+                            { transform: `translate(-50%, -50%) translate(${dx * 0.4}px, ${dy * 0.4 - 100}px) scale(2.2) rotate(200deg)`, opacity: 1, offset: 0.55 },
+                            { transform: `translate(-50%, -50%) translate(${dx}px, ${dy}px) scale(0.5) rotate(400deg)`, opacity: 0.7, offset: 1 }
+                        ], {
+                            duration: 950,
+                            easing: 'cubic-bezier(0.4, 0.7, 0.4, 1)'
+                        });
+
+                        anim.onfinish = () => {
+                            star.remove();
+                            // Пульс на имени
+                            target.animate([
+                                { transform: 'scale(1)' },
+                                { transform: 'scale(1.15)', offset: 0.5 },
+                                { transform: 'scale(1)' }
+                            ], { duration: 350, easing: 'ease-out' });
+                            resolve();
+                        };
+                    }, index * 180);
+                });
+            });
+
+            // Ждём и запрос, и все анимации
+            const [data] = await Promise.all([fetchPromise, Promise.all(animations)]);
+
+            if (data && data.success) {
+                setTimeout(() => location.reload(), 150);
+            } else {
+                alert('Ошибка: ' + ((data && data.error) || 'неизвестно'));
+            }
         }
         function googleTranslateElementInit() {
             new google.translate.TranslateElement({
