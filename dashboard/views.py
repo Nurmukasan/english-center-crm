@@ -216,6 +216,23 @@ def group_detail(request, group_id):
     )
     payment_dict = {pay.student_id: pay.is_paid for pay in payments}
     
+    # Звёзды по всей группе (за всё время)
+    from django.db.models import Count
+    stars_qs = Attendance.objects.filter(
+        lesson__group=group,
+        star_earned=True,
+    ).values('student_id').annotate(c=Count('id'))
+    stars_dict = {s['student_id']: s['c'] for s in stars_qs}
+    
+    # Кто получил звезду сегодня
+    today_star_dict = {}
+    if lesson:
+        today_stars = Attendance.objects.filter(
+            lesson=lesson,
+            star_earned=True
+        ).values_list('student_id', flat=True)
+        today_star_dict = {sid: True for sid in today_stars}
+    
     student_data = []
     for student in students:
         enrollment = Enrollment.objects.filter(student=student, group=group).first()
@@ -225,6 +242,8 @@ def group_detail(request, group_id):
             'homework_done': homework_dict.get(student.id, False),
             'is_paid': payment_dict.get(student.id, False),
             'enrollment': enrollment,
+            'stars': stars_dict.get(student.id, 0),
+            'star_today': today_star_dict.get(student.id, False),
         })
     
     lessons_history = Lesson.objects.filter(group=group).order_by('-date')[:10]
@@ -1863,3 +1882,46 @@ def student_profile(request, student_id):
     }
 
     return render(request, 'dashboard/student_profile.html', context)
+
+@login_required
+def give_stars(request, group_id):
+    """Выдача звёзд (AJAX)"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False})
+    
+    group = get_object_or_404(Group, id=group_id)
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'teacher', 'developer']:
+        return JsonResponse({'success': False, 'error': 'Нет доступа'})
+    
+    if role == 'teacher':
+        is_main = group.teacher == request.user
+        is_additional = group.teachers.filter(id=request.user.id).exists()
+        if not (is_main or is_additional):
+            return JsonResponse({'success': False, 'error': 'Нет доступа'})
+    
+    today = timezone.localdate()
+    student_ids = request.POST.get('student_ids', '').split(',')
+    
+    lesson, _ = Lesson.objects.get_or_create(group=group, date=today)
+    
+    count = 0
+    for sid in student_ids:
+        sid = sid.strip()
+        if not sid:
+            continue
+        try:
+            attendance, _ = Attendance.objects.get_or_create(
+                lesson=lesson,
+                student_id=int(sid),
+                defaults={'status': 'absent'}
+            )
+            if not attendance.star_earned:
+                attendance.star_earned = True
+                attendance.save()
+                count += 1
+        except Exception:
+            pass
+    
+    return JsonResponse({'success': True, 'count': count})

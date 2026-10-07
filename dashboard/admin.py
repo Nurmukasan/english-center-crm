@@ -39,8 +39,8 @@ class LessonAdmin(admin.ModelAdmin):
 
 @admin.register(Attendance)
 class AttendanceAdmin(admin.ModelAdmin):
-    list_display = ['student', 'lesson', 'status']
-    list_filter = ['status','homework_done', 'lesson__group']
+    list_display = ['student', 'lesson', 'status', 'homework_done', 'star_earned']
+    list_filter = ['status', 'homework_done', 'star_earned', 'lesson__group']
 
 
 @admin.register(Payment)
