@@ -180,13 +180,6 @@
                                 {% if data.student.phone %}
                                 <p class="text-sm text-gray-400"><i class="fas fa-phone mr-1"></i>{{ data.student.phone }}</p>
                                 {% endif %}
-                                {% if role == 'admin' or role == 'developer' %}
-                                <a href="{% url 'remove_student_from_group' data.student.id group.id %}"
-                                    onclick="return confirm('Удалить {{ data.student.name }} из группы?')"
-                                    class="text-red-500 text-xs hover:text-red-700 inline-block mt-1">
-                                    <i class="fas fa-trash mr-1"></i>Удалить из группы
-                                </a>
-                                {% endif %}
                             </td>
                             <td class="px-6 py-4 text-center">
                                 {% if lesson and can_mark_attendance %}
@@ -276,6 +269,16 @@
                     <i class="fas fa-balance-scale mr-1"></i>Калибровка
                 </button>
             </div>
+
+            {% if role == 'admin' or role == 'developer' %}
+            <a id="deleteFromGroupBtn"
+               href="#"
+               data-url-template="{% url 'remove_student_from_group' 999999999 group.id %}"
+               onclick="return deleteFromGroupConfirm();"
+               class="block text-center w-full mt-2 bg-red-500 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-red-600 transition">
+                <i class="fas fa-trash mr-1"></i>Удалить из группы
+            </a>
+            {% endif %}
         </div>
     </div>
 
@@ -453,6 +456,10 @@
             document.getElementById('infoParent').textContent =
                 (btn.dataset.parentName || '—') +
                 (btn.dataset.parentPhone ? ' • ' + btn.dataset.parentPhone : '');
+            const deleteBtn = document.getElementById('deleteFromGroupBtn');
+            if (deleteBtn) {
+                deleteBtn.href = deleteBtn.dataset.urlTemplate.replace('999999999', btn.dataset.studentId);
+            }
             document.getElementById('studentInfoModal').classList.remove('hidden');
         }
 
@@ -533,6 +540,9 @@
                     btn.textContent = '⬜';
                 }
             });
+        }
+        function deleteFromGroupConfirm() {
+            return confirm('Удалить ' + (currentStudent ? currentStudent.name : 'ученика') + ' из группы?');
         }
         function googleTranslateElementInit() {
             new google.translate.TranslateElement({
