@@ -41,6 +41,7 @@ urlpatterns = [
     path('books/<int:book_id>/', views.book_detail, name='book_detail'),
     path('group/<int:group_id>/homework/', views.mark_homework, name='mark_homework'),
     path('calibration/create/', views.create_calibration, name='create_calibration'),
+    path('students/<int:student_id>/', views.student_profile, name='student_profile'),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

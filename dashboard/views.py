@@ -1798,3 +1798,68 @@ def create_calibration(request):
     )
     
     return JsonResponse({'success': True, 'id': cal.id})
+
+@login_required
+def student_profile(request, student_id):
+    """Профиль ученика"""
+    role = get_user_role(request.user)
+    student = get_object_or_404(Student, id=student_id)
+
+    # Проверка доступа для учителя
+    if role == 'teacher':
+        has_access = Enrollment.objects.filter(
+            student=student
+        ).filter(
+            Q(group__teacher=request.user) | Q(group__teachers=request.user)
+        ).exists()
+        if not has_access:
+            messages.error(request, 'У вас нет доступа к этому ученику')
+            return redirect('dashboard')
+
+    # Группы ученика
+    enrollments = Enrollment.objects.filter(student=student).select_related('group', 'group__teacher')
+
+    # Посещаемость
+    attendances = Attendance.objects.filter(student=student).select_related('lesson', 'lesson__group')
+
+    total_lessons = attendances.count()
+    present_count = attendances.filter(status__in=['present', 'late']).count()
+    homework_count = attendances.filter(homework_done=True).count()
+
+    participation_percent = round((present_count / total_lessons) * 100) if total_lessons > 0 else 0
+    homework_percent = round((homework_count / total_lessons) * 100) if total_lessons > 0 else 0
+
+    # Цвета кругов
+    def get_color(percent):
+        if percent < 50:
+            return {'stroke': '#ef4444', 'text': 'text-red-500', 'bg': 'bg-red-50 dark:bg-red-900/20'}
+        elif percent < 80:
+            return {'stroke': '#f59e0b', 'text': 'text-amber-500', 'bg': 'bg-amber-50 dark:bg-amber-900/20'}
+        else:
+            return {'stroke': '#10b981', 'text': 'text-green-500', 'bg': 'bg-green-50 dark:bg-green-900/20'}
+
+    participation_color = get_color(participation_percent)
+    homework_color = get_color(homework_percent)
+
+    # Последние 10 уроков
+    recent_lessons = attendances.order_by('-lesson__date')[:10]
+
+    # Последние калибровки
+    calibrations = LevelCalibration.objects.filter(student=student).order_by('-created_at')[:5]
+
+    context = {
+        'role': role,
+        'student': student,
+        'enrollments': enrollments,
+        'total_lessons': total_lessons,
+        'present_count': present_count,
+        'homework_count': homework_count,
+        'participation_percent': participation_percent,
+        'homework_percent': homework_percent,
+        'participation_color': participation_color,
+        'homework_color': homework_color,
+        'recent_lessons': recent_lessons,
+        'calibrations': calibrations,
+    }
+
+    return render(request, 'dashboard/student_profile.html', context)

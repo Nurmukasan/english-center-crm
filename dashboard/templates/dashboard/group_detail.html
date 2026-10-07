@@ -469,8 +469,7 @@
 
         function openProfile() {
             if (!currentStudent) return;
-            // TODO: когда будет страница профиля ученика — заменить
-            alert('Профиль ученика: ' + currentStudent.name + '\n(страница в разработке)');
+            window.location.href = '/students/' + currentStudent.id + '/';
         }
 
         function openCalibration() {
