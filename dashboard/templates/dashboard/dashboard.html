@@ -54,9 +54,15 @@
                 </a>
                 {% endif %}
     
-                {% if role != 'teacher' %}
+                 {% if role != 'teacher' %}
                 <a href="{% url 'export_excel' %}" class="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-600 transition">
                     <i class="fas fa-file-excel mr-1"></i> Excel
+                </a>
+                {% endif %}
+
+                {% if role == 'admin' or role == 'developer' %}
+                <a href="{% url 'star_rating' %}" class="bg-yellow-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-600 transition">
+                    <i class="fas fa-star mr-1"></i> Рейтинг звёзд
                 </a>
                 {% endif %}
     

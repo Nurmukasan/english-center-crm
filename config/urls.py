@@ -43,6 +43,7 @@ urlpatterns = [
     path('calibration/create/', views.create_calibration, name='create_calibration'),
     path('students/<int:student_id>/', views.student_profile, name='student_profile'),
     path('group/<int:group_id>/stars/', views.give_stars, name='give_stars'),
+    path('star-rating/', views.star_rating, name='star_rating'),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

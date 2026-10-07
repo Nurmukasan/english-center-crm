@@ -1921,3 +1921,32 @@ def give_stars(request, group_id):
             pass
     
     return JsonResponse({'success': True, 'count': count})
+
+@login_required
+def star_rating(request):
+    """Рейтинг учеников по звёздам"""
+    role = get_user_role(request.user)
+
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+
+    from django.db.models import Count, Q
+
+    students = Student.objects.annotate(
+        stars_count=Count('attendances', filter=Q(attendances__star_earned=True))
+    ).filter(stars_count__gt=0).order_by('-stars_count', 'name')
+
+    podium = list(students[:3])
+    others = list(students[3:])
+    has_podium = len(podium) > 0
+
+    context = {
+        'role': role,
+        'podium': podium,
+        'others': others,
+        'has_podium': has_podium,
+        'podium_count': len(podium),
+    }
+
+    return render(request, 'dashboard/star_rating.html', context)
