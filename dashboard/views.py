@@ -1731,7 +1731,7 @@ def book_reader(request, book_id):
         'book': book,
     }
     
-    return render(request, 'dashboard/book_render.html', context)
+    return render(request, 'dashboard/book_reader.html', context)
 
 @login_required
 def mark_homework(request, group_id):
