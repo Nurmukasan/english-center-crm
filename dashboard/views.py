@@ -392,7 +392,10 @@ def students_list(request):
 
     # ===== Фильтр: группа =====
     group_filter = request.GET.get('group', '')
-    if group_filter:
+    if group_filter == 'none':
+        # Ученики без группы
+        students = students.filter(enrollments__isnull=True)
+    elif group_filter:
         students = students.filter(enrollments__group_id=group_filter)
 
     # ===== Фильтр: класс =====

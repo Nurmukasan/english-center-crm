@@ -95,6 +95,7 @@
                         </label>
                         <select name="group" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                             <option value="">Все группы</option>
+                            <option value="none" {% if group_filter == 'none' %}selected{% endif %}>🚫 Без группы</option>
                             {% for g in available_groups %}
                             <option value="{{ g.id }}" {% if group_filter == g.id|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>
                             {% endfor %}
