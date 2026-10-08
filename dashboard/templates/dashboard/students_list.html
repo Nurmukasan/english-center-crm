@@ -75,15 +75,85 @@
             {% endfor %}
         {% endif %}
         
-        <!-- Поиск -->
-        <div class="mb-6">
-            <form method="GET" class="flex gap-3">
-                <input type="text" name="search" value="{{ search_query }}"
-                       class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                       placeholder="🔍 Поиск ученика...">
-                <button type="submit" class="bg-indigo-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-600 transition">
-                    Найти
-                </button>
+        <!-- Фильтры -->
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 p-5 mb-6 transition-colors">
+            <form method="GET" id="filtersForm">
+
+                <!-- Поиск -->
+                <div class="mb-4">
+                    <input type="text" name="search" value="{{ search_query }}"
+                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                           placeholder="🔍 Поиск по имени...">
+                </div>
+
+                <!-- Селекты -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            <i class="fas fa-users mr-1"></i>Группа
+                        </label>
+                        <select name="group" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">Все группы</option>
+                            {% for g in available_groups %}
+                            <option value="{{ g.id }}" {% if group_filter == g.id|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            <i class="fas fa-graduation-cap mr-1"></i>Класс
+                        </label>
+                        <select name="grade" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">Все классы</option>
+                            {% for g in grades_options %}
+                            <option value="{{ g }}" {% if grade_filter == g %}selected{% endif %}>{{ g }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            <i class="fas fa-school mr-1"></i>Школа
+                        </label>
+                        <select name="school" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">Все школы</option>
+                            {% for s in schools_options %}
+                            <option value="{{ s }}" {% if school_filter == s %}selected{% endif %}>{{ s }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            <i class="fas fa-birthday-cake mr-1"></i>Возраст
+                        </label>
+                        <select name="age" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">Любой</option>
+                            {% for a in ages_options %}
+                            <option value="{{ a }}" {% if age_filter == a|stringformat:"s" %}selected{% endif %}>{{ a }} лет</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                </div>
+
+                <!-- Кнопки + счётчик -->
+                <div class="flex items-center gap-3 flex-wrap">
+                    <button type="submit" class="bg-indigo-500 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-indigo-600 transition text-sm">
+                        <i class="fas fa-filter mr-1"></i> Применить
+                    </button>
+                    {% if has_filters %}
+                    <a href="{% url 'students_list' %}" class="bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 px-6 py-2.5 rounded-lg font-medium hover:bg-gray-400 dark:hover:bg-gray-500 transition text-sm">
+                        <i class="fas fa-times mr-1"></i> Сбросить
+                    </a>
+                    {% endif %}
+                    <span class="text-sm text-gray-500 dark:text-gray-400 ml-auto">
+                        Найдено: <b class="text-gray-800 dark:text-white">{{ total_found }}</b>
+                    </span>
+                </div>
+
             </form>
         </div>
         

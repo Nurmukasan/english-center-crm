@@ -364,25 +364,69 @@ def toggle_payment(request, group_id):
 
 @login_required
 def students_list(request):
-    """Список всех учеников"""
+    """Список всех учеников с фильтрами"""
     role = get_user_role(request.user)
 
     if role == 'accountant':
         messages.error(request, 'У вас нет доступа')
         return redirect('payment_management')
-    
+
+    # Базовая выборка по роли
     if role == 'teacher':
         students = Student.objects.filter(
             Q(enrollments__group__teacher=request.user) |
             Q(enrollments__group__teachers=request.user)
         ).distinct()
+        available_groups = Group.objects.filter(
+            Q(teacher=request.user) | Q(teachers=request.user),
+            is_active=True
+        ).distinct().order_by('name')
     else:
         students = Student.objects.all()
+        available_groups = Group.objects.filter(is_active=True).order_by('name')
 
-    search_query = request.GET.get('search', '')
+    # ===== Поиск =====
+    search_query = request.GET.get('search', '').strip()
     if search_query:
         students = students.filter(name__iregex=search_query)
-    
+
+    # ===== Фильтр: группа =====
+    group_filter = request.GET.get('group', '')
+    if group_filter:
+        students = students.filter(enrollments__group_id=group_filter)
+
+    # ===== Фильтр: класс =====
+    grade_filter = request.GET.get('grade', '').strip()
+    if grade_filter:
+        students = students.filter(grade=grade_filter)
+
+    # ===== Фильтр: школа =====
+    school_filter = request.GET.get('school', '').strip()
+    if school_filter:
+        students = students.filter(school=school_filter)
+
+    # ===== Фильтр: возраст =====
+    age_filter = request.GET.get('age', '').strip()
+    if age_filter:
+        try:
+            students = students.filter(age=int(age_filter))
+        except ValueError:
+            pass
+
+    students = students.distinct().order_by('name')
+
+    # ===== Опции для фильтров (уникальные) =====
+    base_for_options = Student.objects.all()
+    if role == 'teacher':
+        base_for_options = base_for_options.filter(
+            Q(enrollments__group__teacher=request.user) |
+            Q(enrollments__group__teachers=request.user)
+        ).distinct()
+
+    grades_options = base_for_options.exclude(grade='').values_list('grade', flat=True).distinct().order_by('grade')
+    schools_options = base_for_options.exclude(school='').values_list('school', flat=True).distinct().order_by('school')
+    ages_options = base_for_options.exclude(age__isnull=True).values_list('age', flat=True).distinct().order_by('age')
+
     student_data = []
     for student in students:
         enrollments = Enrollment.objects.filter(student=student).select_related('group')
@@ -391,13 +435,26 @@ def students_list(request):
             'student': student,
             'groups': groups_list,
         })
-    
+
+    # Активен ли фильтр
+    has_filters = any([search_query, group_filter, grade_filter, school_filter, age_filter])
+
     context = {
         'student_data': student_data,
         'role': role,
         'search_query': search_query,
+        'group_filter': group_filter,
+        'grade_filter': grade_filter,
+        'school_filter': school_filter,
+        'age_filter': age_filter,
+        'available_groups': available_groups,
+        'grades_options': grades_options,
+        'schools_options': schools_options,
+        'ages_options': ages_options,
+        'has_filters': has_filters,
+        'total_found': len(student_data),
     }
-    
+
     return render(request, 'dashboard/students_list.html', context)
 
 
