@@ -102,6 +102,60 @@ def get_user_role(user):
         return 'admin'
 
 
+# Оттенки групп на главной: у каждой группы свой цвет
+GROUP_HUES = [262, 316, 38, 190, 290, 336, 160, 20]
+DAYS_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+
+
+def dashboard_extras(base_groups, groups):
+    """Данные для главной: занятия сегодня (лента дня) и оформление карточек групп"""
+    from django.db.models import Count
+
+    today = timezone.localdate()
+    counts = dict(
+        Enrollment.objects.filter(group__in=base_groups)
+        .values('group').annotate(c=Count('id')).values_list('group', 'c')
+    )
+    today_lessons = []
+    for slot in (ScheduleSlot.objects.filter(group__in=base_groups, day_of_week=today.weekday())
+                 .select_related('group', 'group__teacher').order_by('start_time')):
+        g = slot.group
+        start = slot.start_time.hour * 60 + slot.start_time.minute
+        end = slot.end_time.hour * 60 + slot.end_time.minute
+        today_lessons.append({
+            'group': g.name,
+            'url': reverse('group_detail', args=[g.id]),
+            'teacher': g.teacher.username if g.teacher else '',
+            'students': counts.get(g.id, 0),
+            'start': start,
+            'end': max(end, start + 30),
+            'hue': GROUP_HUES[g.id % len(GROUP_HUES)],
+        })
+
+    cards = list(groups.select_related('teacher').prefetch_related('schedule_slots', 'teachers', 'enrollments__student'))
+    for g in cards:
+        g.ee_hue = GROUP_HUES[g.id % len(GROUP_HUES)]
+        lesson_days = {slot.day_of_week for slot in g.schedule_slots.all()}
+        g.ee_days = [{'short': d, 'on': i in lesson_days} for i, d in enumerate(DAYS_SHORT)]
+        students = [e.student for e in g.enrollments.all()]
+        g.ee_count = len(students)
+        g.ee_faces = [st.name[:1].upper() for st in students[:4]]
+        g.ee_more = max(0, len(students) - 4)
+
+    now = timezone.localtime()
+    weekdays = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье']
+    months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+              'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
+    return {
+        'today_lessons_data': today_lessons,
+        'today_lessons_count': len(today_lessons),
+        'group_cards': cards,
+        # Часы и лента идут по времени сервера (часовой пояс центра), а не браузера
+        'now_seconds': now.hour * 3600 + now.minute * 60 + now.second,
+        'today_label': f'{weekdays[now.weekday()]}, {now.day} {months[now.month - 1]}',
+    }
+
+
 @login_required
 def dashboard(request):
     """Главный дашборд"""
@@ -113,6 +167,7 @@ def dashboard(request):
             Q(teacher=request.user) | Q(teachers=request.user),
             is_active=True
         ).distinct()
+        base_groups = groups
         total_students = Enrollment.objects.filter(
             Q(group__teacher=request.user) | Q(group__teachers=request.user)
         ).distinct().count()
@@ -132,8 +187,10 @@ def dashboard(request):
             'today_lessons': today_lessons,
             'search_query': search_query,
         }
+        context.update(dashboard_extras(base_groups, groups))
     else:
         groups = Group.objects.filter(is_active=True)
+        base_groups = groups
         
         if search_query:
             groups = groups.filter(name__iregex=search_query)
@@ -184,6 +241,7 @@ def dashboard(request):
             'top_debtors': top_debtors,
             'search_query': search_query,
         }
+        context.update(dashboard_extras(base_groups, groups))
     
     return render(request, 'dashboard/dashboard.html', context)
 
@@ -601,6 +659,53 @@ def lesson_history(request, group_id):
     }
     
     return render(request, 'dashboard/lesson_history.html', context)
+
+
+@login_required
+def search_api(request):
+    """Поиск для командной палитры (Ctrl+K): группы и ученики"""
+    role = get_user_role(request.user)
+    q = request.GET.get('q', '').strip().lower()[:50]
+    if not q:
+        return JsonResponse({'groups': [], 'students': []})
+
+    groups = Group.objects.filter(is_active=True).select_related('teacher')
+    enrollments = Enrollment.objects.select_related('student', 'group')
+    if role == 'teacher':
+        mine = Q(teacher=request.user) | Q(teachers=request.user)
+        groups = groups.filter(mine).distinct()
+        enrollments = enrollments.filter(group__in=groups)
+
+    # Сравниваем в Python: в SQLite icontains не понимает регистр кириллицы
+    found_groups = [
+        {
+            'name': g.name,
+            'meta': g.teacher.username if g.teacher else '',
+            'url': reverse('group_detail', args=[g.id]),
+        }
+        for g in groups if q in g.name.lower()
+    ][:6]
+
+    students = {}
+    if role != 'accountant':
+        for e in enrollments:
+            st = e.student
+            if q in st.name.lower() or (st.phone and q in st.phone.replace(' ', '')):
+                students.setdefault(st.id, {
+                    'name': st.name,
+                    'meta': e.group.name,
+                    'url': reverse('student_profile', args=[st.id]),
+                })
+        if role != 'teacher':
+            for st in Student.objects.filter(enrollments__isnull=True):
+                if q in st.name.lower():
+                    students.setdefault(st.id, {
+                        'name': st.name,
+                        'meta': 'без группы',
+                        'url': reverse('student_profile', args=[st.id]),
+                    })
+
+    return JsonResponse({'groups': found_groups, 'students': list(students.values())[:8]})
 
 
 @login_required

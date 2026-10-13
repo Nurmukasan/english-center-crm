@@ -6,17 +6,8 @@
     <title>Дашборд — Enjoy English CRM</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
-        * { font-family: 'Inter', sans-serif; }
-        .fade-in { animation: fadeIn 0.4s ease; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .hover-scale { transition: all 0.3s ease; }
-        .hover-scale:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
         /* Google Translate скрываем */
         .goog-te-banner-frame { display: none !important; }
         body { top: 0 !important; }
@@ -24,234 +15,473 @@
         #google_translate_element { display: none !important; }
         .goog-logo-link { display: none !important; }
         .goog-te-gadget { display: none !important; }
+
+        .grad-text {
+            background: linear-gradient(100deg, #c4b5fd 0%, #e879f9 35%, #fbbf24 65%, #c4b5fd 100%);
+            background-size: 220% auto; -webkit-background-clip: text; background-clip: text;
+            color: transparent; -webkit-text-fill-color: transparent; animation: ee-shimmer 7s linear infinite;
+        }
+        .panel, .gcard {
+            background:
+                radial-gradient(380px circle at var(--mx, 50%) var(--my, 50%), rgba(192, 132, 252, var(--spot, 0)), transparent 45%),
+                linear-gradient(160deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
+        }
+        .panel {
+            border: 1px solid rgba(255,255,255,.09); border-radius: 28px;
+            backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%);
+            box-shadow: 0 30px 80px -40px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.05);
+        }
+        .eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: rgba(233,231,245,.45); }
+        .chip-btn {
+            display: inline-flex; align-items: center; gap: .5rem; padding: .6rem 1rem; border-radius: 9999px;
+            font-size: 14px; font-weight: 700; color: #fff; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+            transition: transform var(--spring-dur) var(--spring), background-color .25s ease, border-color .25s ease, box-shadow .3s ease;
+        }
+        .chip-btn:hover { transform: translateY(-2px) scale(1.04); background: rgba(255,255,255,.11); border-color: rgba(255,255,255,.25); box-shadow: 0 12px 30px -12px rgba(167,139,250,.8); }
+        .chip-btn i { color: #c4b5fd; }
+
+        /* ---------- Часы ---------- */
+        .clock { font-family: 'Unbounded', sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -.02em; }
+        .clock .colon { animation: blink 1s steps(1) infinite; }
+        @keyframes blink { 50% { opacity: .15; } }
+        .sec-ring circle.track { stroke: rgba(255,255,255,.08); }
+        .sec-ring circle.bar { stroke: url(#secGrad); stroke-linecap: round; transition: stroke-dashoffset .95s linear; }
+
+        /* ---------- Лента дня ---------- */
+        .ribbon-scroll { overflow-x: auto; scrollbar-width: thin; padding-bottom: 6px; }
+        .ribbon { position: relative; min-width: 100%; }
+        .ribbon-hours { position: relative; height: 28px; }
+        .ribbon-hour { position: absolute; top: 0; transform: translateX(-50%); font-size: 12px; font-weight: 700; color: rgba(233,231,245,.4); }
+        .ribbon-lanes { position: relative;
+            background-image: linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px);
+            background-size: var(--hour-w) 100%; border-radius: 18px; }
+        .cap {
+            --c: hsl(var(--h) 85% 62%);
+            position: absolute; height: 66px; border-radius: 16px; padding: 8px 12px; overflow: hidden; color: #fff;
+            background: linear-gradient(135deg, hsl(var(--h) 70% 50% / .32), hsl(var(--h) 70% 40% / .14));
+            border: 1px solid hsl(var(--h) 80% 70% / .35);
+            box-shadow: inset 3px 0 0 var(--c);
+            transition: transform var(--spring-dur) var(--spring), box-shadow .3s ease, opacity .4s ease, filter .4s ease;
+        }
+        .cap:hover { transform: translateY(-3px) scale(1.03); z-index: 3; box-shadow: inset 3px 0 0 var(--c), 0 18px 40px -16px hsl(var(--h) 80% 55% / .9); }
+        .cap-time { font-size: 11px; font-weight: 800; opacity: .8; white-space: nowrap; }
+        .cap-name { font-size: 14px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cap-meta { font-size: 11px; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cap-progress { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, hsl(var(--h) 90% 65% / .35), hsl(var(--h) 90% 65% / .12)); pointer-events: none; transition: width 1s linear; }
+        .cap > * { position: relative; }
+        .cap.is-past { opacity: .42; filter: saturate(.4); }
+        .cap.is-live { border-color: hsl(var(--h) 90% 75% / .9); animation: livePulse 2.2s ease-in-out infinite; }
+        @keyframes livePulse {
+            0%, 100% { box-shadow: inset 3px 0 0 var(--c), 0 0 0 0 hsl(var(--h) 90% 65% / .55); }
+            50% { box-shadow: inset 3px 0 0 var(--c), 0 0 0 8px hsl(var(--h) 90% 65% / 0); }
+        }
+        .cap-top { display: flex; align-items: center; gap: 6px; }
+        .cap-top .cap-time { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+        .cap-badge { flex-shrink: 0; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 9999px; background: rgba(0,0,0,.35); white-space: nowrap; }
+        .now-line { position: absolute; top: -30px; bottom: 0; width: 2px; z-index: 4; pointer-events: none;
+            background: linear-gradient(180deg, #fbbf24, #f472b6); box-shadow: 0 0 14px rgba(251,191,36,.8);
+            transition: left 1s linear; }
+        .now-line span { position: absolute; top: 0; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: 800; color: #1a1200;
+            background: #fbbf24; padding: 2px 8px; border-radius: 9999px; box-shadow: 0 0 16px rgba(251,191,36,.8); white-space: nowrap; }
+
+        /* ---------- Кольца ---------- */
+        .donut circle { fill: none; stroke-width: 10; }
+        .donut .track { stroke: rgba(255,255,255,.07); }
+        .donut .bar { stroke-linecap: round; transition: stroke-dashoffset 1.6s cubic-bezier(.22,1,.36,1); }
+
+        /* ---------- Карточки групп ---------- */
+        .gcard { --c: hsl(var(--h) 85% 65%); position: relative; border-radius: 26px; overflow: hidden; isolation: isolate;
+            border: 1px solid rgba(255,255,255,.09); }
+        .gcard::before { content: ''; position: absolute; z-index: -1; width: 220px; height: 220px; right: -70px; top: -90px; border-radius: 50%;
+            background: radial-gradient(circle, hsl(var(--h) 90% 60% / .45), transparent 65%); transition: transform .8s var(--spring-soft); }
+        .gcard:hover::before { transform: scale(1.35) translate(-20px, 20px); }
+        .gcard.hover-scale:hover { box-shadow: 0 30px 70px -30px hsl(var(--h) 85% 55% / .75), 0 0 0 1px hsl(var(--h) 80% 70% / .3) !important; }
+        .gcard-photo { position: absolute; inset: 0; z-index: -2; background-size: cover; background-position: center; opacity: .22; }
+        .day-dot { width: 30px; height: 26px; border-radius: 9px; display: grid; place-items: center; font-size: 11px; font-weight: 800;
+            color: rgba(233,231,245,.3); background: rgba(255,255,255,.04); }
+        .day-dot.on { color: #fff; background: hsl(var(--h) 75% 50% / .4); box-shadow: inset 0 0 0 1px hsl(var(--h) 85% 70% / .5); }
+        .face { width: 30px; height: 30px; border-radius: 9999px; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #fff;
+            background: linear-gradient(135deg, hsl(var(--h) 80% 60%), hsl(calc(var(--h) + 40) 80% 50%)); box-shadow: 0 0 0 2px #120f20; }
+        .face + .face { margin-left: -8px; }
+        .gcard-tools a { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: rgba(0,0,0,.35); color: rgba(233,231,245,.7);
+            transition: transform var(--spring-dur) var(--spring), color .2s ease, background .2s ease; }
+        .gcard-tools a:hover { transform: scale(1.12); color: #fff; background: rgba(0,0,0,.55); }
     </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
-<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
-    
-    <!-- Переключатель языков -->
-    <div class="fixed bottom-4 right-4 z-50 flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-1 border border-gray-200 dark:border-gray-700">
-        <button onclick="changeLang('ru')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇷🇺 RU</button>
-        
-        <button onclick="changeLang('en')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇬🇧 EN</button>
-    </div>
-    
-    <!-- Скрытый Google виджет -->
+<body class="min-h-screen">
+    {% include 'dashboard/partials/shell.html' %}
     <div id="google_translate_element" style="display:none !important;"></div>
-    
-    <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <div class="flex items-center gap-3">
-                <img src="/media/logo/logo.png" alt="Enjoy English" class="h-12 w-12 object-cover rounded-full">
-                <div>
-                    <h1 class="text-xl font-bold text-white">Enjoy English</h1>
-                    <p class="text-xs text-gray-300">CRM система</p>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+
+        <!-- Приветствие + часы -->
+        <section class="grid lg:grid-cols-[1fr_auto] gap-6 items-stretch mb-6">
+            <div class="panel p-7 sm:p-9 relative overflow-hidden">
+                <p class="eyebrow mb-4"><i class="far fa-calendar mr-2"></i><span>{{ today_label }}</span></p>
+                <h2 class="text-3xl sm:text-5xl font-bold text-white leading-tight">
+                    <span id="greeting">Привет</span>,<br class="sm:hidden">
+                    <span class="grad-text notranslate">{{ request.user.first_name|default:request.user.username }}</span>
+                </h2>
+                <p class="text-gray-400 text-base sm:text-lg mt-4 max-w-xl">
+                    {% if today_lessons_count %}
+                        {% if role == 'teacher' %}Сегодня у вас{% else %}Сегодня в центре{% endif %}
+                        <b class="text-white">{{ today_lessons_count }}</b> {% if today_lessons_count == 1 %}занятие{% elif today_lessons_count < 5 %}занятия{% else %}занятий{% endif %}
+                        — лента дня ниже.
+                    {% else %}
+                        Сегодня занятий по расписанию нет — можно выдохнуть ☕
+                    {% endif %}
+                </p>
+                <div class="flex flex-wrap gap-3 mt-7">
+                    {% if role == 'admin' or role == 'developer' %}
+                    <a href="{% url 'add_group' %}" class="chip-btn"><i class="fas fa-plus"></i> Группа</a>
+                    <a href="{% url 'add_student' %}" class="chip-btn"><i class="fas fa-user-plus"></i> Ученик</a>
+                    {% endif %}
+                    {% if role != 'accountant' %}
+                    <a href="{% url 'weekly_schedule' %}" class="chip-btn"><i class="fas fa-calendar-week"></i> Неделя</a>
+                    {% endif %}
+                    {% if role != 'teacher' %}
+                    <a href="{% url 'export_excel' %}" class="chip-btn"><i class="fas fa-file-excel"></i> Excel</a>
+                    {% endif %}
+                    <button type="button" onclick="eePalette.open()" class="chip-btn">
+                        <i class="fas fa-magnifying-glass"></i> Найти
+                        <span class="text-[11px] font-extrabold px-1.5 py-0.5 rounded-md border border-white/15 text-gray-400">Ctrl K</span>
+                    </button>
                 </div>
             </div>
-            <div class="flex items-center gap-2 md:gap-3 flex-wrap justify-end">
-                {% if role == 'teacher' or role == 'developer' or role == 'admin' %}
-                <a href="{% url 'weekly_schedule' %}" class="bg-cyan-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-cyan-600 transition">
-                    <i class="fas fa-calendar mr-1"></i> Расписание
-                </a>
-                {% endif %}
-    
-                 {% if role != 'teacher' %}
-                <a href="{% url 'export_excel' %}" class="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-600 transition">
-                    <i class="fas fa-file-excel mr-1"></i> Excel
-                </a>
-                {% endif %}
 
-                {% if role == 'admin' or role == 'developer' %}
-                <a href="{% url 'star_rating' %}" class="bg-yellow-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-600 transition">
-                    <i class="fas fa-star mr-1"></i> Рейтинг звёзд
+            <div class="panel p-7 sm:p-9 flex items-center gap-6 lg:min-w-[340px]">
+                <div class="relative w-24 h-24 flex-shrink-0">
+                    <svg class="sec-ring w-24 h-24 -rotate-90" viewBox="0 0 100 100" aria-hidden="true">
+                        <defs><linearGradient id="secGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset=".6" stop-color="#e879f9"/><stop offset="1" stop-color="#fbbf24"/></linearGradient></defs>
+                        <circle class="track" cx="50" cy="50" r="44" fill="none" stroke-width="6"/>
+                        <circle class="bar" id="secBar" cx="50" cy="50" r="44" fill="none" stroke-width="6" stroke-dasharray="276.46" stroke-dashoffset="276.46"/>
+                    </svg>
+                    <i class="fas fa-bolt absolute inset-0 m-auto w-fit h-fit text-amber-300 text-2xl"></i>
+                </div>
+                <div>
+                    <p class="clock text-white text-5xl" id="clock">--<span class="colon">:</span>--</p>
+                    <p class="text-sm text-gray-400 mt-3" id="nextLesson">&nbsp;</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Лента дня -->
+        <section class="panel p-6 sm:p-8 mb-6">
+            <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+                <div>
+                    <p class="eyebrow mb-2">Лента дня</p>
+                    <h3 class="text-xl sm:text-2xl font-bold text-white">Занятия сегодня</h3>
+                </div>
+                <div class="flex items-center gap-4 text-xs font-bold text-gray-400">
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-fuchsia-400 animate-pulse"></span>идёт</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-violet-400"></span>впереди</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-gray-500"></span>прошло</span>
+                </div>
+            </div>
+            {% if today_lessons_count %}
+            <div class="ribbon-scroll" id="ribbonScroll">
+                <div class="ribbon" id="ribbon"></div>
+            </div>
+            {% else %}
+            <div class="text-center py-10">
+                <p class="text-5xl mb-3">🌙</p>
+                <p class="text-gray-400">Сегодня по расписанию пусто</p>
+            </div>
+            {% endif %}
+        </section>
+
+        <!-- Цифры -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6">
+            {% if role == 'teacher' %}
+            <div class="panel ee-own-spot hover-scale p-6">
+                <p class="eyebrow">Мои ученики</p>
+                <p class="text-4xl sm:text-5xl font-bold text-white mt-4" data-count="{{ total_students }}">{{ total_students }}</p>
+            </div>
+            <div class="panel ee-own-spot hover-scale p-6">
+                <p class="eyebrow">Мои группы</p>
+                <p class="text-4xl sm:text-5xl font-bold grad-text mt-4" data-count="{{ group_cards|length }}">{{ group_cards|length }}</p>
+            </div>
+            <div class="panel ee-own-spot hover-scale p-6 col-span-2">
+                <p class="eyebrow">Занятий сегодня</p>
+                <p class="text-4xl sm:text-5xl font-bold text-white mt-4" data-count="{{ today_lessons_count }}">{{ today_lessons_count }}</p>
+            </div>
+            {% else %}
+            <div class="panel ee-own-spot hover-scale p-6">
+                <p class="eyebrow">Ученики</p>
+                <p class="text-4xl sm:text-5xl font-bold text-white mt-4" data-count="{{ total_students }}">{{ total_students }}</p>
+                <p class="text-sm text-gray-400 mt-2">во всём центре</p>
+            </div>
+            <div class="panel ee-own-spot hover-scale p-6">
+                <p class="eyebrow">Активные группы</p>
+                <p class="text-4xl sm:text-5xl font-bold grad-text mt-4" data-count="{{ total_groups }}">{{ total_groups }}</p>
+                <p class="text-sm text-gray-400 mt-2">работают сейчас</p>
+            </div>
+            <div class="panel ee-own-spot hover-scale p-6 flex items-center gap-5 col-span-2 lg:col-span-1">
+                <svg class="donut w-20 h-20 sm:w-24 sm:h-24 -rotate-90 flex-shrink-0" viewBox="0 0 100 100">
+                    <circle class="track" cx="50" cy="50" r="40"/>
+                    <circle class="bar" cx="50" cy="50" r="40" stroke="#34d399" data-ring="{{ paid_count }}" data-total="{{ paid_count|add:unpaid_count }}"/>
+                </svg>
+                <div>
+                    <p class="eyebrow">Оплаты</p>
+                    <p class="text-3xl font-bold text-white mt-2"><span data-count="{{ paid_count }}">{{ paid_count }}</span><span class="text-gray-500 text-xl">/{{ paid_count|add:unpaid_count }}</span></p>
+                    <p class="text-sm text-gray-400 mt-1">оплачено сейчас</p>
+                </div>
+            </div>
+            {% if role == 'accountant' %}
+            <div class="panel ee-own-spot hover-scale p-6">
+                <p class="eyebrow">Не оплачено</p>
+                <p class="text-4xl sm:text-5xl font-bold text-rose-400 mt-4" data-count="{{ unpaid_count }}">{{ unpaid_count }}</p>
+            </div>
+            {% else %}
+            <div class="panel ee-own-spot hover-scale p-6 flex items-center gap-5 col-span-2 lg:col-span-1">
+                <svg class="donut w-20 h-20 sm:w-24 sm:h-24 -rotate-90 flex-shrink-0" viewBox="0 0 100 100">
+                    <circle class="track" cx="50" cy="50" r="40"/>
+                    <circle class="bar" cx="50" cy="50" r="40" stroke="#a78bfa" data-ring="{{ present_count }}" data-total="{{ total_attendance }}"/>
+                </svg>
+                <div>
+                    <p class="eyebrow">Посещаемость</p>
+                    <p class="text-3xl font-bold text-white mt-2"><span data-count="{{ present_count }}">{{ present_count }}</span><span class="text-gray-500 text-xl">/{{ total_attendance }}</span></p>
+                    <p class="text-sm text-gray-400 mt-1">пришли сегодня</p>
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+        </section>
+
+        {% if top_debtors %}
+        <!-- Должники -->
+        <section class="panel p-6 sm:p-8 mb-6">
+            <div class="flex items-center justify-between mb-5">
+                <div>
+                    <p class="eyebrow mb-2">Внимание</p>
+                    <h3 class="text-xl sm:text-2xl font-bold text-white">Самые большие долги</h3>
+                </div>
+                <a href="{% url 'payments_page' %}" class="chip-btn"><i class="fas fa-wallet"></i> Оплаты</a>
+            </div>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                {% for d in top_debtors %}
+                <a href="{% url 'student_profile' d.student.id %}" class="rounded-2xl p-4 bg-rose-500/10 border border-rose-400/20 hover-scale block">
+                    <p class="font-bold text-white truncate notranslate">{{ d.student.name }}</p>
+                    <p class="text-2xl font-bold text-rose-300 mt-2">{{ d.debt|floatformat:0 }} ₸</p>
+                    {% if d.phone %}<p class="text-xs text-gray-400 mt-1 notranslate"><i class="fas fa-phone mr-1"></i>{{ d.phone }}</p>{% endif %}
                 </a>
-                {% endif %}
-    
-                {% if role == 'admin' or role == 'accountant' or role == 'developer' %}
-                <a href="{% url 'payment_management' %}" class="bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-600 transition">
-                    <i class="fas fa-money-bill mr-1"></i> Оплаты
-                </a>
-                {% endif %}
-                
-                {% if role == 'admin' or role == 'developer' %}
-                <a href="{% url 'books_status' %}" class="bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-600 transition">
-                    <i class="fas fa-book mr-1"></i> Книги
-                </a>
-                {% endif %}
-                
-                {% if role == 'accountant' or role == 'developer' %}
-                <a href="{% url 'accountant_stats' %}" class="bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-600 transition">
-                    <i class="fas fa-chart-bar mr-1"></i> Статистика
-                </a>
-                {% endif %}
-    
-                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
-                    <i class="fas fa-moon dark:hidden text-gray-300"></i>
-                    <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
-                </button>
-    
-                <a href="{% url 'profile' %}" class="flex items-center gap-2 hover:opacity-80 transition">
-                    {% if request.user.profile.photo %}
-                    <img src="{{ request.user.profile.photo.url }}" alt="Фото" class="w-8 h-8 rounded-full object-cover border border-gray-500">
-                    {% else %}
-                    <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-sm">
-                        <i class="fas fa-user text-gray-300"></i>
-                    </div>
-                    {% endif %}
-                    <span class="text-gray-300 text-sm hidden sm:inline">{{ request.user.username }}</span>
-                </a>
-    
-                {% if role == 'admin' %}
-                <span class="bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full text-xs font-medium">Админ</span>
-                {% elif role == 'teacher' %}
-                <span class="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-xs font-medium">Учитель</span>
-                {% elif role == 'accountant' %}
-                <span class="bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full text-xs font-medium">Бухгалтер</span>
-                {% endif %}
-    
-                <a href="{% url 'logout' %}" class="text-red-400 hover:text-red-300 font-medium text-sm">
-                    <i class="fas fa-sign-out-alt mr-1"></i> Выйти
-                </a>
+                {% endfor %}
             </div>
-        </div>
-    </header>
-    
-    <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
-        
-        <div class="mb-8">
-            <h2 class="text-2xl font-bold text-gray-800 dark:text-white">👋 Привет, {{ request.user.username }}!</h2>
-            <p class="text-gray-500 dark:text-gray-400 mt-1">
-                {% if role == 'teacher' %}Вот ваши группы и расписание{% else %}Обзор всего учебного центра{% endif %}
-            </p>
-        </div>
-        
-        {% if role == 'admin' or role == 'developer' %}
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 border border-gray-300 dark:border-gray-600 shadow-md hover-scale">
-                <p class="text-gray-500 dark:text-gray-400 text-sm">Всего учеников</p>
-                <p class="text-3xl font-bold text-gray-800 dark:text-white mt-2">{{ total_students }}</p>
-            </div>
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 border border-gray-300 dark:border-gray-600 shadow-md hover-scale">
-                <p class="text-gray-500 dark:text-gray-400 text-sm">Активных групп</p>
-                <p class="text-3xl font-bold text-indigo-600 dark:text-indigo-400 mt-2">{{ total_groups }}</p>
-            </div>
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 border border-gray-300 dark:border-gray-600 shadow-md hover-scale">
-                <p class="text-gray-500 dark:text-gray-400 text-sm">Оплачено</p>
-                <p class="text-3xl font-bold text-green-600 dark:text-green-400 mt-2">{{ paid_count }}</p>
-            </div>
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 border border-gray-300 dark:border-gray-600 shadow-md hover-scale">
-                <p class="text-gray-500 dark:text-gray-400 text-sm">Не оплачено</p>
-                <p class="text-3xl font-bold text-red-600 dark:text-red-400 mt-2">{{ unpaid_count }}</p>
-            </div>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <a href="{% url 'add_group' %}" class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 border border-gray-300 dark:border-gray-600 shadow-md hover-scale text-center">
-                <i class="fas fa-users text-3xl text-indigo-600 mb-2"></i>
-                <p class="font-bold text-gray-800 dark:text-white">Создать группу</p>
-            </a>
-            <a href="{% url 'students_list' %}" class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 border border-gray-300 dark:border-gray-600 shadow-md hover-scale text-center">
-                <i class="fas fa-list text-3xl text-indigo-600 mb-2"></i>
-                <p class="font-bold text-gray-800 dark:text-white">Все ученики</p>
-            </a>
-        </div>
-        
-        {% elif role == 'accountant' %}
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 border border-gray-300 dark:border-gray-600 shadow-md hover-scale">
-                <p class="text-gray-500 dark:text-gray-400 text-sm">Всего учеников</p>
-                <p class="text-3xl font-bold text-gray-800 dark:text-white mt-2">{{ total_students }}</p>
-            </div>
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 border border-gray-300 dark:border-gray-600 shadow-md hover-scale">
-                <p class="text-gray-500 dark:text-gray-400 text-sm">Оплачено</p>
-                <p class="text-3xl font-bold text-green-600 mt-2">{{ paid_count }}</p>
-            </div>
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 border border-gray-300 dark:border-gray-600 shadow-md hover-scale">
-                <p class="text-gray-500 dark:text-gray-400 text-sm">Не оплачено</p>
-                <p class="text-3xl font-bold text-red-600 mt-2">{{ unpaid_count }}</p>
-            </div>
-        </div>
-        {% else %}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 border border-gray-300 dark:border-gray-600 shadow-md hover-scale">
-                <p class="text-gray-500 dark:text-gray-400 text-sm">Мои ученики</p>
-                <p class="text-3xl font-bold text-gray-800 dark:text-white mt-2">{{ total_students }}</p>
-            </div>
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 border border-gray-300 dark:border-gray-600 shadow-md hover-scale">
-                <p class="text-gray-500 dark:text-gray-400 text-sm">Уроков сегодня</p>
-                <p class="text-3xl font-bold text-indigo-600 mt-2">{{ today_lessons }}</p>
-            </div>
-        </div>
+        </section>
         {% endif %}
-        
-        <div class="mb-6">
-            <form method="GET" class="flex gap-3">
-                <input type="text" name="search" value="{{ search_query }}"
-                    class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="🔍 Поиск группы...">
-                <button type="submit" class="bg-indigo-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-600 transition">Найти</button>
-            </form>
-        </div>
-        
-        <h3 class="text-xl font-bold text-gray-800 dark:text-white mb-4">
-            {% if role == 'teacher' %}Мои группы{% else %}Все группы{% endif %}
-        </h3>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {% for group in groups %}
-            <div class="rounded-xl shadow-md hover-scale p-6 border border-gray-300 dark:border-gray-700 group relative overflow-hidden
-                        {% if group.photo %}bg-cover bg-center{% else %}bg-gray-50 dark:bg-gray-800{% endif %}"
-                 {% if group.photo %}style="background-image: url('{{ group.photo.url }}');"{% endif %}>
-                
-                {% if group.photo %}
-                <div class="absolute inset-0 bg-white/75 dark:bg-gray-900/75"></div>
-                {% endif %}
-                
-                <div class="relative z-10">
-                    <a href="{% url 'group_detail' group.id %}" class="block">
-                        <div class="flex justify-between items-start mb-4">
-                            <h3 class="text-lg font-bold text-gray-800 dark:text-white group-hover:text-indigo-600 transition">{{ group.name }}</h3>
-                            <i class="fas fa-book text-2xl text-indigo-400"></i>
+
+        <!-- Группы -->
+        <section>
+            <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-5">
+                <div>
+                    <p class="eyebrow mb-2">{{ group_cards|length }} {% if group_cards|length == 1 %}группа{% elif group_cards|length < 5 %}группы{% else %}групп{% endif %}</p>
+                    <h3 class="text-xl sm:text-2xl font-bold text-white">{% if role == 'teacher' %}Мои группы{% else %}Все группы{% endif %}</h3>
+                </div>
+                <form method="GET" class="flex gap-2 w-full sm:w-auto">
+                    <input type="text" name="search" value="{{ search_query }}"
+                           class="flex-1 sm:w-64 px-4 py-2.5 border rounded-full dark:bg-gray-800 dark:text-white"
+                           placeholder="Фильтр по названию…">
+                    <button type="submit" class="bg-indigo-500 text-white px-5 py-2.5 rounded-full font-bold"><i class="fas fa-filter"></i></button>
+                </form>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {% for group in group_cards %}
+                <div class="gcard ee-own-spot hover-scale" style="--h: {{ group.ee_hue }}">
+                    {% if group.photo %}<div class="gcard-photo" style="background-image: url('{{ group.photo.url }}')"></div>{% endif %}
+                    <a href="{% url 'group_detail' group.id %}" class="block p-6">
+                        <div class="flex items-start gap-3 pr-20">
+                            <span class="w-11 h-11 rounded-2xl grid place-items-center text-white flex-shrink-0" style="background: linear-gradient(135deg, hsl({{ group.ee_hue }} 80% 58%), hsl({{ group.ee_hue }} 70% 40%)); box-shadow: 0 10px 24px -10px hsl({{ group.ee_hue }} 80% 55%);">
+                                <i class="fas {% if group.group_type == 'individual' %}fa-user{% else %}fa-users{% endif %}"></i>
+                            </span>
+                            <div class="min-w-0">
+                                <h4 class="text-lg font-bold text-white truncate notranslate">{{ group.name }}</h4>
+                                <p class="text-sm text-gray-400 truncate notranslate">
+                                    {{ group.teacher.username|default:"без учителя" }}{% for t in group.teachers.all %} · {{ t.username }}{% endfor %}
+                                </p>
+                            </div>
                         </div>
-                        <p class="text-gray-800 dark:text-gray-200 text-sm mb-3 font-medium"><i class="fas fa-calendar mr-1"></i>{{group.get_schedule_display }}</p>
-                        <p class="text-gray-800 dark:text-gray-200 text-sm mb-3 font-medium">
-                            <i class="fas fa-user mr-1"></i><span class="notranslate">{{ group.teacher.username }}</span>
-                            {% for teacher in group.teachers.all %} • <span class="notranslate">{{ teacher.username }}</span>{% endfor %}
-                        </p>
-                        <div class="flex justify-between items-center pt-3 border-t border-gray-200 dark:border-gray-700">
-                            <span class="text-gray-600 dark:text-gray-300 text-sm"><i class="fas fa-users mr-1"></i>{{ group.enrollments.count }} учеников</span>
-                            <span class="text-indigo-600 dark:text-indigo-400 font-bold">{{ group.enrollments.count }} 👥</span>
+
+                        <div class="flex gap-1.5 mt-5">
+                            {% for d in group.ee_days %}<span class="day-dot {% if d.on %}on{% endif %}">{{ d.short }}</span>{% endfor %}
+                        </div>
+                        <p class="text-xs text-gray-400 mt-2 truncate">{{ group.get_schedule_display|default:"расписание не задано" }}</p>
+
+                        <div class="flex items-center justify-between mt-5 pt-4 border-t border-white/10">
+                            <div class="flex items-center">
+                                {% for f in group.ee_faces %}<span class="face notranslate">{{ f }}</span>{% endfor %}
+                                {% if group.ee_more %}<span class="face" style="background: rgba(255,255,255,.12)">+{{ group.ee_more }}</span>{% endif %}
+                                {% if not group.ee_count %}<span class="text-sm text-gray-500">пока без учеников</span>{% endif %}
+                            </div>
+                            <span class="text-sm font-bold" style="color: hsl({{ group.ee_hue }} 85% 72%)">{{ group.ee_count }} <i class="fas fa-user-group text-xs"></i></span>
                         </div>
                     </a>
                     {% if role == 'admin' or role == 'developer' %}
-                    <div class="absolute top-3 right-3 flex gap-2">
-                        <a href="{% url 'edit_group' group.id %}" class="text-blue-500 hover:text-blue-700"><i class="fas fa-edit"></i></a>
-                        <a href="{% url 'delete_group' group.id %}" onclick="return confirm('Удалить группу {{ group.name }}?')" class="text-red-400 hover:text-red-600"><i class="fas fa-trash"></i></a>
+                    <div class="gcard-tools absolute top-5 right-5 flex gap-2">
+                        <a href="{% url 'edit_group' group.id %}" title="Изменить"><i class="fas fa-pen text-xs"></i></a>
+                        <a href="{% url 'delete_group' group.id %}" onclick="return confirm('Удалить группу {{ group.name }}?')" title="Удалить"><i class="fas fa-trash text-xs"></i></a>
                     </div>
                     {% endif %}
                 </div>
+                {% empty %}
+                <div class="col-span-full panel p-12 text-center text-gray-400">
+                    <i class="fas fa-inbox text-5xl mb-3"></i>
+                    <p class="text-lg">{% if search_query %}Ничего не нашлось{% else %}Пока нет групп{% endif %}</p>
+                </div>
+                {% endfor %}
             </div>
-            {% empty %}
-            <div class="col-span-full bg-gray-50 dark:bg-gray-800 rounded-xl p-12 text-center text-gray-400">
-                <i class="fas fa-inbox text-5xl mb-3"></i>
-                <p class="text-lg">Пока нет групп</p>
-            </div>
-            {% endfor %}
-        </div>
-        
+        </section>
+
     </main>
-    
+
+    {{ today_lessons_data|json_script:"today-lessons" }}
+
     <script>
-        function toggleTheme() {
-            document.documentElement.classList.toggle('dark');
-        }
-        
-        function changeLang(lang) {
-            document.cookie = `googtrans=/ru/${lang}; path=/`;
-            document.cookie = `googtrans=/ru/${lang}; domain=.${location.hostname}; path=/`;
-            location.reload();
-        }
-        
+        (function () {
+            const lessons = JSON.parse(document.getElementById('today-lessons').textContent);
+            const pad = n => String(n).padStart(2, '0');
+            const fmt = m => Math.floor(m / 60) + ':' + pad(m % 60);
+            // Время сервера на момент загрузки + сколько прошло по часам браузера
+            const loadedAt = performance.now();
+            const nowSec = () => ({{ now_seconds }} + (performance.now() - loadedAt) / 1000) % 86400;
+            const nowMin = () => nowSec() / 60;
+            function plural(n, one, few, many) {
+                const m10 = n % 10, m100 = n % 100;
+                return m10 === 1 && m100 !== 11 ? one : (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? few : many);
+            }
+            function until(mins) {
+                mins = Math.round(mins);
+                if (mins < 60) return mins + ' ' + plural(mins, 'минуту', 'минуты', 'минут');
+                const h = Math.floor(mins / 60), m = mins % 60;
+                return h + ' ч' + (m ? ' ' + m + ' мин' : '');
+            }
+
+            function short(mins) {
+                mins = Math.round(mins);
+                return mins < 60 ? mins + ' мин' : Math.floor(mins / 60) + 'ч ' + (mins % 60 ? pad(mins % 60) + 'м' : '');
+            }
+
+            /* ---------- Приветствие, дата, часы ---------- */
+            const h = Math.floor(nowMin() / 60);
+            document.getElementById('greeting').textContent =
+                h < 5 ? 'Доброй ночи' : h < 12 ? 'Доброе утро' : h < 18 ? 'Добрый день' : 'Добрый вечер';
+
+            const clock = document.getElementById('clock');
+            const secBar = document.getElementById('secBar');
+            const next = document.getElementById('nextLesson');
+            function tick() {
+                const sec = Math.floor(nowSec());
+                clock.innerHTML = pad(Math.floor(sec / 3600)) + '<span class="colon">:</span>' + pad(Math.floor(sec / 60) % 60);
+                secBar.style.strokeDashoffset = 276.46 * (1 - (sec % 60) / 60);
+                const t = nowMin();
+                const live = lessons.filter(l => l.start <= t && t < l.end);
+                const upcoming = lessons.filter(l => l.start > t);
+                if (live.length) next.innerHTML = '<span class="text-fuchsia-300 font-bold">● Идёт:</span> ' + live.map(l => l.group).join(', ');
+                else if (upcoming.length) next.innerHTML = 'Следующее через <b class="text-white">' + until(upcoming[0].start - t) + '</b>';
+                else next.textContent = lessons.length ? 'На сегодня всё 🎉' : 'Хорошего дня ✨';
+            }
+            tick();
+            setInterval(tick, 1000);
+
+            /* ---------- Лента дня ---------- */
+            const ribbon = document.getElementById('ribbon');
+            if (ribbon && lessons.length) {
+                const startH = Math.floor(Math.min(...lessons.map(l => l.start)) / 60);
+                const endH = Math.ceil(Math.max(...lessons.map(l => l.end)) / 60);
+                const scroll = document.getElementById('ribbonScroll');
+                const hours = Math.max(1, endH - startH);
+                const hourW = Math.max(110, (scroll.clientWidth - 2) / hours);
+                const px = m => (m - startH * 60) / 60 * hourW;
+
+                // Пересекающиеся занятия — по дорожкам
+                const sorted = lessons.map(l => Object.assign({}, l)).sort((a, b) => a.start - b.start);
+                const lanesEnd = [];
+                sorted.forEach(l => {
+                    let lane = lanesEnd.findIndex(e => e <= l.start);
+                    if (lane === -1) { lane = lanesEnd.length; lanesEnd.push(l.end); } else lanesEnd[lane] = l.end;
+                    l.lane = lane;
+                });
+                const laneH = 74;
+                ribbon.style.width = hours * hourW + 'px';
+                ribbon.style.setProperty('--hour-w', hourW + 'px');
+
+                let html = '<div class="ribbon-hours">';
+                for (let i = 0; i <= hours; i++) {
+                    const shift = i === 0 ? '0' : i === hours ? '-100%' : '-50%';
+                    html += `<span class="ribbon-hour" style="left:${i * hourW}px;transform:translateX(${shift})">${startH + i}:00</span>`;
+                }
+                html += `</div><div class="ribbon-lanes" style="height:${lanesEnd.length * laneH}px">`;
+                sorted.forEach((l, i) => {
+                    html += `<a href="${l.url}" class="cap" data-i="${i}" style="--h:${l.hue};left:${px(l.start) + 2}px;width:${Math.max(70, px(l.end) - px(l.start) - 4)}px;top:${l.lane * laneH + 4}px">
+                        <span class="cap-progress"></span>
+                        <div class="cap-top"><p class="cap-time">${fmt(l.start)} – ${fmt(l.end)}</p><span class="cap-badge" hidden></span></div>
+                        <p class="cap-name notranslate">${l.group.replace(/</g, '&lt;')}</p>
+                        <p class="cap-meta notranslate">${l.teacher.replace(/</g, '&lt;')} · ${l.students} уч.</p>
+                    </a>`;
+                });
+                html += '<div class="now-line" id="nowLine"><span></span></div></div>';
+                ribbon.innerHTML = html;
+
+                const caps = ribbon.querySelectorAll('.cap');
+                const line = document.getElementById('nowLine');
+                function paint() {
+                    const t = nowMin();
+                    const inRange = t >= startH * 60 && t <= endH * 60;
+                    line.style.display = inRange ? '' : 'none';
+                    line.style.left = px(t) + 'px';
+                    line.firstElementChild.textContent = pad(Math.floor(t / 60)) + ':' + pad(Math.floor(t) % 60);
+                    let nextShown = false;
+                    caps.forEach(c => {
+                        const l = sorted[+c.dataset.i];
+                        const badge = c.querySelector('.cap-badge');
+                        const prog = c.querySelector('.cap-progress');
+                        c.classList.toggle('is-past', t >= l.end);
+                        c.classList.toggle('is-live', l.start <= t && t < l.end);
+                        prog.style.width = l.start <= t && t < l.end ? ((t - l.start) / (l.end - l.start) * 100) + '%' : (t >= l.end ? '100%' : '0');
+                        badge.hidden = true;
+                        if (l.start <= t && t < l.end) { badge.hidden = false; badge.textContent = '● идёт'; }
+                        else if (t >= l.end) { badge.hidden = false; badge.textContent = '✓'; }
+                        else if (!nextShown) { badge.hidden = false; badge.textContent = 'через ' + short(l.start - t); nextShown = true; }
+                    });
+                    return inRange;
+                }
+                if (paint()) scroll.scrollLeft = Math.max(0, px(nowMin()) - scroll.clientWidth / 2);
+                setInterval(paint, 30000);
+            }
+
+            /* ---------- Счётчики и кольца ---------- */
+            const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const io = new IntersectionObserver(entries => entries.forEach(e => {
+                if (!e.isIntersecting) return;
+                io.unobserve(e.target);
+                const el = e.target;
+                if (el.dataset.ring !== undefined) {
+                    const C = 2 * Math.PI * 40, total = +el.dataset.total, val = +el.dataset.ring;
+                    el.style.strokeDasharray = C;
+                    el.style.strokeDashoffset = C;
+                    requestAnimationFrame(() => requestAnimationFrame(() => {
+                        el.style.strokeDashoffset = C * (1 - (total ? val / total : 0));
+                    }));
+                    return;
+                }
+                const target = +el.dataset.count;
+                if (reduce || !target) return;
+                const t0 = performance.now(), dur = 1400;
+                const step = now => {
+                    const p = Math.min(1, (now - t0) / dur);
+                    el.textContent = Math.round(target * (1 - Math.pow(2, -10 * p)));
+                    if (p < 1) requestAnimationFrame(step); else el.textContent = target;
+                };
+                el.textContent = '0';
+                requestAnimationFrame(step);
+            }), { threshold: 0.4 });
+            document.querySelectorAll('[data-count], [data-ring]').forEach(el => {
+                if (el.dataset.ring !== undefined) { const C = 2 * Math.PI * 40; el.style.strokeDasharray = C; el.style.strokeDashoffset = C; }
+                io.observe(el);
+            });
+        })();
+
         function googleTranslateElementInit() {
             new google.translate.TranslateElement({
                 pageLanguage: 'ru',
@@ -259,7 +489,7 @@
                 autoDisplay: false
             }, 'google_translate_element');
         }
-        
+
         // Сохраняем позицию скролла
         window.addEventListener('beforeunload', function() {
             sessionStorage.setItem('scrollPos', window.scrollY);
@@ -273,6 +503,6 @@
         });
     </script>
     <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
-    
+
 </body>
 </html>

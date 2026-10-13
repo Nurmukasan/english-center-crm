@@ -1,0 +1,228 @@
+{% comment %}
+Оболочка CRM: боковая панель навигации (на телефоне — док снизу), фон и командная палитра Ctrl+K.
+Подключается сразу после <body> на каждой странице CRM.
+{% endcomment %}
+{% with role=request.user.profile.role|default:'admin' url_name=request.resolver_match.url_name %}
+<div class="ee-mesh" aria-hidden="true">
+    <div class="ee-blob b1"></div><div class="ee-blob b2"></div><div class="ee-blob b3"></div><div class="ee-grid"></div>
+</div>
+
+<nav class="ee-rail" aria-label="Навигация">
+    <a href="{% url 'dashboard' %}" class="ee-rail-logo" title="Enjoy English">
+        <img src="/media/logo/logo.png" alt="Enjoy English">
+    </a>
+
+    <div class="ee-rail-items" id="eeRailItems">
+        <span class="ee-rail-glow" id="eeRailGlow" aria-hidden="true"></span>
+
+        <a href="{% url 'dashboard' %}" data-label="Главная"
+           class="ee-rail-item {% if url_name in 'dashboard group_detail lesson_history add_group edit_group' %}is-active{% endif %}">
+            <i class="fas fa-house"></i><span>Главная</span>
+        </a>
+        {% if role == 'teacher' or role == 'developer' or role == 'admin' %}
+        <a href="{% url 'weekly_schedule' %}" data-label="Расписание"
+           class="ee-rail-item {% if url_name == 'weekly_schedule' %}is-active{% endif %}">
+            <i class="fas fa-calendar-week"></i><span>Расписание</span>
+        </a>
+        {% endif %}
+        {% if role != 'accountant' %}
+        <a href="{% url 'students_list' %}" data-label="Ученики"
+           class="ee-rail-item {% if url_name in 'students_list student_profile add_student edit_student add_existing_student_to_group' %}is-active{% endif %}">
+            <i class="fas fa-user-graduate"></i><span>Ученики</span>
+        </a>
+        {% endif %}
+        {% if role == 'admin' or role == 'accountant' or role == 'developer' %}
+        <a href="{% url 'payments_page' %}" data-label="Оплаты"
+           class="ee-rail-item {% if url_name in 'payments_page payments_list payment_management' %}is-active{% endif %}">
+            <i class="fas fa-wallet"></i><span>Оплаты</span>
+        </a>
+        {% endif %}
+        {% if role == 'admin' or role == 'developer' %}
+        <a href="{% url 'books_status' %}" data-label="Книги"
+           class="ee-rail-item {% if url_name in 'books_status book_detail' %}is-active{% endif %}">
+            <i class="fas fa-book-open"></i><span>Книги</span>
+        </a>
+        <a href="{% url 'star_rating' %}" data-label="Рейтинг звёзд"
+           class="ee-rail-item {% if url_name == 'star_rating' %}is-active{% endif %}">
+            <i class="fas fa-trophy"></i><span>Рейтинг</span>
+        </a>
+        {% endif %}
+        {% if role == 'admin' or role == 'accountant' or role == 'developer' %}
+        <a href="{% url 'accountant_stats' %}" data-label="Статистика"
+           class="ee-rail-item {% if url_name == 'accountant_stats' %}is-active{% endif %}">
+            <i class="fas fa-chart-line"></i><span>Статистика</span>
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="ee-rail-bottom">
+        <button type="button" class="ee-rail-item" data-label="Поиск · Ctrl K" onclick="eePalette.open()">
+            <i class="fas fa-magnifying-glass"></i><span>Поиск</span>
+        </button>
+        <button type="button" class="ee-rail-item ee-rail-lang" data-label="Язык: RU / EN" onclick="eeToggleLang()">
+            <span class="ee-lang-code notranslate" id="eeLangCode">RU</span><span>Язык</span>
+        </button>
+        <a href="{% url 'profile' %}" data-label="{{ request.user.username }}"
+           class="ee-rail-item ee-rail-avatar {% if url_name == 'profile' %}is-active{% endif %}">
+            {% if request.user.profile.photo %}
+            <img src="{{ request.user.profile.photo.url }}" alt="">
+            {% else %}
+            <b class="notranslate">{{ request.user.username|first|upper }}</b>
+            {% endif %}
+            <span>Профиль</span>
+        </a>
+        <a href="{% url 'logout' %}" class="ee-rail-item ee-rail-exit" data-label="Выйти">
+            <i class="fas fa-arrow-right-from-bracket"></i><span>Выйти</span>
+        </a>
+    </div>
+</nav>
+
+<!-- Командная палитра -->
+<div class="ee-palette" id="eePalette" role="dialog" aria-modal="true" aria-label="Поиск">
+    <div class="ee-palette-backdrop" onclick="eePalette.close()"></div>
+    <div class="ee-palette-panel">
+        <div class="ee-palette-input">
+            <i class="fas fa-magnifying-glass"></i>
+            <input type="text" id="eePaletteInput" placeholder="Группа, ученик или страница…" autocomplete="off" spellcheck="false">
+            <kbd>Esc</kbd>
+        </div>
+        <div class="ee-palette-results" id="eePaletteResults"></div>
+        <div class="ee-palette-foot">
+            <span><kbd>↑</kbd><kbd>↓</kbd> выбрать</span>
+            <span><kbd>Enter</kbd> открыть</span>
+            <span class="ml-auto"><kbd>Ctrl</kbd><kbd>K</kbd> в любом месте</span>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    /* ---------- Индикатор в панели: «перетекает» к пункту под курсором ---------- */
+    const items = document.getElementById('eeRailItems');
+    const glow = document.getElementById('eeRailGlow');
+    const active = items.querySelector('.is-active');
+    const vertical = () => matchMedia('(min-width: 768px)').matches;
+    function moveGlow(el, instant) {
+        if (!el) { glow.style.opacity = '0'; return; }
+        glow.style.opacity = '1';
+        if (instant) glow.style.transition = 'none';
+        glow.style.transform = vertical()
+            ? `translate3d(0, ${el.offsetTop}px, 0)`
+            : `translate3d(${el.offsetLeft}px, 0, 0)`;
+        if (instant) requestAnimationFrame(() => glow.style.transition = '');
+    }
+    moveGlow(active, true);
+    items.querySelectorAll('.ee-rail-item').forEach(el => el.addEventListener('pointerenter', () => moveGlow(el)));
+    items.addEventListener('pointerleave', () => moveGlow(active));
+    addEventListener('resize', () => moveGlow(active, true));
+    if (active && !vertical()) active.scrollIntoView({ inline: 'center', block: 'nearest' });
+
+    /* ---------- Язык ---------- */
+    const current = (document.cookie.match(/googtrans=\/ru\/(\w+)/) || [])[1] || 'ru';
+    document.getElementById('eeLangCode').textContent = current === 'ru' ? 'RU' : current.toUpperCase();
+    window.eeToggleLang = function () {
+        const next = current === 'ru' ? 'en' : 'ru';
+        document.cookie = `googtrans=/ru/${next}; path=/`;
+        document.cookie = `googtrans=/ru/${next}; domain=.${location.hostname}; path=/`;
+        location.reload();
+    };
+
+    /* ---------- Командная палитра ---------- */
+    const pages = Array.from(document.querySelectorAll('.ee-rail-items a.ee-rail-item')).map(a => ({
+        name: a.dataset.label, url: a.href, icon: a.querySelector('i').className,
+    }));
+    pages.push({ name: 'Профиль', url: '{% url "profile" %}', icon: 'fas fa-user' });
+    pages.push({ name: 'Выйти', url: '{% url "logout" %}', icon: 'fas fa-arrow-right-from-bracket' });
+    {% if role != 'teacher' %}pages.push({ name: 'Скачать Excel', url: '{% url "export_excel" %}', icon: 'fas fa-file-excel' });{% endif %}
+    {% if role == 'admin' or role == 'developer' %}
+    pages.push({ name: 'Создать группу', url: '{% url "add_group" %}', icon: 'fas fa-users-rectangle' });
+    pages.push({ name: 'Добавить ученика', url: '{% url "add_student" %}', icon: 'fas fa-user-plus' });
+    {% endif %}
+
+    const root = document.getElementById('eePalette');
+    const input = document.getElementById('eePaletteInput');
+    const list = document.getElementById('eePaletteResults');
+    let rows = [], cursor = 0, timer = null, seq = 0;
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+    function render(sections) {
+        rows = [];
+        let html = '';
+        sections.forEach(sec => {
+            if (!sec.items.length) return;
+            html += `<p class="ee-palette-section">${sec.title}</p>`;
+            sec.items.forEach(it => {
+                const i = rows.length;
+                rows.push(it);
+                html += `<a href="${it.url}" class="ee-palette-row" data-i="${i}">
+                    <span class="ee-palette-icon ${sec.tone}"><i class="${it.icon || sec.icon}"></i></span>
+                    <span class="ee-palette-name notranslate">${esc(it.name)}</span>
+                    ${it.meta ? `<span class="ee-palette-meta notranslate">${esc(it.meta)}</span>` : ''}
+                    <i class="fas fa-arrow-turn-down ee-palette-enter"></i>
+                </a>`;
+            });
+        });
+        list.innerHTML = html || '<p class="ee-palette-empty">Ничего не нашлось 🤷</p>';
+        cursor = 0;
+        highlight();
+    }
+    function highlight() {
+        list.querySelectorAll('.ee-palette-row').forEach(r => {
+            const on = +r.dataset.i === cursor;
+            r.classList.toggle('is-active', on);
+            if (on) r.scrollIntoView({ block: 'nearest' });
+        });
+    }
+    function search() {
+        const q = input.value.trim().toLowerCase();
+        const pageHits = pages.filter(p => !q || p.name.toLowerCase().includes(q));
+        if (!q) { render([{ title: 'Перейти', items: pageHits, icon: '', tone: 'tone-violet' }]); return; }
+        const my = ++seq;
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            fetch('{% url "search_api" %}?q=' + encodeURIComponent(q), { headers: { 'X-Requested-With': 'fetch' } })
+                .then(r => r.json())
+                .then(data => {
+                    if (my !== seq) return;
+                    render([
+                        { title: 'Группы', items: data.groups, icon: 'fas fa-users', tone: 'tone-fuchsia' },
+                        { title: 'Ученики', items: data.students, icon: 'fas fa-user', tone: 'tone-gold' },
+                        { title: 'Страницы', items: pageHits, icon: '', tone: 'tone-violet' },
+                    ]);
+                })
+                .catch(() => render([{ title: 'Страницы', items: pageHits, icon: '', tone: 'tone-violet' }]));
+        }, 140);
+    }
+    window.eePalette = {
+        open() {
+            root.classList.add('open');
+            input.value = '';
+            search();
+            setTimeout(() => input.focus(), 30);
+        },
+        close() { root.classList.remove('open'); },
+    };
+    input.addEventListener('input', search);
+    input.addEventListener('keydown', e => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); cursor = Math.min(rows.length - 1, cursor + 1); highlight(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); cursor = Math.max(0, cursor - 1); highlight(); }
+        else if (e.key === 'Enter' && rows[cursor]) { e.preventDefault(); location.href = rows[cursor].url; }
+    });
+    list.addEventListener('pointermove', e => {
+        const r = e.target.closest('.ee-palette-row');
+        if (r && +r.dataset.i !== cursor) { cursor = +r.dataset.i; highlight(); }
+    });
+    addEventListener('keydown', e => {
+        const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.activeElement.isContentEditable;
+        if ((e.key === 'k' || e.key === 'K' || e.key === 'л' || e.key === 'Л') && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            root.classList.contains('open') ? eePalette.close() : eePalette.open();
+        } else if (e.key === '/' && !typing) {
+            e.preventDefault(); eePalette.open();
+        } else if (e.key === 'Escape' && root.classList.contains('open')) {
+            eePalette.close();
+        }
+    });
+})();
+</script>
+{% endwith %}
