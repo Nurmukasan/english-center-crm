@@ -145,7 +145,7 @@ class Attendance(models.Model):
         ('absent', 'Отсутствовал'),
         ('late', 'Опоздал'),
     ]
-    star_earned = models.BooleanField(default=False, verbose_name="Звезда за урок")
+    stars = models.PositiveSmallIntegerField(default=0, verbose_name="Звёзды за урок")
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='attendances')
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='attendances')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='absent', verbose_name="Статус")

@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -217,21 +217,20 @@ def group_detail(request, group_id):
     payment_dict = {pay.student_id: pay.is_paid for pay in payments}
     
     # Звёзды по всей группе (за всё время)
-    from django.db.models import Count
+    from django.db.models import Sum
     stars_qs = Attendance.objects.filter(
         lesson__group=group,
-        star_earned=True,
-    ).values('student_id').annotate(c=Count('id'))
+        stars__gt=0,
+    ).values('student_id').annotate(c=Sum('stars'))
     stars_dict = {s['student_id']: s['c'] for s in stars_qs}
     
-    # Кто получил звезду сегодня
-    today_star_dict = {}
-    if lesson:
-        today_stars = Attendance.objects.filter(
-            lesson=lesson,
-            star_earned=True
-        ).values_list('student_id', flat=True)
-        today_star_dict = {sid: True for sid in today_stars}
+    # Сколько звёзд получил сегодня
+    # (урок мог быть создан выдачей звёзд и в день вне расписания)
+    today_star_dict = dict(Attendance.objects.filter(
+        lesson__group=group,
+        lesson__date=today,
+        stars__gt=0
+    ).values_list('student_id', 'stars'))
     
     student_data = []
     for student in students:
@@ -243,7 +242,7 @@ def group_detail(request, group_id):
             'is_paid': payment_dict.get(student.id, False),
             'enrollment': enrollment,
             'stars': stars_dict.get(student.id, 0),
-            'star_today': today_star_dict.get(student.id, False),
+            'stars_today': today_star_dict.get(student.id, 0),
         })
     
     lessons_history = Lesson.objects.filter(group=group).order_by('-date')[:10]
@@ -1907,7 +1906,7 @@ def student_profile(request, student_id):
     total_lessons = attendances.count()
     present_count = attendances.filter(status__in=['present', 'late']).count()
     homework_count = attendances.filter(homework_done=True).count()
-    total_stars = attendances.filter(star_earned=True).count()
+    total_stars = attendances.aggregate(total=Sum('stars'))['total'] or 0
 
     participation_percent = round((present_count / total_lessons) * 100) if total_lessons > 0 else 0
     homework_percent = round((homework_count / total_lessons) * 100) if total_lessons > 0 else 0
@@ -1964,28 +1963,30 @@ def give_stars(request, group_id):
             return JsonResponse({'success': False, 'error': 'Нет доступа'})
     
     today = timezone.localdate()
-    student_ids = request.POST.get('student_ids', '').split(',')
-    
     lesson, _ = Lesson.objects.get_or_create(group=group, date=today)
-    
+    enrolled_ids = set(group.enrollments.values_list('student_id', flat=True))
+
+    # stars = "id:кол-во,id:кол-во" — сколько звёзд у ученика за сегодняшний урок
     count = 0
-    for sid in student_ids:
-        sid = sid.strip()
-        if not sid:
-            continue
+    for pair in request.POST.get('stars', '').split(','):
+        sid, _, value = pair.partition(':')
         try:
-            attendance, _ = Attendance.objects.get_or_create(
-                lesson=lesson,
-                student_id=int(sid),
-                defaults={'status': 'absent'}
-            )
-            if not attendance.star_earned:
-                attendance.star_earned = True
-                attendance.save()
-                count += 1
-        except Exception:
-            pass
-    
+            sid = int(sid)
+            value = max(0, min(int(value or 0), 100))
+        except ValueError:
+            continue
+        if sid not in enrolled_ids:
+            continue
+        attendance = Attendance.objects.filter(lesson=lesson, student_id=sid).first()
+        if attendance is None:
+            if value == 0:
+                continue
+            attendance = Attendance(lesson=lesson, student_id=sid, status='absent')
+        if attendance.stars != value:
+            count += max(0, value - attendance.stars)
+            attendance.stars = value
+            attendance.save()
+
     return JsonResponse({'success': True, 'count': count})
 
 @login_required
@@ -1997,10 +1998,10 @@ def star_rating(request):
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
 
-    from django.db.models import Count, Q
+    from django.db.models import Sum
 
     students = Student.objects.annotate(
-        stars_count=Count('attendances', filter=Q(attendances__star_earned=True))
+        stars_count=Sum('attendances__stars')
     ).filter(stars_count__gt=0).order_by('-stars_count', 'name')
 
     podium = list(students[:3])
