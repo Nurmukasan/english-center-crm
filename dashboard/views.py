@@ -2,6 +2,7 @@ from django.contrib.auth.models import User
 from django.db.models import Q, Sum
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -34,10 +35,34 @@ def calculate_cycle_amount(student, group, period_start, period_end):
     return Decimal(str(price)) * lessons
 
 
+# Контакты для лендинга. Пустые поля на странице не показываются.
+LANDING_CONTACTS = {
+    'phone': '',       # например: '+7 700 000 00 00'
+    'whatsapp': '',    # номер только цифрами: '77000000000'
+    'instagram': '',   # логин без @: 'enjoy_english'
+    'address': '',     # например: 'г. Алматы, ул. Абая, 1'
+}
+
+
+def landing_stats():
+    """Живые цифры центра для лендинга (нулевые не показываем)"""
+    stats = [
+        {'value': Student.objects.count(), 'label': 'учеников'},
+        {'value': Group.objects.filter(is_active=True).count(), 'label': 'активных групп'},
+        {'value': Profile.objects.filter(role='teacher').count(), 'label': 'учителей'},
+        {'value': Attendance.objects.aggregate(total=Sum('stars'))['total'] or 0, 'label': 'звёзд выдано'},
+    ]
+    return [s for s in stats if s['value']]
+
+
 def login_view(request):
-    """Страница входа"""
+    """Лендинг центра + вход для сотрудников"""
     if request.user.is_authenticated:
         return redirect('dashboard')
+    
+    # Окно входа открыто сразу, если сюда перекинуло со страницы CRM или вход не удался
+    next_url = request.GET.get('next', '')
+    show_login = bool(next_url)
     
     if request.method == 'POST':
         username = request.POST.get('username')
@@ -46,11 +71,21 @@ def login_view(request):
         
         if user is not None:
             login(request, user)
+            if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+                return redirect(next_url)
             return redirect('dashboard')
         else:
             messages.error(request, 'Неверный логин или пароль')
+            show_login = True
     
-    return render(request, 'dashboard/login.html')
+    contacts = {k: v for k, v in LANDING_CONTACTS.items() if v}
+    context = {
+        'stats': landing_stats(),
+        'contacts': contacts,
+        'show_login': show_login,
+        'year': timezone.localdate().year,
+    }
+    return render(request, 'dashboard/landing.html', context)
 
 
 def logout_view(request):
