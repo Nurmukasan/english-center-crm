@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="ru" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enjoy English — центр английского языка</title>
+    <meta name="description" content="Enjoy English — занятия английским в группах и индивидуально. Понятный путь от уровня к уровню и звёзды за успехи на каждом уроке.">
+    <meta name="theme-color" content="#07060d">
+    <script>document.documentElement.classList.add('js');</script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Unbounded', 'sans-serif'],
+                        body: ['Manrope', 'sans-serif'],
+                    },
+                },
+            },
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #07060d;
+            --violet: #8b5cf6;
+            --fuchsia: #d946ef;
+            --gold: #f5b544;
+            --glass: rgba(255, 255, 255, 0.045);
+            --glass-strong: rgba(255, 255, 255, 0.08);
+            --stroke: rgba(255, 255, 255, 0.09);
+            /* Пружины: значения ниже — запасные, JS заменяет их настоящей физикой */
+            --spring: cubic-bezier(.34, 1.56, .64, 1);
+            --spring-dur: 600ms;
+            --spring-soft: cubic-bezier(.22, 1, .36, 1);
+            --spring-soft-dur: 900ms;
+        }
+        /* clip, а не hidden: обрезает свечения по краям и не ломает position: sticky */
+        html { background: var(--bg); overflow-x: clip; }
+        body { font-family: 'Manrope', sans-serif; background: var(--bg); color: #e9e7f5; overflow-x: clip; }
+        ::selection { background: rgba(217, 70, 239, .35); color: #fff; }
+
+        /* ---------- Фон: mesh-градиент, сетка, зерно ---------- */
+        .mesh { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+        .blob {
+            position: absolute; border-radius: 9999px; filter: blur(90px); opacity: .55;
+            will-change: transform; animation: drift 22s ease-in-out infinite alternate;
+        }
+        .blob-1 { width: 46vw; height: 46vw; min-width: 320px; min-height: 320px; left: -12vw; top: -14vw; background: radial-gradient(circle, #6d28d9 0%, transparent 65%); }
+        .blob-2 { width: 40vw; height: 40vw; min-width: 280px; min-height: 280px; right: -10vw; top: 10vh; background: radial-gradient(circle, #c026d3 0%, transparent 65%); animation-duration: 26s; animation-delay: -6s; }
+        .blob-3 { width: 38vw; height: 38vw; min-width: 260px; min-height: 260px; left: 25vw; top: 55vh; background: radial-gradient(circle, #f59e0b 0%, transparent 62%); opacity: .28; animation-duration: 30s; animation-delay: -12s; }
+        .blob-4 { width: 34vw; height: 34vw; min-width: 240px; min-height: 240px; right: 5vw; bottom: -12vw; background: radial-gradient(circle, #4f46e5 0%, transparent 65%); animation-duration: 24s; animation-delay: -3s; }
+        @keyframes drift {
+            0%   { transform: translate3d(0, 0, 0) scale(1); }
+            50%  { transform: translate3d(6vw, 4vh, 0) scale(1.12); }
+            100% { transform: translate3d(-4vw, 8vh, 0) scale(.95); }
+        }
+        .grid-lines {
+            position: absolute; inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+            background-size: 64px 64px;
+            mask-image: radial-gradient(ellipse 80% 60% at 50% 20%, #000 30%, transparent 75%);
+            -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 20%, #000 30%, transparent 75%);
+        }
+        .grain {
+            position: absolute; inset: -50%; opacity: .07; mix-blend-mode: overlay;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+        .spotlight {
+            position: absolute; width: 640px; height: 640px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(167, 139, 250, .16), transparent 60%);
+            transform: translate3d(var(--sx, -999px), var(--sy, -999px), 0) translate(-50%, -50%);
+            transition: transform 600ms var(--spring-soft);
+        }
+
+        /* ---------- Стекло и свечение ---------- */
+        .glass {
+            background: var(--glass);
+            border: 1px solid var(--stroke);
+            backdrop-filter: blur(18px) saturate(150%);
+            -webkit-backdrop-filter: blur(18px) saturate(150%);
+        }
+        .glass-strong {
+            background: linear-gradient(160deg, rgba(255,255,255,.10), rgba(255,255,255,.03));
+            border: 1px solid rgba(255,255,255,.12);
+            backdrop-filter: blur(24px) saturate(160%);
+            -webkit-backdrop-filter: blur(24px) saturate(160%);
+        }
+        /* Градиентная рамка */
+        .ring-gradient { position: relative; }
+        .ring-gradient::after {
+            content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+            background: linear-gradient(135deg, rgba(167,139,250,.7), rgba(217,70,239,.25) 40%, rgba(245,181,68,.6));
+            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude;
+        }
+        .glow-violet { box-shadow: 0 0 0 1px rgba(139,92,246,.15), 0 20px 60px -20px rgba(139,92,246,.55); }
+        .glow-gold   { box-shadow: 0 0 0 1px rgba(245,181,68,.18), 0 20px 60px -18px rgba(245,181,68,.5); }
+
+        /* ---------- Градиентный текст ---------- */
+        .text-gradient {
+            background: linear-gradient(100deg, #c4b5fd 0%, #e879f9 30%, #fbbf24 60%, #c4b5fd 100%);
+            background-size: 220% auto;
+            -webkit-background-clip: text; background-clip: text;
+            color: transparent; -webkit-text-fill-color: transparent;
+            animation: shimmer 7s linear infinite;
+        }
+        @keyframes shimmer { to { background-position: 220% center; } }
+        .text-soft { color: rgba(233, 231, 245, .66); }
+
+        /* ---------- Кнопки ---------- */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: .6rem;
+            border-radius: 9999px; font-weight: 700; white-space: nowrap;
+            transition: transform var(--spring-dur) var(--spring), box-shadow .4s ease, background-position .8s ease, background-color .3s ease, border-color .3s ease;
+            will-change: transform;
+        }
+        .btn:active { transform: scale(.96) !important; }
+        .btn-primary {
+            color: #fff;
+            background: linear-gradient(110deg, #7c3aed, #c026d3 35%, #f59e0b 65%, #7c3aed);
+            background-size: 300% 100%; background-position: 0% 50%;
+            box-shadow: 0 10px 30px -10px rgba(192, 38, 211, .7), inset 0 1px 0 rgba(255,255,255,.25);
+        }
+        .btn-primary:hover {
+            background-position: 100% 50%;
+            box-shadow: 0 18px 50px -12px rgba(217, 70, 239, .9), 0 0 30px -5px rgba(245, 181, 68, .55), inset 0 1px 0 rgba(255,255,255,.3);
+        }
+        .btn-ghost { color: #fff; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.14); }
+        .btn-ghost:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.28); box-shadow: 0 10px 40px -15px rgba(167,139,250,.7); }
+        .btn .arrow { transition: transform var(--spring-dur) var(--spring); }
+        .btn:hover .arrow { transform: translateX(4px); }
+
+        /* ---------- Карточки: подсветка за курсором + наклон ---------- */
+        .card-fx {
+            position: relative; overflow: hidden; isolation: isolate;
+            transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(var(--lift, 0px)) scale(var(--sc, 1));
+            transition: transform var(--spring-dur) var(--spring), box-shadow .5s ease, border-color .4s ease;
+        }
+        .card-fx::before {
+            content: ''; position: absolute; inset: 0; z-index: -1; opacity: 0; transition: opacity .4s ease;
+            background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(192, 132, 252, .18), transparent 45%);
+        }
+        .card-fx:hover { --lift: -6px; --sc: 1.015; border-color: rgba(255,255,255,.2); box-shadow: 0 30px 80px -30px rgba(139, 92, 246, .65); }
+        .card-fx:hover::before { opacity: 1; }
+        .icon-chip {
+            display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px;
+            transition: transform var(--spring-dur) var(--spring), box-shadow .4s ease;
+        }
+        .card-fx:hover .icon-chip { transform: scale(1.12) rotate(-6deg); }
+
+        .nav-link { position: relative; color: rgba(233,231,245,.72); transition: color .25s ease; }
+        .nav-link::after {
+            content: ''; position: absolute; left: 0; right: 0; bottom: -6px; height: 2px; border-radius: 2px;
+            background: linear-gradient(90deg, var(--violet), var(--gold));
+            transform: scaleX(0); transform-origin: left; transition: transform var(--spring-dur) var(--spring);
+        }
+        .nav-link:hover { color: #fff; }
+        .nav-link:hover::after { transform: scaleX(1); }
+
+        /* ---------- Появление при скролле (только если работает JS) ---------- */
+        /* translate/scale — отдельные свойства, чтобы не спорить с transform у карточек.
+           После появления JS снимает data-reveal, и hover-эффекты работают как обычно. */
+        .js [data-reveal] {
+            opacity: 0; translate: 0 34px; scale: .97; filter: blur(8px);
+            transition:
+                opacity .9s ease,
+                translate var(--spring-soft-dur) var(--spring-soft),
+                scale var(--spring-soft-dur) var(--spring-soft),
+                filter .9s ease;
+            transition-delay: calc(var(--i, 0) * 90ms);
+        }
+        .js [data-reveal].in { opacity: 1; translate: 0 0; scale: 1; filter: none; }
+        .js .word { display: inline-block; opacity: 0; transform: translate3d(0, .6em, 0) rotate(4deg); filter: blur(6px);
+            transition: opacity .7s ease, transform var(--spring-dur) var(--spring), filter .7s ease;
+            transition-delay: calc(var(--w, 0) * 90ms + 150ms); }
+        .js .hero-ready .word { opacity: 1; transform: none; filter: none; }
+
+        /* ---------- Плавающие карточки в hero ---------- */
+        .float { animation: bob 6s ease-in-out infinite; }
+        .float-2 { animation-duration: 7.5s; animation-delay: -2s; }
+        .float-3 { animation-duration: 8.5s; animation-delay: -4s; }
+        @keyframes bob { 50% { transform: translate3d(0, -12px, 0); } }
+        .parallax { transition: transform 900ms var(--spring-soft); will-change: transform; }
+
+        .star-pulse { display: inline-block; animation: starPulse 2.6s ease-in-out infinite; }
+        @keyframes starPulse {
+            0%, 100% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 8px rgba(245,181,68,.6)); }
+            50% { transform: scale(1.15) rotate(12deg); filter: drop-shadow(0 0 22px rgba(245,181,68,.95)); }
+        }
+        .bar-fill { width: 0; transition: width 1.6s var(--spring-soft) .6s; }
+        .hero-ready .bar-fill { width: var(--to); }
+
+        /* ---------- Бегущая строка ---------- */
+        .marquee { mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+        .marquee-track { display: flex; width: max-content; animation: marquee 38s linear infinite; }
+        .marquee:hover .marquee-track { animation-play-state: paused; }
+        @keyframes marquee { to { transform: translate3d(-50%, 0, 0); } }
+
+        /* ---------- Путь ученика: линия заполняется по скроллу ---------- */
+        .journey-line { position: absolute; left: 23px; top: 8px; bottom: 8px; width: 2px; background: rgba(255,255,255,.08); border-radius: 2px; }
+        .journey-line > span { position: absolute; inset: 0 0 auto 0; height: var(--progress, 0%); border-radius: 2px;
+            background: linear-gradient(180deg, var(--violet), var(--fuchsia), var(--gold)); box-shadow: 0 0 18px rgba(217,70,239,.8); }
+        .step-dot { transition: transform var(--spring-dur) var(--spring), background .4s ease, box-shadow .4s ease; }
+        .step.active .step-dot { transform: scale(1.12); background: linear-gradient(135deg, #8b5cf6, #f59e0b); box-shadow: 0 0 30px -4px rgba(217,70,239,.9); color: #fff; }
+
+        /* ---------- Навигация ---------- */
+        #nav { transition: padding .4s var(--spring-soft), background-color .4s ease, box-shadow .4s ease, border-color .4s ease; }
+        #nav.scrolled { background: rgba(12, 10, 22, .72); box-shadow: 0 12px 40px -18px rgba(0,0,0,.8); border-color: rgba(255,255,255,.12); }
+
+        /* ---------- Окно входа ---------- */
+        #loginModal { visibility: hidden; transition: visibility 0s linear .4s; }
+        #loginModal.open { visibility: visible; transition-delay: 0s; }
+        #loginModal .backdrop { opacity: 0; transition: opacity .35s ease; }
+        #loginModal.open .backdrop { opacity: 1; }
+        #loginModal .dialog { opacity: 0; transform: translate3d(0, 24px, 0) scale(.92); transition: opacity .3s ease, transform var(--spring-dur) var(--spring); }
+        #loginModal.open .dialog { opacity: 1; transform: none; }
+        .field {
+            width: 100%; padding: .9rem 1rem .9rem 2.75rem; border-radius: 14px; color: #fff;
+            background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12);
+            transition: border-color .25s ease, box-shadow .25s ease, background .25s ease; outline: none;
+        }
+        .field::placeholder { color: rgba(233,231,245,.4); }
+        .field:focus { border-color: rgba(192,132,252,.8); background: rgba(255,255,255,.08); box-shadow: 0 0 0 4px rgba(139,92,246,.22); }
+        .shake { animation: shake .5s cubic-bezier(.36,.07,.19,.97); }
+        @keyframes shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+
+        /* ---------- Google Translate скрываем ---------- */
+        .goog-te-banner-frame { display: none !important; }
+        body { top: 0 !important; }
+        .skiptranslate { display: none !important; }
+        #google_translate_element { display: none !important; }
+        .goog-logo-link { display: none !important; }
+        .goog-te-gadget { display: none !important; }
+
+        @media (max-width: 640px) {
+            .blob { filter: blur(70px); opacity: .45; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; }
+            .js [data-reveal], .js .word { opacity: 1 !important; translate: none !important; scale: none !important; transform: none !important; filter: none !important; transition: none !important; }
+            .bar-fill { width: var(--to); transition: none; }
+            html { scroll-behavior: auto; }
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Фон -->
+    <div class="mesh" aria-hidden="true">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+        <div class="blob blob-4"></div>
+        <div class="grid-lines"></div>
+        <div class="spotlight" id="spotlight"></div>
+        <div class="grain"></div>
+    </div>
+
+    <div id="google_translate_element" style="display:none !important;"></div>
+
+    <!-- Навигация -->
+    <header class="fixed top-0 inset-x-0 z-40 px-4 pt-4">
+        <nav id="nav" class="glass mx-auto max-w-6xl rounded-full pl-2 pr-2 py-2 flex items-center justify-between gap-4">
+            <a href="#top" class="flex items-center gap-3 group">
+                <span class="w-10 h-10 rounded-full bg-white overflow-hidden grid place-items-center ring-2 ring-white/10 transition-transform duration-500 group-hover:rotate-[-8deg] group-hover:scale-110">
+                    <img src="/media/logo/logo.png" alt="Enjoy English" class="w-full h-full object-cover">
+                </span>
+                <span class="font-display text-[15px] font-semibold tracking-tight text-white notranslate">Enjoy English</span>
+            </a>
+            <div class="hidden md:flex items-center gap-8 text-sm font-semibold">
+                <a href="#formats" class="nav-link">Форматы</a>
+                <a href="#method" class="nav-link">Как учим</a>
+                <a href="#journey" class="nav-link">Путь ученика</a>
+                {% if contacts %}<a href="#contacts" class="nav-link">Контакты</a>{% endif %}
+            </div>
+            <button type="button" data-open-login class="btn btn-ghost magnetic text-sm px-5 py-2.5">
+                <i class="fas fa-right-to-bracket text-violet-300"></i> Войти
+            </button>
+        </nav>
+    </header>
+
+    <main id="top" class="relative z-10">
+
+        <!-- HERO -->
+        <section class="relative px-4 pt-32 sm:pt-40 pb-16 sm:pb-24">
+            <div class="mx-auto max-w-6xl grid lg:grid-cols-[1.1fr_.9fr] gap-14 lg:gap-8 items-center">
+                <div id="heroText">
+                    <div data-reveal class="inline-flex items-center gap-2 glass rounded-full px-4 py-2 text-xs sm:text-sm font-semibold text-violet-200 mb-7">
+                        <span class="relative flex h-2 w-2">
+                            <span class="absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75 animate-ping"></span>
+                            <span class="relative inline-flex h-2 w-2 rounded-full bg-amber-400"></span>
+                        </span>
+                        Центр английского языка
+                    </div>
+
+                    <h1 class="font-display font-bold tracking-tight text-white leading-[1.05] text-[2.6rem] sm:text-6xl lg:text-7xl">
+                        <span class="word" style="--w:0">Английский,</span>
+                        <span class="word" style="--w:1">который</span><br>
+                        <span class="word text-gradient" style="--w:2">хочется</span>
+                        <span class="word text-gradient" style="--w:3">учить</span>
+                    </h1>
+
+                    <p data-reveal style="--i:3" class="text-soft text-lg sm:text-xl leading-relaxed mt-7 max-w-xl">
+                        Живые занятия в группах и индивидуально, понятный путь от уровня к уровню
+                        и звёзды за каждый успех на уроке.
+                    </p>
+
+                    <div data-reveal style="--i:4" class="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-10">
+                        {% if contacts %}
+                        <a href="#contacts" class="btn btn-primary magnetic px-8 py-4 text-base">
+                            Записаться на пробный <i class="fas fa-arrow-right arrow"></i>
+                        </a>
+                        <a href="#method" class="btn btn-ghost magnetic px-8 py-4 text-base">Как мы учим</a>
+                        {% else %}
+                        <a href="#method" class="btn btn-primary magnetic px-8 py-4 text-base">
+                            Как мы учим <i class="fas fa-arrow-right arrow"></i>
+                        </a>
+                        <a href="#formats" class="btn btn-ghost magnetic px-8 py-4 text-base">Форматы занятий</a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Витрина: живые карточки -->
+                <div data-reveal style="--i:2" class="relative h-[400px] sm:h-[460px]" id="heroVisual" aria-hidden="true">
+                    <div class="parallax absolute inset-0" data-depth="14">
+                        <div class="float absolute left-0 sm:left-4 top-4 w-[78%] sm:w-[70%] glass-strong ring-gradient rounded-3xl p-5 glow-violet">
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="text-xs font-bold uppercase tracking-[.18em] text-violet-200/80">Сегодня</span>
+                                <span class="text-xs font-semibold text-emerald-300 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>урок идёт</span>
+                            </div>
+                            <p class="font-display text-xl font-semibold text-white">Speaking practice</p>
+                            <p class="text-soft text-sm mt-1"><i class="far fa-clock mr-1"></i> 16:00 – 17:30</p>
+                            <div class="flex items-center mt-5">
+                                <span class="w-8 h-8 rounded-full bg-gradient-to-br from-violet-400 to-fuchsia-500 ring-2 ring-[#120f20]"></span>
+                                <span class="w-8 h-8 -ml-2 rounded-full bg-gradient-to-br from-amber-300 to-orange-500 ring-2 ring-[#120f20]"></span>
+                                <span class="w-8 h-8 -ml-2 rounded-full bg-gradient-to-br from-sky-300 to-indigo-500 ring-2 ring-[#120f20]"></span>
+                                <span class="w-8 h-8 -ml-2 rounded-full bg-gradient-to-br from-emerald-300 to-teal-500 ring-2 ring-[#120f20]"></span>
+                                <span class="ml-3 text-xs text-soft font-semibold">группа в сборе</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="parallax absolute inset-0" data-depth="28">
+                        <div class="float float-2 absolute right-0 top-[38%] sm:top-[34%] w-[56%] sm:w-[48%] glass-strong rounded-3xl p-5 glow-gold">
+                            <div class="flex items-center gap-3">
+                                <span class="star-pulse text-4xl leading-none">⭐</span>
+                                <div>
+                                    <p class="font-display text-3xl font-bold text-white leading-none">+3</p>
+                                    <p class="text-soft text-xs font-semibold mt-1">звезды за урок</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="parallax absolute inset-0" data-depth="20">
+                        <div class="float float-3 absolute left-[6%] bottom-2 w-[84%] sm:w-[74%] glass-strong rounded-3xl p-5">
+                            <div class="flex items-center justify-between text-xs font-bold mb-3">
+                                <span class="text-violet-200">A2 Elementary</span>
+                                <span class="text-amber-300">B1 Intermediate</span>
+                            </div>
+                            <div class="h-2.5 rounded-full bg-white/10 overflow-hidden">
+                                <div class="bar-fill h-full rounded-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-amber-400" style="--to:72%"></div>
+                            </div>
+                            <p class="text-soft text-xs mt-3"><i class="fas fa-arrow-trend-up text-emerald-300 mr-1"></i> до следующего уровня совсем чуть-чуть</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Бегущая строка -->
+        <section class="relative py-6 border-y border-white/5 bg-white/[.015]" aria-hidden="true">
+            <div class="marquee overflow-hidden">
+                <div class="marquee-track gap-10 text-lg sm:text-2xl font-display font-semibold whitespace-nowrap">
+                    {% for copy in "12" %}
+                    <span class="flex items-center gap-10 pr-10">
+                        <span class="text-white/80">Hello</span><span class="text-fuchsia-400">✦</span>
+                        <span class="text-white/40 notranslate">Привет</span><span class="text-amber-300">✦</span>
+                        <span class="text-white/80 notranslate">Сәлем</span><span class="text-violet-400">✦</span>
+                        <span class="text-gradient notranslate">A1 Beginner</span><span class="text-fuchsia-400">✦</span>
+                        <span class="text-white/40 notranslate">A2 Elementary</span><span class="text-amber-300">✦</span>
+                        <span class="text-white/80 notranslate">B1 Intermediate</span><span class="text-violet-400">✦</span>
+                        <span class="text-gradient notranslate">B2 Upper-Intermediate</span><span class="text-fuchsia-400">✦</span>
+                        <span class="text-white/40 notranslate">C1 Advanced</span><span class="text-amber-300">✦</span>
+                        <span class="text-white/80 notranslate">Speaking</span><span class="text-violet-400">✦</span>
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        {% if stats %}
+        <!-- Цифры -->
+        <section class="px-4 py-20 sm:py-28">
+            <div class="mx-auto max-w-6xl">
+                <p data-reveal class="text-center text-xs sm:text-sm font-bold uppercase tracking-[.25em] text-violet-300/80 mb-10">Enjoy English в цифрах</p>
+                <div data-stagger class="grid grid-cols-2 lg:grid-cols-{{ stats|length }} gap-4 sm:gap-6">
+                    {% for s in stats %}
+                    <div data-reveal class="card-fx glass rounded-3xl p-6 sm:p-8 text-center">
+                        <p class="font-display text-4xl sm:text-5xl font-bold text-gradient" data-count="{{ s.value }}">{{ s.value }}</p>
+                        <p class="text-soft text-sm sm:text-base font-semibold mt-2">{{ s.label }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- Форматы -->
+        <section id="formats" class="px-4 py-20 sm:py-28 scroll-mt-24">
+            <div class="mx-auto max-w-6xl">
+                <div class="max-w-2xl mb-12 sm:mb-16">
+                    <p data-reveal class="text-xs sm:text-sm font-bold uppercase tracking-[.25em] text-amber-300/90 mb-4">Форматы</p>
+                    <h2 data-reveal style="--i:1" class="font-display text-3xl sm:text-5xl font-bold text-white leading-tight">
+                        Выберите, <span class="text-gradient">как удобно вам</span>
+                    </h2>
+                </div>
+                <div data-stagger class="grid md:grid-cols-2 gap-5 sm:gap-6">
+                    <article data-reveal class="card-fx glass-strong ring-gradient rounded-[28px] p-7 sm:p-10">
+                        <div class="icon-chip bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white text-xl shadow-lg shadow-fuchsia-900/40 mb-7">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <h3 class="font-display text-2xl sm:text-3xl font-semibold text-white">В группе</h3>
+                        <p class="text-soft mt-3 text-base sm:text-lg leading-relaxed">Учимся вместе с ребятами своего уровня — больше живого общения и командных заданий.</p>
+                        <ul class="mt-7 space-y-3 text-[15px]">
+                            <li class="flex gap-3"><i class="fas fa-check text-emerald-300 mt-1"></i><span>Группы подбираются по уровню</span></li>
+                            <li class="flex gap-3"><i class="fas fa-check text-emerald-300 mt-1"></i><span>Занятия по чёткому расписанию</span></li>
+                            <li class="flex gap-3"><i class="fas fa-check text-emerald-300 mt-1"></i><span>Разговорная практика на каждом уроке</span></li>
+                        </ul>
+                    </article>
+                    <article data-reveal class="card-fx glass-strong rounded-[28px] p-7 sm:p-10">
+                        <div class="icon-chip bg-gradient-to-br from-amber-400 to-orange-500 text-white text-xl shadow-lg shadow-amber-900/40 mb-7">
+                            <i class="fas fa-user-graduate"></i>
+                        </div>
+                        <h3 class="font-display text-2xl sm:text-3xl font-semibold text-white">Индивидуально</h3>
+                        <p class="text-soft mt-3 text-base sm:text-lg leading-relaxed">Один на один с учителем — всё внимание ученику и программа под его цель.</p>
+                        <ul class="mt-7 space-y-3 text-[15px]">
+                            <li class="flex gap-3"><i class="fas fa-check text-emerald-300 mt-1"></i><span>Темп под конкретного ученика</span></li>
+                            <li class="flex gap-3"><i class="fas fa-check text-emerald-300 mt-1"></i><span>Фокус на цели: школа, экзамен, разговор</span></li>
+                            <li class="flex gap-3"><i class="fas fa-check text-emerald-300 mt-1"></i><span>Удобное время занятий</span></li>
+                        </ul>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <!-- Как учим: бенто-сетка -->
+        <section id="method" class="px-4 py-20 sm:py-28 scroll-mt-24">
+            <div class="mx-auto max-w-6xl">
+                <div class="max-w-2xl mb-12 sm:mb-16">
+                    <p data-reveal class="text-xs sm:text-sm font-bold uppercase tracking-[.25em] text-fuchsia-300/90 mb-4">Как мы учим</p>
+                    <h2 data-reveal style="--i:1" class="font-display text-3xl sm:text-5xl font-bold text-white leading-tight">
+                        Учиться интересно, <span class="text-gradient">когда виден результат</span>
+                    </h2>
+                </div>
+
+                <div data-stagger class="grid grid-cols-1 md:grid-cols-6 gap-5 sm:gap-6">
+                    <article data-reveal class="card-fx glass-strong ring-gradient rounded-[28px] p-7 sm:p-9 md:col-span-4 glow-gold">
+                        <div class="flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-10">
+                            <div class="flex-1">
+                                <div class="icon-chip bg-gradient-to-br from-amber-300 to-amber-500 text-amber-950 text-xl mb-6"><i class="fas fa-star"></i></div>
+                                <h3 class="font-display text-2xl sm:text-3xl font-semibold text-white">Звёзды за успехи</h3>
+                                <p class="text-soft mt-3 text-base sm:text-lg leading-relaxed">За активность на уроке ученик получает звёзды. Лучшие попадают в рейтинг — учиться становится азартно.</p>
+                            </div>
+                            <div class="flex sm:flex-col gap-3 text-3xl sm:text-4xl select-none">
+                                <span class="star-pulse">⭐</span><span class="star-pulse" style="animation-delay:-.8s">⭐</span><span class="star-pulse" style="animation-delay:-1.6s">⭐</span>
+                            </div>
+                        </div>
+                    </article>
+                    <article data-reveal class="card-fx glass rounded-[28px] p-7 sm:p-9 md:col-span-2">
+                        <div class="icon-chip bg-gradient-to-br from-violet-500 to-indigo-600 text-white text-xl mb-6"><i class="fas fa-stairs"></i></div>
+                        <h3 class="font-display text-xl sm:text-2xl font-semibold text-white">Точный уровень</h3>
+                        <p class="text-soft mt-3 leading-relaxed">Учитель следит за уровнем: если ученику пора дальше — он переходит в более сильную группу.</p>
+                    </article>
+                    <article data-reveal class="card-fx glass rounded-[28px] p-7 sm:p-9 md:col-span-2">
+                        <div class="icon-chip bg-gradient-to-br from-fuchsia-500 to-pink-600 text-white text-xl mb-6"><i class="fas fa-book-open"></i></div>
+                        <h3 class="font-display text-xl sm:text-2xl font-semibold text-white">Учебники под рукой</h3>
+                        <p class="text-soft mt-3 leading-relaxed">Книги программы всегда с учителем — и на занятии, и в электронном виде.</p>
+                    </article>
+                    <article data-reveal class="card-fx glass rounded-[28px] p-7 sm:p-9 md:col-span-2">
+                        <div class="icon-chip bg-gradient-to-br from-emerald-400 to-teal-600 text-white text-xl mb-6"><i class="fas fa-list-check"></i></div>
+                        <h3 class="font-display text-xl sm:text-2xl font-semibold text-white">Домашка под контролем</h3>
+                        <p class="text-soft mt-3 leading-relaxed">На каждом уроке отмечаем посещаемость и домашние задания — прогресс виден сразу.</p>
+                    </article>
+                    <article data-reveal class="card-fx glass rounded-[28px] p-7 sm:p-9 md:col-span-2">
+                        <div class="icon-chip bg-gradient-to-br from-sky-400 to-blue-600 text-white text-xl mb-6"><i class="fas fa-calendar-week"></i></div>
+                        <h3 class="font-display text-xl sm:text-2xl font-semibold text-white">Чёткое расписание</h3>
+                        <p class="text-soft mt-3 leading-relaxed">Расписание на неделю вперёд — всегда понятно, когда следующий урок.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <!-- Путь ученика -->
+        <section id="journey" class="px-4 py-20 sm:py-28 scroll-mt-24">
+            <div class="mx-auto max-w-6xl grid lg:grid-cols-[.9fr_1.1fr] gap-12 lg:gap-20">
+                <div class="lg:sticky lg:top-32 self-start">
+                    <p data-reveal class="text-xs sm:text-sm font-bold uppercase tracking-[.25em] text-violet-300/90 mb-4">Путь ученика</p>
+                    <h2 data-reveal style="--i:1" class="font-display text-3xl sm:text-5xl font-bold text-white leading-tight">
+                        От первого урока <span class="text-gradient">до нового уровня</span>
+                    </h2>
+                    <p data-reveal style="--i:2" class="text-soft text-lg mt-6 max-w-md">Четыре понятных шага — и вы точно знаете, что происходит на каждом этапе.</p>
+                </div>
+
+                <div class="relative" id="journeyList">
+                    <div class="journey-line" aria-hidden="true"><span></span></div>
+                    <ol class="space-y-6 sm:space-y-8">
+                        {% for step in "1234" %}
+                        <li data-reveal class="step relative pl-16">
+                            <span class="step-dot absolute left-0 top-2 w-12 h-12 rounded-2xl glass grid place-items-center font-display font-bold text-violet-200">{{ step }}</span>
+                            <div class="card-fx glass rounded-3xl p-6 sm:p-7">
+                                {% if step == '1' %}
+                                <h3 class="font-display text-xl font-semibold text-white">Пробный урок</h3>
+                                <p class="text-soft mt-2 leading-relaxed">Знакомимся, смотрим, что ученик уже знает, и определяем уровень.</p>
+                                {% elif step == '2' %}
+                                <h3 class="font-display text-xl font-semibold text-white">Подбор группы</h3>
+                                <p class="text-soft mt-2 leading-relaxed">Подбираем группу по уровню и удобному времени — или индивидуальный формат.</p>
+                                {% elif step == '3' %}
+                                <h3 class="font-display text-xl font-semibold text-white">Учёба со звёздами</h3>
+                                <p class="text-soft mt-2 leading-relaxed">Регулярные занятия, домашние задания и звёзды за активность на уроке.</p>
+                                {% else %}
+                                <h3 class="font-display text-xl font-semibold text-white">Новый уровень</h3>
+                                <p class="text-soft mt-2 leading-relaxed">Когда ученик готов — переходит на следующую ступень и продолжает расти.</p>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+        <!-- Финальный призыв + контакты -->
+        <section id="contacts" class="px-4 py-20 sm:py-28 scroll-mt-24">
+            <div data-reveal class="mx-auto max-w-5xl relative">
+                <div class="absolute -inset-6 sm:-inset-10 rounded-[48px] bg-gradient-to-r from-violet-600/30 via-fuchsia-600/25 to-amber-500/30 blur-3xl" aria-hidden="true"></div>
+                <div class="relative glass-strong ring-gradient rounded-[36px] px-6 py-14 sm:px-14 sm:py-20 text-center overflow-hidden">
+                    <p class="text-5xl mb-6 star-pulse inline-block">⭐</p>
+                    <h2 class="font-display text-3xl sm:text-5xl font-bold text-white leading-tight">
+                        Приходите <span class="text-gradient">на пробный урок</span>
+                    </h2>
+                    <p class="text-soft text-lg mt-5 max-w-xl mx-auto">Познакомимся, определим уровень и подберём формат, в котором учиться будет в удовольствие.</p>
+
+                    {% if contacts %}
+                    <div data-stagger class="mt-10 flex flex-wrap justify-center gap-3 sm:gap-4">
+                        {% if contacts.whatsapp %}
+                        <a data-reveal href="https://wa.me/{{ contacts.whatsapp }}" target="_blank" rel="noopener" class="btn btn-primary magnetic px-7 py-4">
+                            <i class="fab fa-whatsapp text-lg"></i> Написать в WhatsApp
+                        </a>
+                        {% endif %}
+                        {% if contacts.phone %}
+                        <a data-reveal href="tel:{{ contacts.phone|cut:' ' }}" class="btn btn-ghost magnetic px-7 py-4">
+                            <i class="fas fa-phone text-violet-300"></i> <span class="notranslate">{{ contacts.phone }}</span>
+                        </a>
+                        {% endif %}
+                        {% if contacts.instagram %}
+                        <a data-reveal href="https://instagram.com/{{ contacts.instagram }}" target="_blank" rel="noopener" class="btn btn-ghost magnetic px-7 py-4">
+                            <i class="fab fa-instagram text-fuchsia-300"></i> <span class="notranslate">@{{ contacts.instagram }}</span>
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% if contacts.address %}
+                    <p class="text-soft mt-8"><i class="fas fa-location-dot text-amber-300 mr-2"></i>{{ contacts.address }}</p>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Подвал -->
+    <footer class="relative z-10 px-4 pb-10 pt-6">
+        <div class="mx-auto max-w-6xl glass rounded-3xl px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+            <div class="flex items-center gap-3">
+                <span class="w-9 h-9 rounded-full bg-white overflow-hidden"><img src="/media/logo/logo.png" alt="" class="w-full h-full object-cover"></span>
+                <span class="text-soft">© {{ year }} <span class="notranslate">Enjoy English</span></span>
+            </div>
+            <button type="button" data-open-login class="text-soft hover:text-white transition flex items-center gap-2">
+                <i class="fas fa-lock text-xs"></i> Вход для сотрудников
+            </button>
+        </div>
+    </footer>
+
+    <!-- Переключатель языков -->
+    <div class="fixed bottom-4 right-4 z-30 flex gap-1 glass-strong rounded-full p-1 text-sm font-semibold">
+        <button onclick="changeLang('ru')" class="px-3 py-1.5 rounded-full hover:bg-white/10 transition">RU</button>
+        <button onclick="changeLang('kk')" class="px-3 py-1.5 rounded-full hover:bg-white/10 transition">KZ</button>
+        <button onclick="changeLang('en')" class="px-3 py-1.5 rounded-full hover:bg-white/10 transition">EN</button>
+    </div>
+
+    <!-- Окно входа -->
+    <div id="loginModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 {% if show_login or messages %}open{% endif %}"
+         role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+        <div class="backdrop absolute inset-0 bg-black/60 backdrop-blur-sm" data-close-login></div>
+        <div class="dialog relative w-full max-w-md">
+            <div class="absolute -inset-4 rounded-[40px] bg-gradient-to-br from-violet-600/40 via-fuchsia-600/25 to-amber-500/30 blur-2xl" aria-hidden="true"></div>
+            <div class="relative glass-strong ring-gradient rounded-[30px] p-7 sm:p-9" id="loginCard">
+                <button type="button" data-close-login class="absolute top-5 right-5 w-9 h-9 rounded-full grid place-items-center text-soft hover:text-white hover:bg-white/10 transition" aria-label="Закрыть">
+                    <i class="fas fa-xmark"></i>
+                </button>
+                <div class="w-14 h-14 rounded-2xl bg-white overflow-hidden mb-6 shadow-lg shadow-violet-900/50">
+                    <img src="/media/logo/logo.png" alt="Enjoy English" class="w-full h-full object-cover">
+                </div>
+                <h2 id="loginTitle" class="font-display text-2xl font-semibold text-white">Вход в CRM</h2>
+                <p class="text-soft text-sm mt-1 mb-7">Для сотрудников центра</p>
+
+                {% if messages %}
+                    {% for message in messages %}
+                    <div class="flex items-center gap-2 rounded-2xl border border-red-400/30 bg-red-500/10 text-red-200 px-4 py-3 mb-5 text-sm">
+                        <i class="fas fa-circle-exclamation"></i> {{ message }}
+                    </div>
+                    {% endfor %}
+                {% endif %}
+
+                <form method="POST" id="loginForm" class="space-y-4">
+                    {% csrf_token %}
+                    <label class="relative block">
+                        <span class="sr-only">Логин</span>
+                        <i class="fas fa-user absolute left-4 top-1/2 -translate-y-1/2 text-violet-300/70 text-sm"></i>
+                        <input type="text" name="username" required autocomplete="username" class="field" placeholder="Логин">
+                    </label>
+                    <label class="relative block">
+                        <span class="sr-only">Пароль</span>
+                        <i class="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-violet-300/70 text-sm"></i>
+                        <input type="password" name="password" required autocomplete="current-password" class="field" placeholder="Пароль">
+                    </label>
+                    <button type="submit" class="btn btn-primary w-full py-4 text-base mt-2" id="loginSubmit">
+                        <span>Войти</span> <i class="fas fa-arrow-right arrow"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function changeLang(lang) {
+            document.cookie = `googtrans=/ru/${lang}; path=/`;
+            document.cookie = `googtrans=/ru/${lang}; domain=.${location.hostname}; path=/`;
+            location.reload();
+        }
+
+        (function () {
+            const root = document.documentElement;
+            const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const finePointer = matchMedia('(pointer: fine)').matches;
+
+            /* ---------- Пружинная физика → CSS linear() ----------
+               Решаем уравнение пружины (масса, жёсткость, затухание) и превращаем
+               траекторию в easing-кривую, чтобы CSS-переходы двигались как пружина. */
+            function spring({ stiffness, damping, mass = 1 }) {
+                const dt = 1 / 240;
+                let x = 0, v = 0, t = 0;
+                const points = [];
+                while (t < 4) {
+                    const force = -stiffness * (x - 1) - damping * v;
+                    v += (force / mass) * dt;
+                    x += v * dt;
+                    t += dt;
+                    points.push(x);
+                    if (Math.abs(x - 1) < 0.0005 && Math.abs(v) < 0.0005) break;
+                }
+                const samples = 48;
+                const step = (points.length - 1) / samples;
+                const stops = [0];
+                for (let i = 1; i <= samples; i++) stops.push(+points[Math.round(i * step)].toFixed(4));
+                stops[stops.length - 1] = 1;
+                return { easing: `linear(${stops.join(', ')})`, duration: Math.round(t * 1000) };
+            }
+            if (CSS.supports('transition-timing-function', 'linear(0, 1)')) {
+                const bouncy = spring({ stiffness: 260, damping: 17 });
+                const soft = spring({ stiffness: 120, damping: 20 });
+                root.style.setProperty('--spring', bouncy.easing);
+                root.style.setProperty('--spring-dur', bouncy.duration + 'ms');
+                root.style.setProperty('--spring-soft', soft.easing);
+                root.style.setProperty('--spring-soft-dur', soft.duration + 'ms');
+            }
+
+            /* ---------- Появление при скролле со stagger ---------- */
+            document.querySelectorAll('[data-stagger]').forEach(group => {
+                group.querySelectorAll(':scope > [data-reveal]').forEach((el, i) => el.style.setProperty('--i', i));
+            });
+            const revealIO = new IntersectionObserver(entries => {
+                entries.forEach(e => {
+                    if (!e.isIntersecting) return;
+                    const el = e.target;
+                    el.classList.add('in');
+                    revealIO.unobserve(el);
+                    // Когда появилось — убираем служебные стили, чтобы вернуть элементу его собственные переходы
+                    const delay = (parseFloat(getComputedStyle(el).getPropertyValue('--i')) || 0) * 90;
+                    setTimeout(() => { el.removeAttribute('data-reveal'); el.classList.remove('in'); }, delay + 1400);
+                });
+            }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+            document.querySelectorAll('[data-reveal]').forEach(el => revealIO.observe(el));
+
+            // Заголовок hero — по словам, сразу после загрузки
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                document.getElementById('heroText').classList.add('hero-ready');
+                document.getElementById('heroVisual').classList.add('hero-ready');
+            }));
+
+            /* ---------- Счётчики ---------- */
+            const countIO = new IntersectionObserver(entries => {
+                entries.forEach(e => {
+                    if (!e.isIntersecting) return;
+                    countIO.unobserve(e.target);
+                    const el = e.target, target = +el.dataset.count;
+                    if (reduceMotion) return;
+                    const dur = 1800, t0 = performance.now();
+                    const tick = now => {
+                        const p = Math.min(1, (now - t0) / dur);
+                        const eased = 1 - Math.pow(2, -10 * p);   // easeOutExpo
+                        el.textContent = Math.round(target * (p === 1 ? 1 : eased)).toLocaleString('ru-RU');
+                        if (p < 1) requestAnimationFrame(tick);
+                    };
+                    el.textContent = '0';
+                    requestAnimationFrame(tick);
+                });
+            }, { threshold: 0.6 });
+            document.querySelectorAll('[data-count]').forEach(el => countIO.observe(el));
+
+            /* ---------- Навигация уплотняется при скролле ---------- */
+            const nav = document.getElementById('nav');
+            const journey = document.getElementById('journeyList');
+            const steps = journey.querySelectorAll('.step');
+            let ticking = false;
+            function onScroll() {
+                nav.classList.toggle('scrolled', scrollY > 24);
+                // Линия «пути ученика» заполняется по мере прокрутки
+                const r = journey.getBoundingClientRect();
+                const mid = innerHeight * 0.6;
+                const progress = Math.min(1, Math.max(0, (mid - r.top) / r.height));
+                journey.style.setProperty('--progress', (progress * 100).toFixed(1) + '%');
+                steps.forEach(s => {
+                    const sr = s.getBoundingClientRect();
+                    s.classList.toggle('active', sr.top + 30 < mid);
+                });
+                ticking = false;
+            }
+            addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
+            onScroll();
+
+            if (!reduceMotion && finePointer) {
+                /* ---------- Подсветка за курсором на фоне ---------- */
+                const spot = document.getElementById('spotlight');
+                addEventListener('pointermove', e => {
+                    spot.style.setProperty('--sx', e.clientX + 'px');
+                    spot.style.setProperty('--sy', e.clientY + 'px');
+                }, { passive: true });
+
+                /* ---------- Карточки: свечение за курсором + 3D-наклон ---------- */
+                document.querySelectorAll('.card-fx').forEach(card => {
+                    card.addEventListener('pointermove', e => {
+                        const r = card.getBoundingClientRect();
+                        const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+                        card.style.setProperty('--mx', (x * 100) + '%');
+                        card.style.setProperty('--my', (y * 100) + '%');
+                        card.style.setProperty('--ry', ((x - 0.5) * 6).toFixed(2) + 'deg');
+                        card.style.setProperty('--rx', ((0.5 - y) * 6).toFixed(2) + 'deg');
+                    });
+                    card.addEventListener('pointerleave', () => {
+                        card.style.setProperty('--rx', '0deg');
+                        card.style.setProperty('--ry', '0deg');
+                    });
+                });
+
+                /* ---------- Магнитные кнопки ---------- */
+                document.querySelectorAll('.magnetic').forEach(btn => {
+                    btn.addEventListener('pointermove', e => {
+                        const r = btn.getBoundingClientRect();
+                        const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+                        btn.style.transform = `translate(${dx * 0.18}px, ${dy * 0.28}px) scale(1.05)`;
+                    });
+                    btn.addEventListener('pointerleave', () => { btn.style.transform = ''; });
+                });
+
+                /* ---------- Параллакс карточек в hero ---------- */
+                const layers = document.querySelectorAll('#heroVisual .parallax');
+                addEventListener('pointermove', e => {
+                    const nx = e.clientX / innerWidth - 0.5, ny = e.clientY / innerHeight - 0.5;
+                    layers.forEach(l => {
+                        const d = +l.dataset.depth;
+                        l.style.transform = `translate3d(${-nx * d}px, ${-ny * d}px, 0)`;
+                    });
+                }, { passive: true });
+            }
+
+            /* ---------- Окно входа ---------- */
+            const modal = document.getElementById('loginModal');
+            const card = document.getElementById('loginCard');
+            const firstField = modal.querySelector('input[name=username]');
+            function openLogin() {
+                modal.classList.add('open');
+                document.body.style.overflow = 'hidden';
+                setTimeout(() => firstField.focus(), 120);
+            }
+            function closeLogin() {
+                modal.classList.remove('open');
+                document.body.style.overflow = '';
+            }
+            document.querySelectorAll('[data-open-login]').forEach(b => b.addEventListener('click', openLogin));
+            document.querySelectorAll('[data-close-login]').forEach(b => b.addEventListener('click', closeLogin));
+            addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('open')) closeLogin(); });
+            if (location.hash === '#login') openLogin();
+            if (modal.classList.contains('open')) {
+                document.body.style.overflow = 'hidden';
+                if (card.querySelector('.border-red-400\\/30')) card.classList.add('shake');
+                setTimeout(() => firstField.focus(), 200);
+            }
+            document.getElementById('loginForm').addEventListener('submit', () => {
+                const btn = document.getElementById('loginSubmit');
+                btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Входим…';
+                btn.style.pointerEvents = 'none';
+            });
+        })();
+
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'ru',
+                includedLanguages: 'ru,kk,en',
+                autoDisplay: false
+            }, 'google_translate_element');
+        }
+    </script>
+    <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+</body>
+</html>
