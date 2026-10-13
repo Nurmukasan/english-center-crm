@@ -1309,6 +1309,7 @@ def toggle_book_status(request, enrollment_id=None):
 
         action = request.POST.get('action')
         book_id = request.POST.get('book_id')
+        comment = request.POST.get('comment', '').strip()
 
         enrollment_ids = request.POST.get('enrollment_ids', '')
         if enrollment_ids:
@@ -1318,8 +1319,8 @@ def toggle_book_status(request, enrollment_id=None):
                     if action == 'need_book':
                         enrollment.book_needed = True
                         enrollment.has_book = False
-                        if book_id:
-                            enrollment.book_id = int(book_id)
+                        enrollment.book_id = int(book_id) if book_id else None
+                        enrollment.book_comment = comment
                     elif action == 'has_book':
                         enrollment.has_book = True
                         enrollment.book_needed = False
@@ -1333,8 +1334,8 @@ def toggle_book_status(request, enrollment_id=None):
             if action == 'need_book':
                 enrollment.book_needed = True
                 enrollment.has_book = False
-                if book_id:
-                    enrollment.book_id = int(book_id)
+                enrollment.book_id = int(book_id) if book_id else None
+                enrollment.book_comment = comment
             elif action == 'has_book':
                 enrollment.has_book = True
                 enrollment.book_needed = False
@@ -1369,8 +1370,13 @@ def books_status(request):
             'missing': students_need_book - book.quantity,
         })
 
+    book_requests = Enrollment.objects.filter(
+        book_needed=True
+    ).select_related('student', 'group', 'group__teacher', 'book').order_by('group__name', 'student__name')
+
     context = {
         'book_stats': book_stats,
+        'book_requests': book_requests,
         'role': role,
     }
 

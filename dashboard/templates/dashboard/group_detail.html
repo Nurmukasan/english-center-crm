@@ -393,23 +393,7 @@
             </h3>
     
             <div class="mb-4">
-                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">1. Выберите книгу:</p>
-                <div class="space-y-2">
-                    {% for book in group.books.all %}
-                    <label
-                        class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-amber-50 dark:hover:bg-gray-700 transition">
-                        <input type="radio" name="book_choice" class="book-radio w-5 h-5 text-amber-600"
-                            value="{{ book.id }}">
-                        <p class="font-medium text-gray-800 dark:text-white">{{ book.title }}</p>
-                    </label>
-                    {% empty %}
-                    <p class="text-sm text-red-500">У группы нет книг. Сначала добавьте книги.</p>
-                    {% endfor %}
-                </div>
-            </div>
-    
-            <div class="mb-4">
-                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">2. Выберите учеников:</p>
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">1. Выберите учеников:</p>
                 <div class="space-y-2 max-h-60 overflow-y-auto">
                     {% for data in student_data %}
                     <label
@@ -420,6 +404,13 @@
                     </label>
                     {% endfor %}
                 </div>
+            </div>
+
+            <div class="mb-4">
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">2. Комментарий (какая книга нужна):</p>
+                <textarea id="bookRequestComment" rows="3"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    placeholder="Например: Family and Friends 2, Workbook"></textarea>
             </div>
     
             <div class="flex gap-3">
@@ -466,17 +457,15 @@
         }
         
         function submitBookRequest() {
-            const bookRadio = document.querySelector('.book-radio:checked');
-            if (!bookRadio) {
-                alert('Выберите книгу');
-                return;
-            }
-            const bookId = bookRadio.value;
-
             const checkboxes = document.querySelectorAll('.book-checkbox:checked');
             const enrollmentIds = Array.from(checkboxes).map(cb => cb.value);
             if (enrollmentIds.length === 0) {
                 alert('Выберите хотя бы одного ученика');
+                return;
+            }
+            const comment = document.getElementById('bookRequestComment').value.trim();
+            if (!comment) {
+                alert('Напишите, какая книга нужна');
                 return;
             }
 
@@ -486,7 +475,7 @@
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'X-CSRFToken': '{{ csrf_token }}'
                 },
-                body: `enrollment_ids=${enrollmentIds.join(',')}&action=need_book&book_id=${bookId}`
+                body: `enrollment_ids=${enrollmentIds.join(',')}&action=need_book&comment=${encodeURIComponent(comment)}`
             })
             .then(response => response.json())
             .then(data => {
