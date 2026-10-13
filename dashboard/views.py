@@ -1551,6 +1551,11 @@ def get_current_period(cycle_start_day=11):
         return today.year, today.month - 1
 
 
+def is_enrolled_by(enrollment, period_end):
+    """Ученик уже был в группе к концу периода (новых не включаем в прошлые месяцы)"""
+    return timezone.localtime(enrollment.enrolled_at).date() <= period_end
+
+
 def make_calendar(year, month, period_start, period_end, lesson_dates_set):
     """Структура для календаря"""
     days_in_month = monthrange(year, month)[1]
@@ -1593,12 +1598,25 @@ def payments_page(request):
     show_details = bool(year_param and month_param)
     display_year = int(year_param) if year_param else today.year
 
-    total_students_all = Enrollment.objects.filter(group__is_active=True).count()
+    active_enrollments = list(Enrollment.objects.filter(group__is_active=True).select_related('group'))
+    # Платежи за год: {цикл: {(ученик, группа): оплачено}}
+    payments_by_cycle = {}
+    for cycle_num, student_id, group_id, is_paid in Payment.objects.filter(
+        cycle_number__gte=display_year * 100 + 1,
+        cycle_number__lte=display_year * 100 + 12,
+    ).values_list('cycle_number', 'student_id', 'group_id', 'is_paid'):
+        payments_by_cycle.setdefault(cycle_num, {})[(student_id, group_id)] = is_paid
 
     months_grid = []
     for m in range(1, 13):
         cycle_num = display_year * 100 + m
-        paid_count = Payment.objects.filter(cycle_number=cycle_num, is_paid=True).count()
+        cycle_payments = payments_by_cycle.get(cycle_num, {})
+        paid_count = sum(1 for is_paid in cycle_payments.values() if is_paid)
+        total_students_all = sum(
+            1 for e in active_enrollments
+            if (e.student_id, e.group_id) in cycle_payments
+            or is_enrolled_by(e, get_period(display_year, m, e.group.cycle_start_day)[1])
+        )
 
         is_current = (display_year == default_year and m == default_month)
         is_past = (display_year < today.year) or (display_year == today.year and m < today.month)
@@ -1640,12 +1658,16 @@ def payments_page(request):
             groups = groups.filter(name__iregex=search_query)
 
         for group in groups:
-            students_count = Enrollment.objects.filter(group=group).count()
-            paid_count = Payment.objects.filter(
+            group_period_end = get_period(year, month, group.cycle_start_day)[1]
+            payments = dict(Payment.objects.filter(
                 group=group,
                 cycle_number=cycle_num,
-                is_paid=True
-            ).count()
+            ).values_list('student_id', 'is_paid'))
+            students_count = sum(
+                1 for e in Enrollment.objects.filter(group=group)
+                if e.student_id in payments or is_enrolled_by(e, group_period_end)
+            )
+            paid_count = sum(1 for is_paid in payments.values() if is_paid)
 
             groups_data.append({
                 'group': group,
@@ -1713,6 +1735,10 @@ def group_payment_detail(request, group_id):
             group=group,
             cycle_number=cycle_num
         ).first()
+        
+        # Пришёл в группу после этого периода — оплата за него не нужна
+        if not payment and not is_enrolled_by(enrollment, period_end):
+            continue
         
         amount = calculate_cycle_amount(student, group, period_start, period_end)
         
