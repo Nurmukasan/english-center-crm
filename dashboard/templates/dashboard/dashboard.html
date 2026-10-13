@@ -48,7 +48,7 @@
                 </div>
             </div>
             <div class="flex items-center gap-2 md:gap-3 flex-wrap justify-end">
-                {% if role == 'teacher' or role == 'developer' %}
+                {% if role == 'teacher' or role == 'developer' or role == 'admin' %}
                 <a href="{% url 'weekly_schedule' %}" class="bg-cyan-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-cyan-600 transition">
                     <i class="fas fa-calendar mr-1"></i> Расписание
                 </a>

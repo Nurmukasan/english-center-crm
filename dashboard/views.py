@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from django.db.models import Q, Sum
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -570,19 +571,21 @@ def lesson_history(request, group_id):
 @login_required
 def weekly_schedule(request):
     """Расписание на неделю"""
+    from django.db.models import Count
+
     role = get_user_role(request.user)
     
-    if role in ['admin', 'accountant']:
+    if role == 'accountant':
         messages.error(request, 'Расписание пока недоступно для вашей роли')
         return redirect('dashboard')
     
+    groups = Group.objects.filter(is_active=True)
     if role == 'teacher':
-        groups = Group.objects.filter(
-            Q(teacher=request.user) | Q(teachers=request.user),
-            is_active=True
-        ).distinct()
-    else:
-        groups = Group.objects.filter(is_active=True)
+        groups = groups.filter(Q(teacher=request.user) | Q(teachers=request.user))
+    groups = (groups.distinct()
+              .select_related('teacher')
+              .prefetch_related('schedule_slots', 'teachers')
+              .annotate(students_count=Count('enrollments', distinct=True)))
     
     days = [
         {'name': 'Понедельник', 'short': 'Пн', 'num': 0},
@@ -602,70 +605,54 @@ def weekly_schedule(request):
         day['date'] = day_date.strftime('%d.%m')
         day['is_today'] = (day_date == today)
     
-    time_slots = []
-    for hour in range(6, 23):
-        for minute in [0, 30]:
-            time_slots.append({
-                'hour': hour,
-                'minute': minute,
-                'label': f'{hour}:{minute:02d}',
-            })
-    
-    schedule_data = []
+    lessons = []
+    teachers = {}
     for group in groups:
+        teacher = group.teacher
+        teacher_key = teacher.id if teacher else 0
+        if teacher_key not in teachers:
+            teachers[teacher_key] = {
+                'id': teacher_key,
+                'name': teacher.username if teacher else 'Без учителя',
+            }
+        extra_teachers = [t.username for t in group.teachers.all() if t != teacher]
         for slot in group.schedule_slots.all():
-            start_hour = slot.start_time.hour
-            start_minute = slot.start_time.minute
-            end_hour = slot.end_time.hour
-            end_minute = slot.end_time.minute
-            
-            start_minute = 0 if start_minute < 30 else 30
-            end_minute = 0 if end_minute < 30 else 30
-            
-            start_total = start_hour * 60 + start_minute
-            end_total = end_hour * 60 + end_minute
-            duration_slots = (end_total - start_total) // 30
-            
-            if duration_slots < 1:
-                duration_slots = 1
-            
-            schedule_data.append({
-                'group': group,
-                'day_index': slot.day_of_week,
-                'start_hour': start_hour,
-                'start_minute': start_minute,
-                'duration_slots': duration_slots,
+            start = slot.start_time.hour * 60 + slot.start_time.minute
+            end = slot.end_time.hour * 60 + slot.end_time.minute
+            if end <= start:
+                end = start + 30
+            lessons.append({
+                'group': group.name,
+                'url': reverse('group_detail', args=[group.id]),
+                'type': group.get_group_type_display(),
+                'day': slot.day_of_week,
+                'start': start,
+                'end': end,
+                'teacher_id': teacher_key,
+                'teacher': teachers[teacher_key]['name'],
+                'extra_teachers': extra_teachers,
+                'students': group.students_count,
             })
     
-    pastel_colors = [
-        {'bg': 'bg-blue-100', 'border': 'border-blue-300', 'text': 'text-blue-800'},
-        {'bg': 'bg-green-100', 'border': 'border-green-300', 'text': 'text-green-800'},
-        {'bg': 'bg-purple-100', 'border': 'border-purple-300', 'text': 'text-purple-800'},
-        {'bg': 'bg-pink-100', 'border': 'border-pink-300', 'text': 'text-pink-800'},
-        {'bg': 'bg-yellow-100', 'border': 'border-yellow-300', 'text': 'text-yellow-800'},
-        {'bg': 'bg-teal-100', 'border': 'border-teal-300', 'text': 'text-teal-800'},
-        {'bg': 'bg-orange-100', 'border': 'border-orange-300', 'text': 'text-orange-800'},
-        {'bg': 'bg-indigo-100', 'border': 'border-indigo-300', 'text': 'text-indigo-800'},
-        {'bg': 'bg-rose-100', 'border': 'border-rose-300', 'text': 'text-rose-800'},
-        {'bg': 'bg-cyan-100', 'border': 'border-cyan-300', 'text': 'text-cyan-800'},
-    ]
+    # Видимый диапазон часов: по занятиям, но не уже 9:00–19:00
+    first_hour = min([l['start'] // 60 for l in lessons] + [9])
+    last_hour = max([-(-l['end'] // 60) for l in lessons] + [19])
     
-    group_colors = {}
-    for i, group in enumerate(groups):
-        color_index = i % len(pastel_colors)
-        group_colors[group.id] = pastel_colors[color_index]
-    
-    for item in schedule_data:
-        color = group_colors.get(item['group'].id, pastel_colors[0])
-        item['bg_color'] = color['bg']
-        item['border_color'] = color['border']
-        item['text_color'] = color['text']
-    
+    now = timezone.localtime()
     context = {
         'days': days,
-        'time_slots': time_slots,
-        'schedule_data': schedule_data,
         'role': role,
+        'schedule_json': {
+            'lessons': lessons,
+            'teachers': sorted(teachers.values(), key=lambda t: t['name'].lower()),
+            'firstHour': first_hour,
+            'lastHour': last_hour,
+            'todayIndex': today.weekday(),
+            'nowMinutes': now.hour * 60 + now.minute,
+        },
+        'lessons_count': len(lessons),
+        'groups_count': len(groups),
+        'teachers_count': len(teachers),
     }
     
     return render(request, 'dashboard/weekly_schedule.html', context)
