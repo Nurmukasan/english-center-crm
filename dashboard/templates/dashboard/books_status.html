@@ -57,6 +57,51 @@
 
     <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
 
+        <!-- Запросы книг от учителей -->
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden mb-8 transition-colors">
+            <div class="px-6 py-4 border-b border-gray-300 dark:border-gray-600 bg-red-50 dark:bg-red-900/20">
+                <h3 class="font-bold text-red-700 dark:text-red-400">
+                    <i class="fas fa-hourglass-half mr-1"></i>
+                    Запросы книг (<span id="requestsCount">{{ book_requests|length }}</span>)
+                </h3>
+            </div>
+            <div class="p-4 space-y-2 max-h-[500px] overflow-y-auto" id="requestsList">
+                {% for e in book_requests %}
+                <div class="flex items-center gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
+                     id="request-{{ e.id }}">
+                    <div class="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center shrink-0">
+                        <i class="fas fa-user text-amber-600 dark:text-amber-400"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium text-gray-800 dark:text-white truncate">{{ e.student.name }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            <i class="fas fa-users mr-1"></i>{{ e.group.name }}
+                            {% if e.group.teacher %} · <i class="fas fa-chalkboard-teacher mr-1"></i>{{ e.group.teacher.get_full_name|default:e.group.teacher.username }}{% endif %}
+                        </p>
+                        {% if e.book_comment %}
+                        <p class="text-sm text-gray-700 dark:text-gray-300 mt-1 whitespace-pre-line break-words">
+                            <i class="fas fa-comment text-amber-500 mr-1"></i>{{ e.book_comment }}
+                        </p>
+                        {% elif e.book %}
+                        <p class="text-sm text-gray-700 dark:text-gray-300 mt-1">
+                            <i class="fas fa-book text-amber-500 mr-1"></i>{{ e.book.title }}
+                        </p>
+                        {% endif %}
+                    </div>
+                    <button onclick="giveBook({{ e.id }})"
+                            class="bg-green-500 text-white px-4 py-2 rounded-lg text-xs font-medium hover:bg-green-600 transition whitespace-nowrap">
+                        <i class="fas fa-check mr-1"></i>Выдана
+                    </button>
+                </div>
+                {% empty %}
+                <p class="text-center text-gray-400 py-8" id="requestsEmpty">
+                    <i class="fas fa-smile text-4xl mb-2 block"></i>
+                    Запросов нет
+                </p>
+                {% endfor %}
+            </div>
+        </div>
+
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {% for stat in book_stats %}
             <a href="{% url 'book_detail' stat.book.id %}"
@@ -111,6 +156,27 @@
             document.cookie = `googtrans=/ru/${lang}; path=/`;
             document.cookie = `googtrans=/ru/${lang}; domain=.${location.hostname}; path=/`;
             location.reload();
+        }
+        function giveBook(enrollmentId) {
+            fetch('/enrollment/toggle-book/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: `enrollment_ids=${enrollmentId}&action=has_book`
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) {
+                    alert('Ошибка');
+                    return;
+                }
+                const row = document.getElementById('request-' + enrollmentId);
+                if (row) row.remove();
+                const count = document.getElementById('requestsCount');
+                count.textContent = Math.max(0, parseInt(count.textContent) - 1);
+            });
         }
         function googleTranslateElementInit() {
             new google.translate.TranslateElement({

@@ -112,6 +112,7 @@ class Enrollment(models.Model):
     has_book = models.BooleanField(default=False, verbose_name="Есть книга")
     book_needed = models.BooleanField(default=False, verbose_name="Требуется книга")
     book = models.ForeignKey(Book, on_delete=models.SET_NULL, null=True, blank=True, related_name='enrollments', verbose_name="Запрошенная книга")
+    book_comment = models.TextField(blank=True, verbose_name="Комментарий к запросу книги")
 
     def __str__(self):
         return f"{self.student.name} → {self.group.name}"
