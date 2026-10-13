@@ -23,6 +23,57 @@
         #google_translate_element { display: none !important; }
         .goog-logo-link { display: none !important; }
         .goog-te-gadget { display: none !important; }
+        /* Сетка расписания */
+        .cal-scroll { overflow: auto; max-height: calc(100vh - 230px); min-height: 420px; }
+        .cal-head { position: sticky; top: 0; z-index: 20; }
+        .cal-gutter { position: sticky; left: 0; z-index: 15; }
+        .cal-corner { position: sticky; left: 0; top: 0; z-index: 25; }
+        .day-col {
+            position: relative;
+            background-image:
+                linear-gradient(to bottom, var(--line-hour) 1px, transparent 1px),
+                linear-gradient(to bottom, var(--line-half) 1px, transparent 1px);
+            background-size: 100% var(--hour-h), 100% calc(var(--hour-h) / 2);
+        }
+        :root { --hour-h: 64px; --line-hour: #d1d5db; --line-half: #eef0f3; }
+        .dark { --line-hour: #4b5563; --line-half: #374151; }
+        .lesson {
+            position: absolute; box-sizing: border-box; padding: 2px;
+            transition: transform .15s ease, z-index 0s;
+        }
+        .lesson:hover { z-index: 12; transform: scale(1.02); }
+        .lesson-card {
+            height: 100%; overflow: hidden; border-radius: 8px;
+            border-left: 4px solid var(--c-border); background: var(--c-bg); color: var(--c-text);
+            padding: 4px 6px; box-shadow: 0 1px 2px rgba(0,0,0,.08);
+        }
+        .lesson:hover .lesson-card { box-shadow: 0 8px 20px rgba(0,0,0,.18); }
+        .lesson.conflict .lesson-card { outline: 2px solid #ef4444; outline-offset: -2px; }
+        .now-line { position: absolute; left: 0; right: 0; height: 2px; background: #ef4444; z-index: 11; pointer-events: none; }
+        .now-line::before { content: ''; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: #ef4444; }
+        .chip.off { opacity: .4; }
+        .chip.off .chip-dot { background: transparent !important; }
+        /* Цвета учителей */
+        .c0 { --c-bg:#dbeafe; --c-border:#3b82f6; --c-text:#1e3a8a; }
+        .c1 { --c-bg:#dcfce7; --c-border:#22c55e; --c-text:#14532d; }
+        .c2 { --c-bg:#f3e8ff; --c-border:#a855f7; --c-text:#581c87; }
+        .c3 { --c-bg:#fce7f3; --c-border:#ec4899; --c-text:#831843; }
+        .c4 { --c-bg:#fef3c7; --c-border:#f59e0b; --c-text:#78350f; }
+        .c5 { --c-bg:#ccfbf1; --c-border:#14b8a6; --c-text:#134e4a; }
+        .c6 { --c-bg:#ffedd5; --c-border:#f97316; --c-text:#7c2d12; }
+        .c7 { --c-bg:#e0e7ff; --c-border:#6366f1; --c-text:#312e81; }
+        .c8 { --c-bg:#ffe4e6; --c-border:#f43f5e; --c-text:#881337; }
+        .c9 { --c-bg:#cffafe; --c-border:#06b6d4; --c-text:#164e63; }
+        .dark .c0 { --c-bg:#1e3a8a66; --c-text:#bfdbfe; }
+        .dark .c1 { --c-bg:#14532d66; --c-text:#bbf7d0; }
+        .dark .c2 { --c-bg:#581c8766; --c-text:#e9d5ff; }
+        .dark .c3 { --c-bg:#83184366; --c-text:#fbcfe8; }
+        .dark .c4 { --c-bg:#78350f66; --c-text:#fde68a; }
+        .dark .c5 { --c-bg:#134e4a66; --c-text:#99f6e4; }
+        .dark .c6 { --c-bg:#7c2d1266; --c-text:#fed7aa; }
+        .dark .c7 { --c-bg:#312e8166; --c-text:#c7d2fe; }
+        .dark .c8 { --c-bg:#88133766; --c-text:#fecdd3; }
+        .dark .c9 { --c-bg:#164e6366; --c-text:#a5f3fc; }
     </style>
 </head>
 <body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
@@ -60,80 +111,51 @@
     </header>
     
     <main class="max-w-full mx-auto px-4 py-6 fade-in">
-        
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
-            <div class="overflow-x-auto">
-                <table class="w-full min-w-[900px] table-fixed border-collapse" id="schedule-table">
-                    
-                    <thead>
-                        <tr>
-                            <th class="px-2 py-4 border-b-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700/50 w-20 sticky left-0 z-10">
-                                <span class="text-xs text-gray-400 font-medium">Время</span>
-                            </th>
-                            {% for day in days %}
-                            <th class="px-2 py-4 border-b-2 border-gray-300 dark:border-gray-600 text-center
-                                       {% if day.is_today %}bg-indigo-100 dark:bg-indigo-900/30{% endif %}">
-                                <p class="font-bold text-gray-800 dark:text-white {% if day.is_today %}text-indigo-600 dark:text-indigo-400{% endif %}">
-                                    {{ day.date }}
-                                </p>
-                                <p class="text-sm text-gray-400">{{ day.name }}</p>
-                                {% if day.is_today %}
-                                <span class="inline-block bg-indigo-500 text-white px-2 py-0.5 rounded-full text-[10px] mt-1">Сегодня</span>
-                                {% endif %}
-                            </th>
-                            {% endfor %}
-                        </tr>
-                    </thead>
-                    
-                    <tbody>
-                        {% for slot in time_slots %}
-                        <tr>
-                            <td class="px-2 py-0 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700/50 text-right sticky left-0 z-10">
-                                {% if slot.minute == 0 %}
-                                <span class="text-xs font-bold text-gray-600 dark:text-gray-300">{{ slot.label }}</span>
-                                {% else %}
-                                <span class="text-[10px] text-gray-400">{{ slot.label }}</span>
-                                {% endif %}
-                            </td>
-                            
-                            {% for day in days %}
-                            <td class="schedule-cell border-b border-gray-200 dark:border-gray-700 border-r border-gray-200 dark:border-gray-700 relative h-8 p-0
-                                       {% if day.is_today %}bg-indigo-50/30 dark:bg-indigo-900/20{% endif %}
-                                       {% if slot.minute == 0 %}border-t-2 border-t-gray-400 dark:border-t-gray-500{% endif %}"
-                                data-day="{{ day.num }}"
-                                data-hour="{{ slot.hour }}"
-                                data-minute="{{ slot.minute }}">
-                                
-                                {% for item in schedule_data %}
-                                    {% if item.day_index == day.num and item.start_hour == slot.hour and item.start_minute == slot.minute %}
-                                    
-                                    <div class="group-block absolute top-0 left-0 right-0 {{ item.bg_color }} {{ item.text_color }} 
-                                                border-2 {{ item.border_color }} rounded-lg
-                                                hover:shadow-md hover:brightness-95 transition-all cursor-pointer
-                                                flex flex-col justify-center items-center text-center
-                                                w-full overflow-hidden"
-                                         data-group-url="{% url 'group_detail' item.group.id %}"
-                                         style="height: calc({{ item.duration_slots }} * 2rem + ({{ item.duration_slots|add:'-1' }} * 2px)); z-index: 5;">
-                                        <p class="text-[11px] font-bold leading-tight">{{ item.group.name }}</p>
-                                        <p class="text-[9px] opacity-70"><i class="fas fa-users"></i> {{ item.group.enrollments.count }} • {{ item.group.teacher.username }}</p>
-                                    </div>
-                                    
-                                    {% endif %}
-                                {% endfor %}
-                                
-                            </td>
-                            {% endfor %}
-                            
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    
-                </table>
+
+        <!-- Сводка + фильтр по учителям -->
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 p-4 mb-4 transition-colors">
+            <div class="flex flex-wrap items-center gap-3 mb-3">
+                <span class="bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 px-3 py-1 rounded-full text-sm font-medium">
+                    <i class="fas fa-chalkboard mr-1"></i> Занятий в неделю: <b>{{ lessons_count }}</b>
+                </span>
+                <span class="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full text-sm font-medium">
+                    <i class="fas fa-users mr-1"></i> Групп: <b>{{ groups_count }}</b>
+                </span>
+                {% if role != 'teacher' %}
+                <span class="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-3 py-1 rounded-full text-sm font-medium">
+                    <i class="fas fa-chalkboard-teacher mr-1"></i> Учителей: <b>{{ teachers_count }}</b>
+                </span>
+                {% endif %}
+                <span id="conflictBadge" class="hidden bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-3 py-1 rounded-full text-sm font-medium"
+                      title="У одного учителя пересекаются занятия">
+                    <i class="fas fa-exclamation-triangle mr-1"></i> Накладки: <b id="conflictCount">0</b>
+                </span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2" id="teacherFilter">
+                <span class="text-sm text-gray-500 dark:text-gray-400 mr-1">Учителя:</span>
+                <button type="button" id="chipAll"
+                    class="px-3 py-1 rounded-full text-sm font-medium bg-gray-800 text-white dark:bg-white dark:text-gray-800 transition">
+                    Все
+                </button>
             </div>
         </div>
-        
+
+        <!-- Календарь -->
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
+            <div class="cal-scroll" id="calScroll">
+                <div id="calendar" class="relative"></div>
+            </div>
+            <div id="emptyState" class="hidden p-12 text-center text-gray-400">
+                <i class="fas fa-calendar-times text-5xl mb-3"></i>
+                <p>Занятий в расписании пока нет</p>
+            </div>
+        </div>
+
     </main>
-    
+
+    {{ schedule_json|json_script:"schedule-data" }}
+    {{ days|json_script:"days-data" }}
+
     <script>
         function toggleTheme() {
             document.documentElement.classList.toggle('dark');
@@ -144,38 +166,191 @@
             document.cookie = `googtrans=/ru/${lang}; domain=.${location.hostname}; path=/`;
             location.reload();
         }
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            const groupBlocks = document.querySelectorAll('.group-block');
-            
-            groupBlocks.forEach(function(block) {
-                const url = block.getAttribute('data-group-url');
-                const cell = block.closest('td');
-                
-                const blockHeight = block.offsetHeight;
-                const cellHeight = cell.offsetHeight;
-                const slotsCount = Math.max(1, Math.round(blockHeight / cellHeight));
-                
-                const day = parseInt(cell.getAttribute('data-day'));
-                
-                let currentRow = cell.closest('tr');
-                
-                for (let i = 0; i < slotsCount; i++) {
-                    if (!currentRow) break;
-                    
-                    const cells = currentRow.querySelectorAll('.schedule-cell');
-                    const targetCell = cells[day];
-                    
-                    if (targetCell) {
-                        targetCell.style.cursor = 'pointer';
-                        targetCell.addEventListener('click', function() {
-                            window.location.href = url;
-                        });
-                    }
-                    
-                    currentRow = currentRow.nextElementSibling;
-                }
+
+        const DATA = JSON.parse(document.getElementById('schedule-data').textContent);
+        const DAYS = JSON.parse(document.getElementById('days-data').textContent);
+        const HOUR_H = 64;                 // высота часа, px (как --hour-h)
+        const PX_PER_MIN = HOUR_H / 60;
+        const LANE_MIN_W = 118;            // минимальная ширина одного параллельного занятия
+        const DAY_MIN_W = 150;
+        const hidden = new Set();          // скрытые учителя
+
+        const colorOf = {};
+        DATA.teachers.forEach((t, i) => colorOf[t.id] = 'c' + (i % 10));
+
+        function fmt(min) {
+            return Math.floor(min / 60) + ':' + String(min % 60).padStart(2, '0');
+        }
+        function esc(s) {
+            const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+        }
+
+        // Раскладка пересекающихся занятий по дорожкам (как в Google Calendar)
+        function layoutDay(items) {
+            items.sort((a, b) => a.start - b.start || b.end - a.end);
+            let cluster = [], lanesEnd = [], clusterEnd = -1, maxLanes = 1;
+            const flush = () => {
+                cluster.forEach(it => it.cols = lanesEnd.length);
+                maxLanes = Math.max(maxLanes, lanesEnd.length);
+                cluster = []; lanesEnd = [];
+            };
+            items.forEach(it => {
+                if (cluster.length && it.start >= clusterEnd) flush();
+                let lane = lanesEnd.findIndex(end => end <= it.start);
+                if (lane === -1) { lane = lanesEnd.length; lanesEnd.push(it.end); }
+                else lanesEnd[lane] = it.end;
+                it.lane = lane;
+                cluster.push(it);
+                clusterEnd = Math.max(clusterEnd, it.end);
             });
+            flush();
+            // занятие растягивается вправо, если соседние дорожки свободны
+            items.forEach(it => {
+                let span = 1;
+                for (let l = it.lane + 1; l < it.cols; l++) {
+                    const busy = items.some(o => o !== it && o.lane === l && o.start < it.end && it.start < o.end);
+                    if (busy) break;
+                    span++;
+                }
+                it.span = span;
+            });
+            return maxLanes;
+        }
+
+        // Накладки: один учитель ведёт два занятия одновременно
+        function markConflicts(items) {
+            let n = 0;
+            items.forEach(a => a.conflict = items.some(b => b !== a && b.teacher_id === a.teacher_id
+                && b.teacher_id !== 0 && b.start < a.end && a.start < b.end));
+            items.forEach(a => { if (a.conflict) n++; });
+            return n;
+        }
+
+        function render() {
+            const cal = document.getElementById('calendar');
+            const visible = DATA.lessons.filter(l => !hidden.has(l.teacher_id));
+            if (DATA.lessons.length === 0) {
+                document.getElementById('calScroll').classList.add('hidden');
+                document.getElementById('emptyState').classList.remove('hidden');
+                return;
+            }
+
+            const first = DATA.firstHour, last = DATA.lastHour;
+            const bodyH = (last - first) * HOUR_H;
+
+            let conflicts = 0;
+            const perDay = DAYS.map(d => {
+                const items = visible.filter(l => l.day === d.num).map(l => Object.assign({}, l));
+                conflicts += markConflicts(items);
+                const lanes = layoutDay(items);
+                return { day: d, items, width: Math.max(DAY_MIN_W, lanes * LANE_MIN_W) };
+            });
+            document.getElementById('conflictCount').textContent = conflicts;
+            document.getElementById('conflictBadge').classList.toggle('hidden', conflicts === 0);
+
+            // Свободное место по ширине экрана делим между днями пропорционально
+            const need = perDay.reduce((sum, p) => sum + p.width, 0);
+            const avail = document.getElementById('calScroll').clientWidth - 64;
+            const k = need < avail ? avail / need : 1;
+            const cols = '64px ' + perDay.map(p => Math.floor(p.width * k) + 'px').join(' ');
+            let html = `<div style="display:grid;width:max-content;grid-template-columns:${cols}">`;
+
+            // Шапка
+            html += `<div class="cal-corner bg-gray-100 dark:bg-gray-700 border-b-2 border-gray-300 dark:border-gray-600"></div>`;
+            perDay.forEach(p => {
+                const t = p.day.is_today;
+                html += `<div class="cal-head px-2 py-3 text-center border-b-2 border-l border-gray-300 dark:border-gray-600
+                            ${t ? 'bg-indigo-100 dark:bg-indigo-900' : 'bg-gray-100 dark:bg-gray-700'}" ${t ? 'id="todayHead"' : ''}>
+                    <p class="font-bold ${t ? 'text-indigo-600 dark:text-indigo-300' : 'text-gray-800 dark:text-white'}">${p.day.name}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">${p.day.date}
+                        · ${p.items.length ? p.items.length + ' зан.' : 'нет занятий'}</p>
+                </div>`;
+            });
+
+            // Шкала времени
+            html += `<div class="cal-gutter bg-gray-100 dark:bg-gray-700" style="height:${bodyH}px">`;
+            for (let h = first; h < last; h++) {
+                html += `<div class="absolute right-2 text-xs font-semibold text-gray-500 dark:text-gray-300"
+                              style="top:${(h - first) * HOUR_H + 2}px">${h}:00</div>`;
+            }
+            html += `</div>`;
+
+            // Колонки дней
+            perDay.forEach(p => {
+                const t = p.day.is_today;
+                html += `<div class="day-col border-l border-gray-300 dark:border-gray-600 ${t ? 'bg-indigo-50/60 dark:bg-indigo-900/10' : ''}"
+                              style="height:${bodyH}px">`;
+                p.items.forEach(it => {
+                    const top = (it.start - first * 60) * PX_PER_MIN;
+                    const h = Math.max(22, (it.end - it.start) * PX_PER_MIN);
+                    const left = it.lane / it.cols * 100;
+                    const width = it.span / it.cols * 100;
+                    const teachers = [it.teacher].concat(it.extra_teachers).join(', ');
+                    const title = `${it.group}\n${fmt(it.start)}–${fmt(it.end)}\nУчитель: ${teachers}\nУчеников: ${it.students}\n${it.type}`
+                                + (it.conflict ? '\n⚠ У учителя пересекаются занятия' : '');
+                    html += `<a href="${it.url}" class="lesson ${colorOf[it.teacher_id]} ${it.conflict ? 'conflict' : ''}"
+                                title="${esc(title)}"
+                                style="top:${top}px;height:${h}px;left:${left}%;width:${width}%">
+                        <div class="lesson-card">
+                            <p class="text-[11px] font-semibold opacity-80 leading-tight truncate">
+                                ${it.conflict ? '<i class="fas fa-exclamation-triangle text-red-500"></i> ' : ''}${fmt(it.start)}–${fmt(it.end)}
+                            </p>
+                            <p class="text-sm font-bold leading-tight truncate notranslate">${esc(it.group)}</p>
+                            ${h < 48 ? '' : h < 84
+                                ? `<p class="text-[11px] opacity-80 truncate notranslate"><i class="fas fa-user"></i> ${esc(teachers)} · <i class="fas fa-users"></i> ${it.students}</p>`
+                                : `<p class="text-[11px] opacity-80 truncate notranslate"><i class="fas fa-user"></i> ${esc(teachers)}</p>
+                                   <p class="text-[11px] opacity-70 truncate"><i class="fas fa-users"></i> ${it.students}</p>`}
+                        </div>
+                    </a>`;
+                });
+                if (t && DATA.nowMinutes >= first * 60 && DATA.nowMinutes <= last * 60) {
+                    html += `<div class="now-line" style="top:${(DATA.nowMinutes - first * 60) * PX_PER_MIN}px"></div>`;
+                }
+                html += `</div>`;
+            });
+
+            html += `</div>`;
+            cal.innerHTML = html;
+        }
+
+        function buildFilter() {
+            const box = document.getElementById('teacherFilter');
+            if (DATA.teachers.length < 2) { box.classList.add('hidden'); return; }
+            DATA.teachers.forEach(t => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = `chip ${colorOf[t.id]} px-3 py-1 rounded-full text-sm font-medium border transition flex items-center gap-1.5 notranslate`;
+                b.style.cssText = 'background:var(--c-bg);color:var(--c-text);border-color:var(--c-border)';
+                b.innerHTML = `<span class="chip-dot w-2.5 h-2.5 rounded-full border-2" style="background:var(--c-border);border-color:var(--c-border)"></span>${esc(t.name)}`;
+                b.onclick = () => {
+                    // Клик — показать только этого учителя; повторный — вернуть всех
+                    const onlyThis = hidden.size === DATA.teachers.length - 1 && !hidden.has(t.id);
+                    hidden.clear();
+                    if (!onlyThis) DATA.teachers.forEach(o => { if (o.id !== t.id) hidden.add(o.id); });
+                    syncChips(); render();
+                };
+                box.appendChild(b);
+            });
+            document.getElementById('chipAll').onclick = () => { hidden.clear(); syncChips(); render(); };
+        }
+
+        function syncChips() {
+            const chips = document.querySelectorAll('#teacherFilter .chip');
+            DATA.teachers.forEach((t, i) => chips[i].classList.toggle('off', hidden.has(t.id)));
+        }
+
+        buildFilter();
+        render();
+        let resizeTimer;
+        window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
+
+        // Прокрутка: к началу занятий и к сегодняшнему дню
+        window.addEventListener('load', function () {
+            const sc = document.getElementById('calScroll');
+            const today = document.getElementById('todayHead');
+            if (today && today.offsetLeft + today.offsetWidth > sc.clientWidth) {
+                sc.scrollLeft = today.offsetLeft - 64;
+            }
         });
         
         function googleTranslateElementInit() {
