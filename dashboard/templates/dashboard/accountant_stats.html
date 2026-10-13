@@ -24,6 +24,7 @@
         .goog-logo-link { display: none !important; }
         .goog-te-gadget { display: none !important; }
     </style>
+    {% include 'dashboard/partials/theme.html' %}
 </head>
 <body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     
@@ -140,6 +141,13 @@
         }
         
         const ctx = document.getElementById('incomeChart').getContext('2d');
+        // Цвета графика под тёмную тему
+        Chart.defaults.color = 'rgba(233, 231, 245, 0.6)';
+        Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.06)';
+        Chart.defaults.font.family = 'Manrope, sans-serif';
+        const incomeFill = ctx.createLinearGradient(0, 0, 0, 320);
+        incomeFill.addColorStop(0, 'rgba(192, 38, 211, 0.35)');
+        incomeFill.addColorStop(1, 'rgba(124, 58, 237, 0)');
         new Chart(ctx, {
             type: 'line',
             data: {
@@ -147,16 +155,25 @@
                 datasets: [{
                     label: 'Доход (₸)',
                     data: [{% for item in monthly_income %}{{ item.income }},{% endfor %}],
-                    borderColor: 'rgb(99, 102, 241)',
-                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    borderColor: '#c084fc',
+                    backgroundColor: incomeFill,
+                    borderWidth: 3,
+                    pointBackgroundColor: '#fbbf24',
+                    pointBorderColor: '#fbbf24',
+                    pointRadius: 4,
+                    pointHoverRadius: 7,
                     fill: true,
                     tension: 0.4,
                 }]
             },
             options: {
                 responsive: true,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true } }
+                animation: { duration: 1400, easing: 'easeOutQuart' },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { backgroundColor: 'rgba(20, 17, 34, 0.95)', borderColor: 'rgba(167, 139, 250, 0.4)', borderWidth: 1, padding: 12, cornerRadius: 10 },
+                },
+                scales: { y: { beginAtZero: true }, x: { grid: { display: false } } }
             }
         });
         

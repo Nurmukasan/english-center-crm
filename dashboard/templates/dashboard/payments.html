@@ -34,7 +34,7 @@
             height: 6px;
         }
         .hex-grid::-webkit-scrollbar-thumb {
-            background: rgba(0,0,0,0.2);
+            background: rgba(255,255,255,0.15);
             border-radius: 3px;
         }
 
@@ -50,7 +50,7 @@
             text-decoration: none;
             color: #fff;
             font-weight: 600;
-            transition: filter 0.2s ease;
+            transition: filter 0.3s ease, transform var(--spring-dur, .5s) var(--spring, ease), opacity 0.3s ease;
             cursor: pointer;
             text-align: center;
             padding: 0 22px;
@@ -64,22 +64,23 @@
             margin-top: calc(112px / 2);
         }
         .hex:hover {
-            filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.6)) brightness(1.1);
+            filter: drop-shadow(0 0 14px rgba(167, 139, 250, 0.7)) brightness(1.15);
+            transform: scale(1.07);
             z-index: 5;
         }
         .hex-past {
-            background: linear-gradient(135deg, #94a3b8, #64748b);
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.55), rgba(76, 29, 149, 0.6));
         }
         .hex-current {
-            background: linear-gradient(135deg, #6366f1, #4f46e5);
-            filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.5));
+            background: linear-gradient(135deg, #7c3aed, #c026d3 55%, #f59e0b);
+            filter: drop-shadow(0 0 14px rgba(217, 70, 239, 0.6));
         }
         .hex-current:hover {
-            filter: drop-shadow(0 0 16px rgba(99, 102, 241, 0.9)) brightness(1.1);
+            filter: drop-shadow(0 0 22px rgba(217, 70, 239, 0.95)) brightness(1.1);
         }
         .hex-future {
-            background: linear-gradient(135deg, #cbd5e1, #94a3b8);
-            opacity: 0.75;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
+            opacity: 0.8;
         }
         .hex-future:hover {
             opacity: 1;
@@ -109,6 +110,7 @@
             .hex-count { font-size: 9px; }
         }
     </style>
+    {% include 'dashboard/partials/theme.html' %}
 </head>
 <body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
 

@@ -1,0 +1,307 @@
+{% comment %}
+Общая тема CRM в стиле лендинга: тёмное стекло на mesh-градиенте, пружинные анимации.
+Подключается в <head> каждой страницы. Страницы уже размечены dark:-классами Tailwind,
+поэтому тема включает тёмный режим и перекрашивает его палитру, не трогая разметку и логику.
+{% endcomment %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+<script>
+    document.documentElement.classList.add('dark', 'ee', 'ee-anim');
+    // Подстраховка: если скрипт ниже не отработал, контент не должен остаться скрытым
+    setTimeout(function () { if (!window.__eeReady) document.documentElement.classList.remove('ee-anim'); }, 3000);
+</script>
+<style>
+    @property --spot { syntax: '<number>'; inherits: false; initial-value: 0; }
+    :root {
+        --ee-bg: #07060d;
+        --ee-text: #e9e7f5;
+        --ee-stroke: rgba(255, 255, 255, .09);
+        --ee-surface: rgba(255, 255, 255, .045);
+        /* Пружины: запасные значения, JS подставляет настоящую физику */
+        --spring: cubic-bezier(.34, 1.56, .64, 1);
+        --spring-dur: 600ms;
+        --spring-soft: cubic-bezier(.22, 1, .36, 1);
+        --spring-soft-dur: 800ms;
+    }
+    html.ee { background: var(--ee-bg); color-scheme: dark; }
+    html.ee body { background: transparent !important; color: var(--ee-text); }
+    html.ee ::selection { background: rgba(217, 70, 239, .35); color: #fff; }
+
+    /* ---------- Шрифты (иконки Font Awesome не трогаем) ---------- */
+    html.ee body,
+    html.ee body *:not(i):not(.fa):not(.fas):not(.far):not(.fab):not(.fa-solid):not(.fa-regular):not(.fa-brands) {
+        font-family: 'Manrope', sans-serif;
+    }
+    html.ee header h1, html.ee main h2 { font-family: 'Unbounded', sans-serif !important; letter-spacing: -.01em; }
+    html.ee .fade-in { animation: none; }
+
+    /* ---------- Фон ---------- */
+    .ee-mesh { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+    .ee-blob { position: absolute; border-radius: 9999px; filter: blur(90px); opacity: .38; will-change: transform; animation: ee-drift 26s ease-in-out infinite alternate; }
+    .ee-blob.b1 { width: 44vw; height: 44vw; min-width: 300px; min-height: 300px; left: -14vw; top: -16vw; background: radial-gradient(circle, #6d28d9, transparent 65%); }
+    .ee-blob.b2 { width: 38vw; height: 38vw; min-width: 260px; min-height: 260px; right: -12vw; top: 18vh; background: radial-gradient(circle, #c026d3, transparent 65%); animation-duration: 30s; animation-delay: -8s; opacity: .26; }
+    .ee-blob.b3 { width: 36vw; height: 36vw; min-width: 240px; min-height: 240px; left: 30vw; bottom: -18vw; background: radial-gradient(circle, #f59e0b, transparent 62%); opacity: .16; animation-duration: 34s; animation-delay: -14s; }
+    @keyframes ee-drift {
+        0% { transform: translate3d(0, 0, 0) scale(1); }
+        50% { transform: translate3d(5vw, 4vh, 0) scale(1.1); }
+        100% { transform: translate3d(-3vw, 7vh, 0) scale(.95); }
+    }
+    .ee-grid {
+        position: absolute; inset: 0;
+        background-image: linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+        background-size: 64px 64px;
+        mask-image: radial-gradient(ellipse 80% 55% at 50% 0%, #000 25%, transparent 75%);
+        -webkit-mask-image: radial-gradient(ellipse 80% 55% at 50% 0%, #000 25%, transparent 75%);
+    }
+
+    /* ---------- Шапка ---------- */
+    html.ee header {
+        background: rgba(10, 8, 20, .6) !important;
+        backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
+        border-bottom: 1px solid var(--ee-stroke);
+        box-shadow: 0 12px 40px -24px rgba(0, 0, 0, .9) !important;
+    }
+    html.ee header h1 {
+        background: linear-gradient(100deg, #c4b5fd 0%, #e879f9 35%, #fbbf24 65%, #c4b5fd 100%);
+        background-size: 220% auto;
+        -webkit-background-clip: text; background-clip: text;
+        color: transparent !important; -webkit-text-fill-color: transparent;
+        animation: ee-shimmer 8s linear infinite;
+    }
+    @keyframes ee-shimmer { to { background-position: 220% center; } }
+    html.ee header img.rounded-full { box-shadow: 0 0 0 2px rgba(255,255,255,.12), 0 0 24px -4px rgba(167,139,250,.7); }
+    /* Тема всегда тёмная — переключатель не нужен */
+    html.ee [onclick="toggleTheme()"] { display: none !important; }
+
+    /* ---------- Поверхности: стекло вместо серого ---------- */
+    html.ee .dark\:bg-gray-800, html.ee .bg-gray-800:not(header):not([class*="dark:bg-"]) { background-color: var(--ee-surface); }
+    html.ee :is(.dark\:bg-gray-800, .bg-gray-800:not(header):not([class*="dark:bg-"]))[class*="rounded"] {
+        backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%);
+    }
+    html.ee .dark\:bg-gray-900 { background-color: rgba(0, 0, 0, .22); }
+    html.ee :is(body, main).bg-gray-900 { background-color: transparent; }
+    html.ee .dark\:bg-gray-900\/75 { background-color: rgba(10, 8, 20, .7); }
+    html.ee .dark\:bg-gray-700, html.ee .bg-gray-700 { background-color: rgba(255, 255, 255, .065); }
+    html.ee .dark\:bg-gray-700\/50 { background-color: rgba(255, 255, 255, .04); }
+    html.ee .dark\:bg-gray-700\/30 { background-color: rgba(255, 255, 255, .03); }
+    html.ee .dark\:bg-gray-600, html.ee .bg-gray-600 { background-color: rgba(255, 255, 255, .1); }
+    html.ee :is(.dark\:hover\:bg-gray-700, .hover\:bg-gray-700, .dark\:hover\:bg-gray-700\/50, .dark\:hover\:bg-gray-700\/40):hover { background-color: rgba(255, 255, 255, .07); }
+    html.ee :is(.dark\:hover\:bg-gray-600, .hover\:bg-gray-600):hover { background-color: rgba(255, 255, 255, .12); }
+    html.ee :is(.dark\:border-gray-600, .dark\:border-gray-700, .border-gray-500) { border-color: var(--ee-stroke); }
+    html.ee .dark\:divide-gray-700 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(255, 255, 255, .07); }
+    html.ee :is(.shadow-md, .shadow-lg, .shadow-xl) { box-shadow: 0 24px 60px -30px rgba(0, 0, 0, .85), inset 0 1px 0 rgba(255, 255, 255, .04); }
+    html.ee .text-gray-400, html.ee .dark\:text-gray-400 { color: rgba(233, 231, 245, .58); }
+
+    /* Липкие шапка и шкала времени в расписании должны быть непрозрачными */
+    html.ee :is(.cal-head, .cal-corner, .cal-gutter):not(.dark\:bg-indigo-900) { background-color: #14111f; }
+
+    /* ---------- Модальные окна ---------- */
+    html.ee .fixed.inset-0.bg-black {
+        background-color: rgba(5, 4, 10, .62);
+        backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    }
+    html.ee .fixed.inset-0 > [class*="dark:bg-gray-800"] {
+        background: linear-gradient(160deg, rgba(36, 30, 58, .92), rgba(18, 15, 30, .94));
+        border: 1px solid rgba(255, 255, 255, .1);
+        box-shadow: 0 40px 100px -30px rgba(0, 0, 0, .9), 0 0 60px -20px rgba(139, 92, 246, .45);
+        backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    }
+    html.ee .fixed.inset-0:not(.hidden) > [class*="dark:bg-gray-800"] { animation: ee-pop var(--spring-dur) var(--spring) both; }
+    @keyframes ee-pop { from { opacity: 0; transform: translate3d(0, 18px, 0) scale(.94); } }
+
+    /* ---------- Поля ввода ---------- */
+    html.ee :is(input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]):not([type=submit]):not([type=button]):not([type=hidden]), select, textarea) {
+        background-color: rgba(255, 255, 255, .05) !important;
+        border-color: rgba(255, 255, 255, .12) !important;
+        color: #fff !important;
+        transition: border-color .25s ease, box-shadow .25s ease, background-color .25s ease;
+    }
+    html.ee :is(input, select, textarea):focus {
+        outline: none;
+        border-color: rgba(192, 132, 252, .85) !important;
+        background-color: rgba(255, 255, 255, .08) !important;
+        box-shadow: 0 0 0 4px rgba(139, 92, 246, .22) !important;
+    }
+    html.ee ::placeholder { color: rgba(233, 231, 245, .38) !important; }
+    html.ee select option { background: #15121f; color: #fff; }
+    html.ee input[type=checkbox], html.ee input[type=radio] { accent-color: #a855f7; }
+    html.ee input[type=file]::file-selector-button {
+        margin-right: .75rem; padding: .35rem .9rem; border: 0; border-radius: 9999px; cursor: pointer;
+        color: #fff; font-weight: 600; background: linear-gradient(110deg, #7c3aed, #c026d3);
+    }
+
+    /* ---------- Кнопки: градиент бренда, свечение, пружина ---------- */
+    html.ee :is(.bg-indigo-500, .bg-indigo-600, .bg-purple-500) {
+        background-image: linear-gradient(110deg, #7c3aed, #c026d3 50%, #7c3aed);
+        background-size: 200% 100%;
+        background-position: 0% 50%;
+    }
+    html.ee :is(a, button):is(.bg-indigo-500, .bg-indigo-600, .bg-purple-500):hover { background-position: 100% 50%; }
+    html.ee :is(a, button):is(.bg-indigo-500, .bg-indigo-600, .bg-purple-500, .bg-green-500, .bg-emerald-500, .bg-yellow-500,
+        .bg-amber-500, .bg-orange-500, .bg-red-500, .bg-cyan-500, .bg-blue-500, .bg-teal-500, .bg-pink-500) {
+        transition: transform var(--spring-dur) var(--spring), box-shadow .35s ease, background-color .3s ease, background-position .7s ease !important;
+        box-shadow: 0 8px 22px -12px var(--ee-glow, rgba(139, 92, 246, .8)), inset 0 1px 0 rgba(255, 255, 255, .18);
+    }
+    html.ee :is(a, button):is(.bg-indigo-500, .bg-indigo-600, .bg-purple-500, .bg-green-500, .bg-emerald-500, .bg-yellow-500,
+        .bg-amber-500, .bg-orange-500, .bg-red-500, .bg-cyan-500, .bg-blue-500, .bg-teal-500, .bg-pink-500):hover {
+        transform: translateY(-2px) scale(1.04);
+        box-shadow: 0 16px 36px -12px var(--ee-glow, rgba(139, 92, 246, .9)), 0 0 24px -8px var(--ee-glow, rgba(139, 92, 246, .9)), inset 0 1px 0 rgba(255, 255, 255, .25);
+    }
+    html.ee :is(a, button):active { transform: scale(.96) !important; }
+    html.ee :is(.bg-indigo-500, .bg-indigo-600, .bg-purple-500) { --ee-glow: rgba(192, 38, 211, .85); }
+    html.ee :is(.bg-green-500, .bg-emerald-500, .bg-teal-500) { --ee-glow: rgba(16, 185, 129, .8); }
+    html.ee :is(.bg-yellow-500, .bg-amber-500) { --ee-glow: rgba(245, 158, 11, .85); }
+    html.ee .bg-orange-500 { --ee-glow: rgba(249, 115, 22, .85); }
+    html.ee .bg-red-500 { --ee-glow: rgba(239, 68, 68, .85); }
+    html.ee :is(.bg-cyan-500, .bg-blue-500) { --ee-glow: rgba(6, 182, 212, .85); }
+    html.ee .bg-pink-500 { --ee-glow: rgba(236, 72, 153, .85); }
+
+    /* ---------- Карточки: подъём на пружине + свечение за курсором ---------- */
+    html.ee :is(.hover-scale, main a[class*="rounded-xl"], main a[class*="rounded-2xl"]) {
+        transition: transform var(--spring-dur) var(--spring), box-shadow .45s ease, border-color .35s ease, --spot .35s ease !important;
+    }
+    html.ee :is(.hover-scale, main a[class*="rounded-xl"], main a[class*="rounded-2xl"]):hover {
+        transform: translateY(-4px);
+        border-color: rgba(255, 255, 255, .2);
+        box-shadow: 0 30px 70px -30px rgba(139, 92, 246, .7), 0 0 0 1px rgba(167, 139, 250, .15);
+        --spot: .16;
+    }
+    html.ee .ee-spot:not([class*="bg-gradient"]) {
+        background-image: radial-gradient(380px circle at var(--mx, 50%) var(--my, 50%), rgba(192, 132, 252, var(--spot)), transparent 45%);
+    }
+
+    /* ---------- Таблицы ---------- */
+    html.ee tbody tr { transition: background-color .2s ease; }
+
+    /* ---------- Появление: страница собирается по блокам ----------
+       translate — отдельное свойство (не transform), поэтому не спорит с hover-эффектами.
+       После появления класс меняется на ee-done и все служебные свойства сбрасываются. */
+    html.ee-anim main > :not(.ee-in):not(.ee-done),
+    html.ee .ee-pre:not(.ee-in) { opacity: 0; translate: 0 18px; filter: blur(5px); }
+    html.ee .ee-row:not(.ee-in) { opacity: 0; }
+    html.ee .ee-in {
+        opacity: 1; translate: 0 0; filter: blur(0);
+        transition: opacity .6s ease, translate var(--spring-soft-dur) var(--spring-soft), filter .6s ease !important;
+        transition-delay: calc(var(--ee-i, 0) * 70ms) !important;
+    }
+    html.ee .ee-row.ee-in { transition-delay: calc(var(--ee-i, 0) * 25ms) !important; }
+
+    /* ---------- Скроллбар ---------- */
+    html.ee ::-webkit-scrollbar { width: 10px; height: 10px; }
+    html.ee ::-webkit-scrollbar-track { background: transparent; }
+    html.ee ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .12); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
+    html.ee ::-webkit-scrollbar-thumb:hover { background-color: rgba(167, 139, 250, .4); }
+
+    @media (max-width: 640px) { .ee-blob { filter: blur(70px); } }
+    @media (prefers-reduced-motion: reduce) {
+        .ee-blob, html.ee header h1 { animation: none; }
+        html.ee-anim main > *, html.ee .ee-pre, html.ee .ee-row { opacity: 1 !important; translate: none !important; filter: none !important; transition: none !important; }
+    }
+</style>
+<script>
+(function () {
+    const root = document.documentElement;
+    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    /* ---------- Пружинная физика → CSS linear() ---------- */
+    function spring(stiffness, damping) {
+        const dt = 1 / 240;
+        let x = 0, v = 0, t = 0;
+        const points = [];
+        while (t < 4) {
+            v += (-stiffness * (x - 1) - damping * v) * dt;
+            x += v * dt;
+            t += dt;
+            points.push(x);
+            if (Math.abs(x - 1) < 0.0005 && Math.abs(v) < 0.0005) break;
+        }
+        const n = 40, stops = [0];
+        for (let i = 1; i <= n; i++) stops.push(+points[Math.round(i * (points.length - 1) / n)].toFixed(4));
+        stops[n] = 1;
+        return { easing: 'linear(' + stops.join(', ') + ')', ms: Math.round(t * 1000) };
+    }
+    if (window.CSS && CSS.supports('transition-timing-function', 'linear(0, 1)')) {
+        const bouncy = spring(280, 18), soft = spring(140, 22);
+        root.style.setProperty('--spring', bouncy.easing);
+        root.style.setProperty('--spring-dur', bouncy.ms + 'ms');
+        root.style.setProperty('--spring-soft', soft.easing);
+        root.style.setProperty('--spring-soft-dur', soft.ms + 'ms');
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        window.__eeReady = true;
+
+        // Фон
+        const mesh = document.createElement('div');
+        mesh.className = 'ee-mesh';
+        mesh.setAttribute('aria-hidden', 'true');
+        mesh.innerHTML = '<div class="ee-blob b1"></div><div class="ee-blob b2"></div><div class="ee-blob b3"></div><div class="ee-grid"></div>';
+        document.body.prepend(mesh);
+
+        /* ---------- Появление блоков со stagger ---------- */
+        const main = document.querySelector('main');
+        function finish(el) {
+            const delay = (parseFloat(el.style.getPropertyValue('--ee-i')) || 0) * 70;
+            setTimeout(function () {
+                el.classList.remove('ee-in', 'ee-pre', 'ee-row');
+                el.classList.add('ee-done');
+                el.style.removeProperty('--ee-i');
+            }, delay + 1300);
+        }
+        let batch = 0, batchTimer = null;
+        const io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (e) {
+                if (!e.isIntersecting) return;
+                const el = e.target;
+                io.unobserve(el);
+                // Номер в «волне»: блоки, появившиеся одновременно, идут друг за другом
+                if (!el.style.getPropertyValue('--ee-i')) el.style.setProperty('--ee-i', Math.min(batch++, 8));
+                clearTimeout(batchTimer);
+                batchTimer = setTimeout(function () { batch = 0; }, 120);
+                el.classList.add('ee-in');
+                finish(el);
+            });
+        }, { threshold: 0.01, rootMargin: '0px 0px -30px 0px' });
+
+        if (main && !reduceMotion) {
+            Array.from(main.children).forEach(function (el) { io.observe(el); });
+            // Карточки в сетках — поочерёдно
+            main.querySelectorAll('.grid').forEach(function (grid) {
+                if (grid.closest('form, table') || grid.children.length > 60) return;
+                Array.from(grid.children).forEach(function (el, i) {
+                    el.classList.add('ee-pre');
+                    el.style.setProperty('--ee-i', Math.min(i, 12));
+                    io.observe(el);
+                });
+            });
+            // Строки таблиц — лёгкая волна по первым 30
+            main.querySelectorAll('tbody').forEach(function (tb) {
+                Array.from(tb.rows).slice(0, 30).forEach(function (tr, i) {
+                    tr.classList.add('ee-row');
+                    tr.style.setProperty('--ee-i', i);
+                    io.observe(tr);
+                });
+            });
+            // Блоки, которые страница добавит в main позже
+            new MutationObserver(function (list) {
+                list.forEach(function (m) { m.addedNodes.forEach(function (n) { if (n.nodeType === 1) io.observe(n); }); });
+            }).observe(main, { childList: true });
+        } else {
+            root.classList.remove('ee-anim');
+        }
+
+        /* ---------- Свечение карточек за курсором ---------- */
+        if (!reduceMotion && matchMedia('(pointer: fine)').matches) {
+            document.addEventListener('pointermove', function (e) {
+                const card = e.target.closest && e.target.closest('.hover-scale, main a[class*="rounded-xl"], main a[class*="rounded-2xl"]');
+                if (!card) return;
+                const r = card.getBoundingClientRect();
+                card.classList.add('ee-spot');
+                card.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+                card.style.setProperty('--my', (e.clientY - r.top) + 'px');
+            }, { passive: true });
+        }
+    });
+})();
+</script>
