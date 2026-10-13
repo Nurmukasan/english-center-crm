@@ -240,35 +240,34 @@
             <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-2">
                 <i class="fas fa-star text-yellow-500 mr-2"></i>Выдача звёзд
             </h3>
-            <p class="text-sm text-gray-400 mb-4">Отметьте учеников, которым нужно выдать звезду за сегодняшний урок. Одна звезда на ученика за урок.</p>
+            <p class="text-sm text-gray-400 mb-4">Укажите, сколько звёзд каждый ученик получает за сегодняшний урок.</p>
 
             <div class="space-y-2 max-h-80 overflow-y-auto mb-4">
                 {% for data in student_data %}
-                <label class="flex items-center gap-3 p-3 border rounded-lg transition
-                    {% if data.star_today %}
-                        border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 cursor-not-allowed opacity-70
-                    {% else %}
-                        border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-yellow-50 dark:hover:bg-gray-700
-                    {% endif %}">
-                    <input type="checkbox" class="star-checkbox w-5 h-5 text-yellow-500"
-                           value="{{ data.student.id }}"
-                           {% if data.star_today %}disabled{% endif %}>
-                    <div class="flex-1">
-                        <p class="font-medium text-gray-800 dark:text-white">{{ data.student.name }}</p>
-                        {% if data.star_today %}
-                        <p class="text-xs text-green-600 dark:text-green-400">✅ Уже получил звезду сегодня</p>
-                        {% else %}
+                <div class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg">
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium text-gray-800 dark:text-white truncate">{{ data.student.name }}</p>
                         <p class="text-xs text-gray-400">⭐ Всего: {{ data.stars }}</p>
-                        {% endif %}
                     </div>
-                </label>
+                    <div class="flex items-center gap-1">
+                        <button type="button" onclick="stepStars({{ data.student.id }}, -1)"
+                            class="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-white hover:bg-gray-300 transition">−</button>
+                        <input type="number" min="0" max="100" inputmode="numeric"
+                            class="star-input w-16 text-center px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-yellow-500 focus:outline-none"
+                            data-student-id="{{ data.student.id }}"
+                            data-initial="{{ data.stars_today }}"
+                            value="{{ data.stars_today }}">
+                        <button type="button" onclick="stepStars({{ data.student.id }}, 1)"
+                            class="w-8 h-8 rounded-lg bg-yellow-500 text-white hover:bg-yellow-600 transition">+</button>
+                    </div>
+                </div>
                 {% endfor %}
             </div>
 
             <div class="flex gap-3">
                 <button onclick="submitStars()"
                     class="flex-1 bg-yellow-500 text-white py-3 rounded-lg font-medium hover:bg-yellow-600 transition">
-                    <i class="fas fa-star mr-1"></i> Выдать звёзды
+                    <i class="fas fa-save mr-1"></i> Сохранить
                 </button>
                 <button onclick="toggleStarModal()"
                     class="px-6 py-3 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-white rounded-lg font-medium hover:bg-gray-300 transition">
@@ -626,24 +625,34 @@
             document.getElementById('starModal').classList.toggle('hidden');
         }
 
+        function stepStars(studentId, delta) {
+            const inp = document.querySelector(`.star-input[data-student-id="${studentId}"]`);
+            inp.value = Math.max(0, Math.min(100, (parseInt(inp.value) || 0) + delta));
+        }
+
         async function submitStars() {
             initAudio();
 
-            const checkboxes = document.querySelectorAll('.star-checkbox:checked');
-            const ids = Array.from(checkboxes).map(cb => cb.value);
-            if (ids.length === 0) {
-                alert('Выберите хотя бы одного ученика');
+            const inputs = Array.from(document.querySelectorAll('.star-input'));
+            const changed = inputs.filter(inp => (parseInt(inp.value) || 0) !== parseInt(inp.dataset.initial));
+            if (changed.length === 0) {
+                document.getElementById('starModal').classList.add('hidden');
                 return;
             }
+            const payload = changed.map(inp => `${inp.dataset.studentId}:${Math.max(0, parseInt(inp.value) || 0)}`);
 
-            // Запоминаем стартовые позиции (где чекбоксы) ДО закрытия модалки
+            // Летят только добавленные звёзды (не больше 5 на ученика)
+            const ids = [];
+            changed.forEach(inp => {
+                const added = Math.min(5, (parseInt(inp.value) || 0) - parseInt(inp.dataset.initial));
+                for (let i = 0; i < added; i++) ids.push(inp.dataset.studentId);
+            });
+
+            // Запоминаем стартовые позиции (где поля) ДО закрытия модалки
             const startPositions = {};
-            ids.forEach(sid => {
-                const cb = document.querySelector(`.star-checkbox[value="${sid}"]`);
-                if (cb) {
-                    const r = cb.getBoundingClientRect();
-                    startPositions[sid] = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-                }
+            changed.forEach(inp => {
+                const r = inp.getBoundingClientRect();
+                startPositions[inp.dataset.studentId] = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
             });
 
             // Закрываем модалку
@@ -656,7 +665,7 @@
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'X-CSRFToken': '{{ csrf_token }}'
                 },
-                body: `student_ids=${ids.join(',')}`
+                body: `stars=${payload.join(',')}`
             }).then(r => r.json());
 
             // Анимация каждой звезды
