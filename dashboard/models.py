@@ -218,8 +218,18 @@ class LevelCalibration(models.Model):
 
 
 class WhatsAppSettings(models.Model):
-    """Подключение к WhatsApp через Green API (одна запись на весь центр)"""
-    api_url = models.CharField(max_length=200, default='https://api.green-api.com', verbose_name="apiUrl")
+    """Подключение к WhatsApp (одна запись на весь центр).
+
+    WAHA — бесплатная программа на своём сервере: api_url — её адрес, token — API-ключ.
+    Green API — платный сервис: api_url, instance_id (idInstance) и token (apiTokenInstance).
+    """
+    PROVIDER_CHOICES = [
+        ('waha', 'WAHA — свой сервер, бесплатно'),
+        ('green', 'Green API — платный сервис'),
+    ]
+    DEFAULT_URLS = {'waha': 'http://localhost:3000', 'green': 'https://api.green-api.com'}
+    provider = models.CharField(max_length=10, choices=PROVIDER_CHOICES, default='waha', verbose_name="Способ подключения")
+    api_url = models.CharField(max_length=200, default='http://localhost:3000', verbose_name="Адрес")
     instance_id = models.CharField(max_length=50, blank=True, verbose_name="idInstance")
     token = models.CharField(max_length=200, blank=True, verbose_name="apiTokenInstance")
     updated_at = models.DateTimeField(auto_now=True)
@@ -231,10 +241,14 @@ class WhatsAppSettings(models.Model):
 
     @property
     def is_configured(self):
+        if self.provider == 'waha':
+            return bool(self.api_url and self.token)
         return bool(self.instance_id and self.token)
 
     def __str__(self):
-        return f"Green API {self.instance_id or '— не подключено'}"
+        if not self.is_configured:
+            return 'WhatsApp — не подключено'
+        return f"WAHA {self.api_url}" if self.provider == 'waha' else f"Green API {self.instance_id}"
 
     class Meta:
         verbose_name = "Подключение WhatsApp"
@@ -254,7 +268,7 @@ class Broadcast(models.Model):
         ('teacher', 'Учителя'),
     ]
     MODE_CHOICES = [
-        ('api', 'Автоматически (Green API)'),
+        ('api', 'Автоматически'),
         ('manual', 'Вручную по ссылкам'),
     ]
     kind = models.CharField(max_length=20, choices=KIND_CHOICES, verbose_name="Тип")

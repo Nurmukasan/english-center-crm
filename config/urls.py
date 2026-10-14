@@ -57,6 +57,7 @@ urlpatterns = [
     path('broadcast/message/<int:message_id>/mark/', broadcasts.broadcast_mark, name='broadcast_mark'),
     path('broadcast/whatsapp/', broadcasts.whatsapp_settings, name='whatsapp_settings'),
     path('broadcast/whatsapp/groups/', broadcasts.whatsapp_groups, name='whatsapp_groups'),
+    path('broadcast/whatsapp/qr/', broadcasts.whatsapp_qr, name='whatsapp_qr'),
     path('broadcast/whatsapp/bind/', broadcasts.bind_group_chat, name='bind_group_chat'),
 ]
 if settings.DEBUG:
