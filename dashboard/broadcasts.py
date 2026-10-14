@@ -422,7 +422,9 @@ def broadcast_create(request):
             student_id=r['student_id'], group_id=r['group_id'],
         ) for r in recipients
     ])
-    return JsonResponse({'success': True, 'id': broadcast.id, 'url': f'/broadcast/{broadcast.id}/'})
+    # WhatsApp подключён — страница рассылки сразу начинает отправку, второй раз жать не нужно
+    url = f'/broadcast/{broadcast.id}/' + ('?start=1' if mode == 'api' else '')
+    return JsonResponse({'success': True, 'id': broadcast.id, 'url': url})
 
 
 @crm_view
