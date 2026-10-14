@@ -10,7 +10,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
-        * { font-family: 'Inter', sans-serif; }
         .fade-in { animation: fadeIn 0.4s ease; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -41,32 +40,23 @@
             padding: 4px 6px; box-shadow: 0 1px 2px rgba(0,0,0,.08);
         }
         .lesson:hover .lesson-card { box-shadow: 0 8px 20px rgba(0,0,0,.18); }
-        .lesson.conflict .lesson-card { outline: 2px solid #ef4444; outline-offset: -2px; }
-        .now-line { position: absolute; left: 0; right: 0; height: 2px; background: #ef4444; z-index: 11; pointer-events: none; }
-        .now-line::before { content: ''; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: #ef4444; }
+        .lesson.conflict .lesson-card { outline: 2px solid #dc2626; outline-offset: -2px; }
+        .now-line { position: absolute; left: 0; right: 0; height: 2px; background: #f97316; z-index: 11; pointer-events: none; }
+        .now-line::before { content: ''; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: #f97316; }
         .chip.off { opacity: .4; }
         .chip.off .chip-dot { background: transparent !important; }
-        /* Цвета учителей */
-        .c0 { --c-bg:#dbeafe; --c-border:#3b82f6; --c-text:#1e3a8a; }
-        .c1 { --c-bg:#dcfce7; --c-border:#22c55e; --c-text:#14532d; }
-        .c2 { --c-bg:#f3e8ff; --c-border:#a855f7; --c-text:#581c87; }
-        .c3 { --c-bg:#fce7f3; --c-border:#ec4899; --c-text:#831843; }
-        .c4 { --c-bg:#fef3c7; --c-border:#f59e0b; --c-text:#78350f; }
-        .c5 { --c-bg:#ccfbf1; --c-border:#14b8a6; --c-text:#134e4a; }
-        .c6 { --c-bg:#ffedd5; --c-border:#f97316; --c-text:#7c2d12; }
-        .c7 { --c-bg:#e0e7ff; --c-border:#6366f1; --c-text:#312e81; }
-        .c8 { --c-bg:#ffe4e6; --c-border:#f43f5e; --c-text:#881337; }
-        .c9 { --c-bg:#cffafe; --c-border:#06b6d4; --c-text:#164e63; }
-        .dark .c0 { --c-bg:#1e3a8a66; --c-text:#bfdbfe; }
-        .dark .c1 { --c-bg:#14532d66; --c-text:#bbf7d0; }
-        .dark .c2 { --c-bg:#581c8766; --c-text:#e9d5ff; }
-        .dark .c3 { --c-bg:#83184366; --c-text:#fbcfe8; }
-        .dark .c4 { --c-bg:#78350f66; --c-text:#fde68a; }
-        .dark .c5 { --c-bg:#134e4a66; --c-text:#99f6e4; }
-        .dark .c6 { --c-bg:#7c2d1266; --c-text:#fed7aa; }
-        .dark .c7 { --c-bg:#312e8166; --c-text:#c7d2fe; }
-        .dark .c8 { --c-bg:#88133766; --c-text:#fecdd3; }
-        .dark .c9 { --c-bg:#164e6366; --c-text:#a5f3fc; }
+        /* Цвета учителей: спокойные землистые оттенки — только чтобы различать учителей */
+        .c0 { --c-bg:#fff1e6; --c-border:#f97316; --c-text:#9a3412; }
+        .c1 { --c-bg:#f1f0ee; --c-border:#78716c; --c-text:#292524; }
+        .c2 { --c-bg:#eef2f6; --c-border:#64748b; --c-text:#1e293b; }
+        .c3 { --c-bg:#fbf3e2; --c-border:#c9973f; --c-text:#6b3f0e; }
+        .c4 { --c-bg:#edf5ef; --c-border:#6b9e7a; --c-text:#1f4d2e; }
+        .c5 { --c-bg:#f6efe9; --c-border:#a0786a; --c-text:#4a2c22; }
+        .c6 { --c-bg:#edf3f5; --c-border:#5b8a99; --c-text:#164e63; }
+        .c7 { --c-bg:#f3eff5; --c-border:#8b7a99; --c-text:#3b2f47; }
+        .c8 { --c-bg:#fbefec; --c-border:#c2776b; --c-text:#7f2a1d; }
+        .c9 { --c-bg:#f3f4ec; --c-border:#8c9161; --c-text:#3f4220; }
+        :root { --line-hour: #e2dfdb; --line-half: #f1efec; }
     </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
@@ -80,7 +70,7 @@
                     <i class="fas fa-arrow-left"></i> Назад
                 </a>
                 <div class="flex items-center gap-2">
-                    <i class="fas fa-calendar text-2xl text-cyan-400"></i>
+                    <i class="fas fa-calendar text-2xl text-orange-500"></i>
                     <h1 class="text-xl font-bold text-white">Расписание на неделю</h1>
                 </div>
             </div>
@@ -101,14 +91,14 @@
         <!-- Сводка + фильтр по учителям -->
         <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 p-4 mb-4 transition-colors">
             <div class="flex flex-wrap items-center gap-3 mb-3">
-                <span class="bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 px-3 py-1 rounded-full text-sm font-medium">
+                <span class="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
                     <i class="fas fa-chalkboard mr-1"></i> Занятий в неделю: <b>{{ lessons_count }}</b>
                 </span>
-                <span class="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full text-sm font-medium">
+                <span class="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
                     <i class="fas fa-users mr-1"></i> Групп: <b>{{ groups_count }}</b>
                 </span>
                 {% if role != 'teacher' %}
-                <span class="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-3 py-1 rounded-full text-sm font-medium">
+                <span class="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
                     <i class="fas fa-chalkboard-teacher mr-1"></i> Учителей: <b>{{ teachers_count }}</b>
                 </span>
                 {% endif %}
@@ -241,7 +231,7 @@
             perDay.forEach(p => {
                 const t = p.day.is_today;
                 html += `<div class="cal-head px-2 py-3 text-center border-b-2 border-l border-gray-300 dark:border-gray-600
-                            ${t ? 'bg-indigo-100 dark:bg-indigo-900' : 'bg-gray-100 dark:bg-gray-700'}" ${t ? 'id="todayHead"' : ''}>
+                            ${t ? 'bg-orange-50 text-orange-700' : 'bg-gray-100 dark:bg-gray-700'}" ${t ? 'id="todayHead"' : ''}>
                     <p class="font-bold ${t ? 'text-indigo-600 dark:text-indigo-300' : 'text-gray-800 dark:text-white'}">${p.day.name}</p>
                     <p class="text-xs text-gray-500 dark:text-gray-400">${p.day.date}
                         · ${p.items.length ? p.items.length + ' зан.' : 'нет занятий'}</p>
@@ -259,7 +249,7 @@
             // Колонки дней
             perDay.forEach(p => {
                 const t = p.day.is_today;
-                html += `<div class="day-col border-l border-gray-300 dark:border-gray-600 ${t ? 'bg-indigo-50/60 dark:bg-indigo-900/10' : ''}"
+                html += `<div class="day-col border-l border-gray-300 dark:border-gray-600 ${t ? 'bg-orange-50/40' : ''}"
                               style="height:${bodyH}px">`;
                 p.items.forEach(it => {
                     const top = (it.start - first * 60) * PX_PER_MIN;

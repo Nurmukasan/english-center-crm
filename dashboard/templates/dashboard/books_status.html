@@ -98,11 +98,11 @@
             <a href="{% url 'book_detail' stat.book.id %}"
                class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden hover-scale transition-colors cursor-pointer block">
 
-                <div class="aspect-[3/4] bg-gradient-to-br from-amber-100 to-amber-300 dark:from-amber-900 dark:to-amber-700 flex items-center justify-center overflow-hidden">
+                <div class="aspect-[3/4] bg-orange-50 flex items-center justify-center overflow-hidden">
                     {% if stat.book.photo %}
                     <img src="{{ stat.book.photo.url }}" alt="{{ stat.book.title }}" class="w-full h-full object-cover">
                     {% else %}
-                    <i class="fas fa-book-open text-6xl text-white/70"></i>
+                    <i class="fas fa-book-open text-6xl text-orange-300"></i>
                     {% endif %}
                 </div>
 

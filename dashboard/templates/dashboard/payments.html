@@ -8,133 +8,119 @@
     <script>tailwind.config = { darkMode: 'class' }</script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
-
         :root {
-            --money: #34d399;          /* собрано */
-            --money-track: rgba(52, 211, 153, .13);
-            --wait: #fbbf24;           /* ждём оплату */
-            --bad: #fb7185;            /* нет цены */
+            --money: var(--accent);            /* собрано — основной цвет */
+            --money-track: var(--surface-3);
+            --wait: #f59e0b;                   /* ждём оплату */
+            --nopr: var(--bad);                /* нет цены */
         }
 
         /* ---------- Шапка: переключатель месяца ---------- */
-        .head-icon { width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center; color: #fff; font-size: 17px;
-            background: linear-gradient(135deg, #10b981, #84cc16); box-shadow: 0 10px 24px -10px rgba(16, 185, 129, .9); }
-        .month-nav { display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 9999px;
-            background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.09); }
-        .month-nav a { width: 34px; height: 34px; border-radius: 9999px; display: grid; place-items: center; color: rgba(233,231,245,.7);
-            transition: background .2s ease, color .2s ease, transform var(--spring-dur) var(--spring); }
-        .month-nav a:hover { background: rgba(255,255,255,.1); color: #fff; transform: scale(1.1); }
-        .month-nav span { min-width: 132px; text-align: center; font-weight: 800; color: #fff; font-size: 15px; }
-        .month-nav span b { color: rgba(233,231,245,.45); font-weight: 700; }
+        .head-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff; font-size: 17px; background: var(--accent); }
+        .month-nav { display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 9999px; background: var(--surface); border: 1px solid var(--line); }
+        .month-nav a { width: 34px; height: 34px; border-radius: 9999px; display: grid; place-items: center; color: var(--muted); transition: background .2s ease, color .2s ease; }
+        .month-nav a:hover { background: var(--surface-2); color: var(--ink); }
+        .month-nav span { min-width: 132px; text-align: center; font-weight: 800; color: var(--ink); font-size: 15px; }
+        .month-nav span b { color: var(--faint); font-weight: 700; }
         .now-link { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 9999px; font-size: 13px; font-weight: 800;
-            color: #6ee7b7; background: rgba(16, 185, 129, .14); border: 1px solid rgba(52, 211, 153, .3); white-space: nowrap; }
+            color: var(--accent-ink); background: var(--accent-soft); border: 1px solid var(--accent-line); white-space: nowrap; }
 
         /* ---------- Касса: итог месяца ---------- */
-        .kassa { position: relative; overflow: hidden; isolation: isolate; }
-        .kassa::before { content: ''; position: absolute; z-index: -1; width: 520px; height: 520px; left: -180px; top: -260px; border-radius: 50%;
-            background: radial-gradient(circle, rgba(16, 185, 129, .22), transparent 65%); }
-        .hero-sum { font-weight: 800; font-size: clamp(42px, 8vw, 68px); line-height: 1; color: #fff; letter-spacing: -.03em; margin-top: 14px; white-space: nowrap; }
-        .hero-sum small { font-size: .45em; color: rgba(233,231,245,.45); font-weight: 700; letter-spacing: 0; }
-        .big-meter { height: 12px; border-radius: 9999px; background: var(--money-track); overflow: hidden; }
-        .big-meter i { display: block; height: 100%; width: 0; border-radius: inherit;
-            background: linear-gradient(90deg, #10b981, var(--money) 60%, #a3e635); box-shadow: 0 0 18px rgba(52, 211, 153, .55);
-            transition: width 1.4s var(--spring-soft); }
+        .hero-sum { font-weight: 800; font-size: clamp(42px, 8vw, 64px); line-height: 1; color: var(--ink); letter-spacing: -.03em; margin-top: 14px; white-space: nowrap; }
+        .hero-sum small { font-size: .45em; color: var(--faint); font-weight: 700; letter-spacing: 0; }
+        .big-meter { height: 10px; border-radius: 9999px; background: var(--money-track); overflow: hidden; }
+        .big-meter i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--money); transition: width 1.4s var(--spring-soft); }
         .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
-        .stat { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); }
-        .stat > i { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; font-size: 15px; flex-shrink: 0; }
-        .stat b { display: block; color: #fff; font-size: 20px; font-weight: 800; line-height: 1.1; }
-        .stat span { display: block; color: rgba(233,231,245,.55); font-size: 12px; font-weight: 600; }
-        .stat.is-good > i { color: var(--money); background: rgba(52, 211, 153, .14); }
-        .stat.is-wait > i { color: var(--wait); background: rgba(251, 191, 36, .14); }
-        .stat.is-bad > i { color: var(--bad); background: rgba(251, 113, 133, .14); }
-        a.stat:hover { border-color: rgba(251, 113, 133, .4); }
+        .stat { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line); }
+        .stat > i { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 15px; flex-shrink: 0; background: var(--surface); border: 1px solid var(--line); }
+        .stat b { display: block; color: var(--ink); font-size: 20px; font-weight: 800; line-height: 1.1; }
+        .stat span { display: block; color: var(--muted); font-size: 12px; font-weight: 600; }
+        .stat.is-good > i { color: var(--ok); }
+        .stat.is-wait > i { color: var(--wait); }
+        .stat.is-bad > i { color: var(--nopr); }
+        button.stat:hover { border-color: var(--bad-line); }
 
         /* ---------- График года ---------- */
         .ychart { position: relative; display: grid; grid-template-columns: 44px 1fr; }
-        .yaxis { position: relative; height: 170px; font-size: 10px; font-weight: 700; color: rgba(233,231,245,.35); font-variant-numeric: tabular-nums; }
+        .yaxis { position: relative; height: 170px; font-size: 10px; font-weight: 700; color: var(--faint); font-variant-numeric: tabular-nums; }
         .yaxis span { position: absolute; right: 8px; transform: translateY(-50%); white-space: nowrap; }
         .yplot { position: relative; }
         .ygrid { position: absolute; left: 0; right: 0; height: 170px; pointer-events: none; }
-        .ygrid i { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,.07); }
+        .ygrid i { position: absolute; left: 0; right: 0; height: 1px; background: var(--line); }
         .ybars { position: relative; display: grid; grid-template-columns: repeat(12, 1fr); }
         .ybar { display: flex; flex-direction: column; align-items: center; gap: 8px; outline: none; border-radius: 10px; }
         .ybar-plot { position: relative; width: 100%; height: 170px; display: flex; justify-content: center; border-radius: 10px; transition: background .2s ease; }
-        .ybar:hover .ybar-plot, .ybar:focus-visible .ybar-plot { background: rgba(255,255,255,.04); }
+        .ybar:hover .ybar-plot, .ybar:focus-visible .ybar-plot { background: var(--surface-2); }
         .ybar-track, .ybar-fill { position: absolute; bottom: 0; width: min(24px, 64%); border-radius: 4px 4px 0 0;
             transform-origin: bottom; animation: ygrow .9s var(--spring-soft) both; animation-delay: calc(var(--i) * 45ms + .15s); }
         .ybar-track { height: var(--t); background: var(--money-track); }
-        .ybar-fill { height: var(--f); background: rgba(52, 211, 153, .5); transition: height .8s var(--spring-soft); }
-        .ybar.is-sel .ybar-fill { background: linear-gradient(180deg, #a3e635, var(--money)); box-shadow: 0 0 22px -2px rgba(52, 211, 153, .7); }
-        .ybar.is-sel .ybar-track { background: rgba(52, 211, 153, .2); }
-        .ybar.is-future .ybar-track { background: rgba(255,255,255,.12); }
-        .ybar-label { position: absolute; bottom: calc(var(--t) + 6px); font-style: normal; font-size: 11px; font-weight: 800; color: #fff; white-space: nowrap;
+        .ybar-fill { height: var(--f); background: #fdba74; transition: height .8s var(--spring-soft); }
+        .ybar.is-sel .ybar-fill { background: var(--money); }
+        .ybar.is-future .ybar-track { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+        .ybar-label { position: absolute; bottom: calc(var(--t) + 6px); font-style: normal; font-size: 11px; font-weight: 800; color: var(--ink); white-space: nowrap;
             animation: yfade .5s ease both; animation-delay: .9s; }
-        .ybar-name { font-size: 11px; font-weight: 700; color: rgba(233,231,245,.45); }
-        .ybar.is-sel .ybar-name { color: #fff; font-weight: 800; }
+        .ybar-name { font-size: 11px; font-weight: 700; color: var(--faint); }
+        .ybar.is-sel .ybar-name { color: var(--ink); font-weight: 800; }
         .ybar.is-sel .ybar-name::after { content: ''; display: block; height: 3px; width: 16px; margin: 4px auto 0; border-radius: 9999px; background: var(--money); }
         @keyframes ygrow { from { transform: scaleY(0); } }
         @keyframes yfade { from { opacity: 0; transform: translateY(6px); } }
-        .ytip { position: absolute; z-index: 5; top: 0; min-width: 170px; padding: 10px 12px; border-radius: 14px; pointer-events: none;
-            background: rgba(20, 16, 34, .96); border: 1px solid rgba(255,255,255,.12); box-shadow: 0 20px 50px -20px #000;
-            transform: translateX(-50%); font-size: 12px; color: rgba(233,231,245,.6); }
-        .ytip b { display: block; color: #fff; font-size: 16px; font-weight: 800; }
-        .ylegend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 14px; font-size: 12px; font-weight: 600; color: rgba(233,231,245,.55); }
+        .ytip { position: absolute; z-index: 5; top: 0; min-width: 170px; padding: 10px 12px; border-radius: 12px; pointer-events: none;
+            background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-lg);
+            transform: translateX(-50%); font-size: 12px; color: var(--muted); }
+        .ytip b { display: block; color: var(--ink); font-size: 16px; font-weight: 800; }
+        .ylegend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 14px; font-size: 12px; font-weight: 600; color: var(--muted); }
         .ylegend span { display: inline-flex; align-items: center; gap: 7px; }
         .ylegend i { width: 10px; height: 10px; border-radius: 3px; }
         .ytip .key { display: inline-block; width: 12px; height: 2px; border-radius: 2px; background: var(--money); vertical-align: middle; margin-right: 6px; }
 
         /* ---------- Фильтры ---------- */
-        .search { display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 46px; border-radius: 14px; flex: 1 1 260px; max-width: 380px;
-            background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); transition: border-color .2s ease, box-shadow .2s ease; }
-        .search:focus-within { border-color: rgba(167, 139, 250, .6); box-shadow: 0 0 0 4px rgba(139, 92, 246, .18); }
-        .search i { color: rgba(233,231,245,.4); }
+        .search { display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 46px; border-radius: 12px; flex: 1 1 260px; max-width: 380px;
+            background: var(--surface); border: 1px solid var(--line-strong); transition: border-color .2s ease, box-shadow .2s ease; }
+        .search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(249, 115, 22, .16); }
+        .search i { color: var(--faint); }
         html.ee .search input#q { flex: 1; min-width: 0; height: 100%; padding: 0; background: transparent !important; border: 0 !important;
-            box-shadow: none !important; outline: 0; color: #fff !important; font-weight: 600; }
-        .search input::-webkit-search-cancel-button { filter: invert(1) opacity(.5); cursor: pointer; }
-        .search input::placeholder { color: rgba(233,231,245,.35); }
-        .search kbd { font-size: 11px; font-weight: 800; color: rgba(233,231,245,.4); border: 1px solid rgba(255,255,255,.15); border-radius: 6px; padding: 1px 7px; }
-        .seg { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); overflow-x: auto; scrollbar-width: none; }
+            box-shadow: none !important; outline: 0; color: var(--ink) !important; font-weight: 600; }
+        .search input::-webkit-search-cancel-button { opacity: .5; cursor: pointer; }
+        .search kbd { font-size: 11px; font-weight: 800; color: var(--muted); border: 1px solid var(--line-strong); border-radius: 6px; padding: 1px 7px; }
+        .seg { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
         .seg::-webkit-scrollbar { display: none; }
-        .seg button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 13px; border-radius: 10px; font-size: 13px; font-weight: 700; white-space: nowrap;
-            color: rgba(233,231,245,.6); transition: background .2s ease, color .2s ease; }
-        .seg button:hover { color: #fff; }
-        .seg button.is-on { background: rgba(139, 92, 246, .3); color: #fff; box-shadow: inset 0 0 0 1px rgba(167, 139, 250, .5); }
-        .seg button b { font-size: 11px; padding: 1px 7px; border-radius: 9999px; background: rgba(255,255,255,.08); }
+        .seg button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 13px; border-radius: 9px; font-size: 13px; font-weight: 700; white-space: nowrap;
+            color: var(--muted); transition: background .2s ease, color .2s ease; }
+        .seg button:hover { color: var(--ink); background: var(--surface-2); }
+        .seg button.is-on { background: var(--accent-soft); color: var(--accent-ink); box-shadow: inset 0 0 0 1px var(--accent-line); }
+        .seg button b { font-size: 11px; padding: 1px 7px; border-radius: 9999px; background: var(--surface-3); color: var(--ink-2); }
         .seg .dot { width: 8px; height: 8px; border-radius: 9999px; }
 
         /* ---------- Карточка группы ---------- */
-        .gcard { --c: hsl(var(--h) 85% 66%); position: relative; overflow: hidden; isolation: isolate; padding: 0 !important; }
-        .gcard::before { content: ''; position: absolute; z-index: -1; width: 260px; height: 260px; right: -110px; top: -140px; border-radius: 50%;
-            background: radial-gradient(circle, hsl(var(--h) 90% 60% / .3), transparent 65%); transition: background .6s ease; }
-        .gcard.is-done::before { background: radial-gradient(circle, rgba(52, 211, 153, .32), transparent 65%); }
+        .gcard { position: relative; overflow: hidden; padding: 0 !important; }
+        .gcard.is-done { border-color: var(--ok-line); }
         .gcard.is-hidden { display: none; }
         .gcard-head { width: 100%; display: flex; align-items: center; gap: 14px; padding: 20px 20px 14px; text-align: left; }
-        .gicon { width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; flex-shrink: 0; color: #fff; font-size: 17px;
-            background: linear-gradient(135deg, hsl(var(--h) 85% 62%), hsl(calc(var(--h) + 40) 80% 46%));
-            box-shadow: 0 12px 24px -12px hsl(var(--h) 85% 55%); transition: transform var(--spring-dur) var(--spring); }
-        .gcard-head:hover .gicon { transform: rotate(-8deg) scale(1.06); }
-        .gname { display: block; color: #fff; font-weight: 800; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .gmeta { display: block; color: rgba(233,231,245,.5); font-size: 12px; font-weight: 600; margin-top: 2px; }
+        .gicon { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; flex-shrink: 0; font-size: 17px;
+            color: var(--accent-ink); background: var(--accent-soft); transition: background .2s ease, color .2s ease; }
+        .gcard-head:hover .gicon { background: var(--accent); color: #fff; }
+        .gname { display: block; color: var(--ink); font-weight: 800; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .gmeta { display: block; color: var(--muted); font-size: 12px; font-weight: 600; margin-top: 2px; }
         .gtag { display: inline-block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: 2px 7px; border-radius: 6px;
-            background: rgba(255,255,255,.08); color: rgba(233,231,245,.7); margin-left: 6px; vertical-align: 2px; }
+            background: var(--surface-3); color: var(--muted); margin-left: 6px; vertical-align: 2px; }
         .gsum { text-align: right; flex-shrink: 0; }
-        .gsum b { display: block; color: #fff; font-weight: 800; font-size: 16px; }
-        .gsum small { display: block; color: rgba(233,231,245,.45); font-size: 12px; font-weight: 600; }
-        .chev { color: rgba(233,231,245,.4); transition: transform .4s var(--spring-soft); }
+        .gsum b { display: block; color: var(--ink); font-weight: 800; font-size: 16px; }
+        .gsum small { display: block; color: var(--muted); font-size: 12px; font-weight: 600; }
+        .chev { color: var(--faint); transition: transform .4s var(--spring-soft); }
         .gcard.is-collapsed:not(.is-forced) .chev { transform: rotate(-90deg); }
 
-        /* Полоса учеников: каждый сегмент — один ученик */
+        /* Полоса учеников: каждый сегмент — один ученик (зелёный — оплатил) */
         .segbar { display: flex; gap: 2px; height: 6px; margin: 0 20px; }
-        .segbar i { flex: 1; border-radius: 2px; background: var(--money-track); transition: background .4s ease; }
+        .segbar i { flex: 1; border-radius: 2px; background: var(--surface-3); transition: background .4s ease; }
         .segbar i:first-child { border-radius: 9999px 2px 2px 9999px; }
         .segbar i:last-child { border-radius: 2px 9999px 9999px 2px; }
         .segbar i:only-child { border-radius: 9999px; }
-        .segbar i.on { background: var(--money); }
-        .gcount { display: flex; align-items: center; gap: 8px; padding: 8px 20px 16px; font-size: 12px; font-weight: 700; color: rgba(233,231,245,.55); }
+        .segbar i.on { background: var(--ok); }
+        .gcount { display: flex; align-items: center; gap: 8px; padding: 8px 20px 16px; font-size: 12px; font-weight: 700; color: var(--muted); }
         .done-badge { display: none; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 9999px; font-size: 11px; font-weight: 800;
-            color: #6ee7b7; background: rgba(16, 185, 129, .16); }
-        .gcard.is-done .done-badge { display: inline-flex; animation: pop .6s var(--spring) both; }
-        @keyframes pop { from { transform: scale(.4); opacity: 0; } }
+            color: var(--ok-ink); background: var(--ok-soft); }
+        .gcard.is-done .done-badge { display: inline-flex; animation: pop .5s var(--spring) both; }
+        @keyframes pop { from { transform: scale(.6); opacity: 0; } }
 
         .gbody { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .5s var(--spring-soft); }
         .gcard.is-collapsed:not(.is-forced) .gbody { grid-template-rows: 0fr; }
@@ -142,60 +128,59 @@
 
         /* Лента дней периода: высокие штрихи — дни уроков */
         .strip { display: flex; align-items: flex-end; gap: 3px; height: 22px; margin: 0 20px; }
-        .strip i { flex: 1; height: 5px; border-radius: 2px; background: rgba(255,255,255,.08); position: relative; }
-        .strip i.l { height: 18px; background: hsl(var(--h) 80% 65% / .75); }
-        .strip i.t::after { content: ''; position: absolute; left: 50%; bottom: -7px; width: 4px; height: 4px; margin-left: -2px; border-radius: 9999px; background: #fff; }
-        .strip-legend { display: flex; justify-content: space-between; margin: 10px 20px 0; font-size: 11px; font-weight: 700; color: rgba(233,231,245,.4); }
+        .strip i { flex: 1; height: 5px; border-radius: 2px; background: var(--surface-3); position: relative; }
+        .strip i.l { height: 18px; background: #fdba74; }
+        .strip i.t::after { content: ''; position: absolute; left: 50%; bottom: -7px; width: 4px; height: 4px; margin-left: -2px; border-radius: 9999px; background: var(--ink); }
+        .strip-legend { display: flex; justify-content: space-between; margin: 10px 20px 0; font-size: 11px; font-weight: 700; color: var(--faint); }
 
         /* Строка ученика */
         .rows { margin-top: 12px; padding: 0 8px 10px; }
-        .prow { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; transition: background .3s ease; }
-        .prow + .prow { border-top: 1px solid rgba(255,255,255,.05); }
-        .prow:hover { background: rgba(255,255,255,.035); }
+        .prow { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; transition: background .3s ease; }
+        .prow + .prow { border-top: 1px solid var(--line); }
+        .prow:hover { background: var(--surface-2); }
         .prow.is-hidden { display: none; }
         .prow.flash { animation: flash 1.1s ease; }
-        @keyframes flash { 0% { background: rgba(52, 211, 153, .22); } 100% { background: transparent; } }
-        .pav { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; font-weight: 800; font-size: 14px;
-            color: rgba(233,231,245,.8); background: rgba(255,255,255,.07); transition: background .3s ease, color .3s ease; }
-        .prow.is-paid .pav { background: rgba(16, 185, 129, .2); color: #6ee7b7; }
-        .pname { color: #fff; font-weight: 700; font-size: 14px; }
+        @keyframes flash { 0% { background: var(--ok-soft); } 100% { background: transparent; } }
+        .pav { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; flex-shrink: 0; font-weight: 800; font-size: 14px;
+            color: var(--ink-2); background: var(--surface-3); transition: background .3s ease, color .3s ease; }
+        .prow.is-paid .pav { background: var(--ok-soft); color: var(--ok-ink); }
+        .pname { color: var(--ink); font-weight: 700; font-size: 14px; }
         .pname:hover { text-decoration: underline; text-underline-offset: 3px; }
         .tag-left { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; padding: 1px 6px; border-radius: 6px; margin-left: 6px;
-            color: rgba(233,231,245,.6); background: rgba(255,255,255,.08); }
-        .pformula { font-size: 12px; font-weight: 600; color: rgba(233,231,245,.5); margin-top: 1px; font-variant-numeric: tabular-nums; }
-        .pformula b { color: #fff; }
-        .pwhen { font-size: 11px; font-weight: 700; color: #6ee7b7; margin-top: 2px; }
+            color: var(--muted); background: var(--surface-3); }
+        .pformula { font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 1px; font-variant-numeric: tabular-nums; }
+        .pformula b { color: var(--ink); }
+        .pwhen { font-size: 11px; font-weight: 700; color: var(--ok-ink); margin-top: 2px; }
         .pwhen:empty { display: none; }
-        .noprice { color: var(--bad); font-weight: 700; }
+        .noprice { color: var(--bad-ink); font-weight: 700; }
         .noprice:hover { text-decoration: underline; }
 
         /* Кнопка-штамп */
-        .stamp { position: relative; flex-shrink: 0; min-width: 120px; height: 40px; padding: 0 14px; border-radius: 12px; font-size: 13px; font-weight: 800;
+        .stamp { position: relative; flex-shrink: 0; min-width: 120px; height: 40px; padding: 0 14px; border-radius: 11px; font-size: 13px; font-weight: 800;
             display: inline-flex; align-items: center; justify-content: center;
-            transition: transform var(--spring-dur) var(--spring), background .25s ease, border-color .25s ease, color .25s ease; }
-        .stamp[aria-pressed="false"] { color: #fde68a; background: rgba(251, 191, 36, .08); border: 1.5px dashed rgba(251, 191, 36, .45); }
-        .stamp[aria-pressed="false"]:hover { background: rgba(251, 191, 36, .18); border-style: solid; transform: translateY(-1px) scale(1.04); }
-        .stamp[aria-pressed="true"] { color: #6ee7b7; background: rgba(16, 185, 129, .08); border: 1.5px solid rgba(52, 211, 153, .6);
-            box-shadow: inset 0 0 0 2px #0c0a16, inset 0 0 0 3px rgba(52, 211, 153, .28);
-            text-transform: uppercase; letter-spacing: .08em; font-size: 12px; transform: rotate(-3deg); }
-        .stamp[aria-pressed="true"]:hover { transform: rotate(-1deg) scale(1.04); }
+            transition: transform var(--spring-dur) var(--spring), background .2s ease, border-color .2s ease, color .2s ease; }
+        .stamp[aria-pressed="false"] { color: var(--accent-ink); background: var(--surface); border: 1.5px solid var(--accent-line); }
+        .stamp[aria-pressed="false"]:hover { color: #fff; background: var(--accent); border-color: var(--accent); transform: translateY(-1px); }
+        .stamp[aria-pressed="true"] { color: var(--ok-ink); background: var(--ok-soft); border: 1.5px solid var(--ok-line);
+            text-transform: uppercase; letter-spacing: .06em; font-size: 12px; transform: rotate(-3deg); }
+        .stamp[aria-pressed="true"]:hover { transform: rotate(-1deg); }
         .stamp[aria-pressed="true"] .stamp-off, .stamp[aria-pressed="false"] .stamp-on { display: none; }
         .stamp i { margin-right: 6px; }
         .stamp:disabled { opacity: .6; cursor: progress; }
-        .stamp.slam { animation: slam .55s cubic-bezier(.2, .9, .3, 1.25) both; }
+        .stamp.slam { animation: slam .5s cubic-bezier(.2, .9, .3, 1.2) both; }
         @keyframes slam {
-            0% { transform: scale(2) rotate(-18deg); opacity: 0; }
-            55% { transform: scale(.9) rotate(-2deg); opacity: 1; }
+            0% { transform: scale(1.6) rotate(-14deg); opacity: 0; }
+            60% { transform: scale(.95) rotate(-2deg); opacity: 1; }
             100% { transform: scale(1) rotate(-3deg); }
         }
-        .fly { position: fixed; z-index: 90; pointer-events: none; font-weight: 800; font-size: 15px; color: #6ee7b7; text-shadow: 0 4px 16px rgba(16, 185, 129, .8);
+        .fly { position: fixed; z-index: 90; pointer-events: none; font-weight: 800; font-size: 15px; color: var(--ok-ink);
             animation: fly 1.2s cubic-bezier(.2, .8, .2, 1) forwards; }
-        @keyframes fly { 0% { opacity: 0; transform: translate(-50%, 0) scale(.7); } 15% { opacity: 1; transform: translate(-50%, -10px) scale(1.1); }
-            100% { opacity: 0; transform: translate(-50%, -70px) scale(1); } }
+        @keyframes fly { 0% { opacity: 0; transform: translate(-50%, 0) scale(.8); } 15% { opacity: 1; transform: translate(-50%, -10px) scale(1.05); }
+            100% { opacity: 0; transform: translate(-50%, -60px) scale(1); } }
 
         /* Тост с отменой */
-        .undo-btn { padding: 4px 10px !important; border-radius: 9999px; font-size: 12px; font-weight: 800; color: #fff !important; background: rgba(255,255,255,.12); white-space: nowrap; }
-        .undo-btn:hover { background: rgba(255,255,255,.22); }
+        .undo-btn { padding: 4px 10px !important; border-radius: 9999px; font-size: 12px; font-weight: 800; color: var(--accent-ink) !important; background: var(--accent-soft); border: 1px solid var(--accent-line); white-space: nowrap; }
+        .undo-btn:hover { background: #ffe8d4; }
 
         @media (max-width: 640px) {
             .gcard-head { padding: 16px 16px 12px; gap: 12px; }
@@ -320,8 +305,8 @@
                     </div>
                     <div class="ylegend">
                         <span><i style="background: var(--money)"></i>Собрано</span>
-                        <span><i style="background: rgba(52, 211, 153, .25)"></i>Ожидалось</span>
-                        <span><i style="background: rgba(255,255,255,.18)"></i>Впереди — прогноз</span>
+                        <span><i style="background: var(--surface-3)"></i>Ожидалось</span>
+                        <span><i style="background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line-strong)"></i>Впереди — прогноз</span>
                     </div>
                 </div>
             </div>
@@ -337,9 +322,9 @@
             <div class="seg" id="statusSeg">
                 <button type="button" data-status="all" class="is-on">Все <b id="cAll">{{ students_total }}</b></button>
                 <button type="button" data-status="wait"><span class="dot" style="background: var(--wait)"></span>Ждём <b id="cWait">{{ wait_total }}</b></button>
-                <button type="button" data-status="paid"><span class="dot" style="background: var(--money)"></span>Оплатили <b id="cPaid">{{ paid_total }}</b></button>
+                <button type="button" data-status="paid"><span class="dot" style="background: var(--ok)"></span>Оплатили <b id="cPaid">{{ paid_total }}</b></button>
                 {% if no_price %}
-                <button type="button" data-status="noprice"><span class="dot" style="background: var(--bad)"></span>Без цены <b id="cNoPrice">{{ no_price }}</b></button>
+                <button type="button" data-status="noprice"><span class="dot" style="background: var(--nopr)"></span>Без цены <b id="cNoPrice">{{ no_price }}</b></button>
                 {% endif %}
             </div>
             <div class="seg" id="typeSeg">
@@ -353,7 +338,7 @@
         <!-- Группы -->
         <section class="grid lg:grid-cols-2 gap-5 items-start" id="cards">
             {% for c in cards %}
-            <article class="gcard panel{% if c.all_paid %} is-done is-collapsed{% endif %}" style="--h: {{ c.hue }}"
+            <article class="gcard panel{% if c.all_paid %} is-done is-collapsed{% endif %}"
                      data-type="{{ c.group.group_type }}" data-search="{{ c.group.name|lower }} {{ c.group.teacher.username|lower }}">
                 <button type="button" class="gcard-head" onclick="toggleCard(this)" aria-expanded="{% if c.all_paid %}false{% else %}true{% endif %}">
                     <span class="gicon"><i class="fas {% if c.group.group_type == 'individual' %}fa-user{% else %}fa-users{% endif %}"></i></span>

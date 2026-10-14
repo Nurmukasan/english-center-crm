@@ -8,78 +8,61 @@
     <script>tailwind.config = { darkMode: 'class' }</script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
-
         /* ---------- Часы ---------- */
-        .clock { font-family: 'Unbounded', sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -.02em; }
+        .clock { font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -.03em; color: var(--ink); }
         .clock .colon { animation: blink 1s steps(1) infinite; }
         @keyframes blink { 50% { opacity: .15; } }
-        .sec-ring circle.track { stroke: rgba(255,255,255,.08); }
-        .sec-ring circle.bar { stroke: url(#secGrad); stroke-linecap: round; transition: stroke-dashoffset .95s linear; }
+        .sec-ring circle.track { stroke: var(--surface-3); }
+        .sec-ring circle.bar { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset .95s linear; }
 
         /* ---------- Лента дня ---------- */
         .ribbon-scroll { overflow-x: auto; scrollbar-width: thin; padding-bottom: 6px; }
         .ribbon { position: relative; min-width: 100%; }
         .ribbon-hours { position: relative; height: 28px; }
-        .ribbon-hour { position: absolute; top: 0; transform: translateX(-50%); font-size: 12px; font-weight: 700; color: rgba(233,231,245,.4); }
+        .ribbon-hour { position: absolute; top: 0; transform: translateX(-50%); font-size: 12px; font-weight: 700; color: var(--faint); }
         .ribbon-lanes { position: relative;
-            background-image: linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px);
-            background-size: var(--hour-w) 100%; border-radius: 18px; }
+            background-image: linear-gradient(90deg, var(--line) 1px, transparent 1px);
+            background-size: var(--hour-w) 100%; border-radius: 14px; }
         .cap {
-            --c: hsl(var(--h) 85% 62%);
-            position: absolute; height: 66px; border-radius: 16px; padding: 8px 12px; overflow: hidden; color: #fff;
-            background: linear-gradient(135deg, hsl(var(--h) 70% 50% / .32), hsl(var(--h) 70% 40% / .14));
-            border: 1px solid hsl(var(--h) 80% 70% / .35);
-            box-shadow: inset 3px 0 0 var(--c);
-            transition: transform var(--spring-dur) var(--spring), box-shadow .3s ease, opacity .4s ease, filter .4s ease;
+            position: absolute; height: 66px; border-radius: 12px; padding: 8px 12px; overflow: hidden; color: var(--ink);
+            background: var(--surface); border: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--accent), var(--shadow-sm);
+            transition: transform var(--spring-dur) var(--spring), box-shadow .25s ease, opacity .3s ease;
         }
-        .cap:hover { transform: translateY(-3px) scale(1.03); z-index: 3; box-shadow: inset 3px 0 0 var(--c), 0 18px 40px -16px hsl(var(--h) 80% 55% / .9); }
-        .cap-time { font-size: 11px; font-weight: 800; opacity: .8; white-space: nowrap; }
+        .cap:hover { transform: translateY(-2px); z-index: 3; box-shadow: inset 3px 0 0 var(--accent), var(--shadow); }
+        .cap-time { font-size: 11px; font-weight: 800; color: var(--muted); white-space: nowrap; }
         .cap-name { font-size: 14px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .cap-meta { font-size: 11px; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .cap-progress { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, hsl(var(--h) 90% 65% / .35), hsl(var(--h) 90% 65% / .12)); pointer-events: none; transition: width 1s linear; }
+        .cap-meta { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cap-progress { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent-soft); pointer-events: none; transition: width 1s linear; }
         .cap > * { position: relative; }
-        .cap.is-past { opacity: .42; filter: saturate(.4); }
-        .cap.is-live { border-color: hsl(var(--h) 90% 75% / .9); animation: livePulse 2.2s ease-in-out infinite; }
-        @keyframes livePulse {
-            0%, 100% { box-shadow: inset 3px 0 0 var(--c), 0 0 0 0 hsl(var(--h) 90% 65% / .55); }
-            50% { box-shadow: inset 3px 0 0 var(--c), 0 0 0 8px hsl(var(--h) 90% 65% / 0); }
-        }
+        .cap.is-past { opacity: .55; box-shadow: inset 3px 0 0 var(--line-strong); background: var(--surface-2); }
+        .cap.is-live { border-color: var(--accent-line); }
         .cap-top { display: flex; align-items: center; gap: 6px; }
         .cap-top .cap-time { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-        .cap-badge { flex-shrink: 0; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 9999px; background: rgba(0,0,0,.35); white-space: nowrap; }
-        .now-line { position: absolute; top: -30px; bottom: 0; width: 2px; z-index: 4; pointer-events: none;
-            background: linear-gradient(180deg, #fbbf24, #f472b6); box-shadow: 0 0 14px rgba(251,191,36,.8);
-            transition: left 1s linear; }
-        .now-line span { position: absolute; top: 0; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: 800; color: #1a1200;
-            background: #fbbf24; padding: 2px 8px; border-radius: 9999px; box-shadow: 0 0 16px rgba(251,191,36,.8); white-space: nowrap; }
+        .cap-badge { flex-shrink: 0; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 9999px; background: var(--surface-3); color: var(--ink-2); white-space: nowrap; }
+        .cap.is-live .cap-badge { background: var(--accent); color: #fff; }
+        .now-line { position: absolute; top: -30px; bottom: 0; width: 2px; z-index: 4; pointer-events: none; background: var(--accent); transition: left 1s linear; }
+        .now-line span { position: absolute; top: 0; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: 800; color: #fff;
+            background: var(--accent); padding: 2px 8px; border-radius: 9999px; white-space: nowrap; }
 
         /* ---------- Кольца ---------- */
         .donut circle { fill: none; stroke-width: 10; }
-        .donut .track { stroke: rgba(255,255,255,.07); }
+        .donut .track { stroke: var(--surface-3); }
         .donut .bar { stroke-linecap: round; transition: stroke-dashoffset 1.6s cubic-bezier(.22,1,.36,1); }
 
         /* ---------- Карточки групп ---------- */
-        .gcard {
-            background:
-                radial-gradient(380px circle at var(--mx, 50%) var(--my, 50%), rgba(192, 132, 252, var(--spot, 0)), transparent 45%),
-                linear-gradient(160deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
-        }
-        .gcard { --c: hsl(var(--h) 85% 65%); position: relative; border-radius: 26px; overflow: hidden; isolation: isolate;
-            border: 1px solid rgba(255,255,255,.09); }
-        .gcard::before { content: ''; position: absolute; z-index: -1; width: 220px; height: 220px; right: -70px; top: -90px; border-radius: 50%;
-            background: radial-gradient(circle, hsl(var(--h) 90% 60% / .45), transparent 65%); transition: transform .8s var(--spring-soft); }
-        .gcard:hover::before { transform: scale(1.35) translate(-20px, 20px); }
-        .gcard.hover-scale:hover { box-shadow: 0 30px 70px -30px hsl(var(--h) 85% 55% / .75), 0 0 0 1px hsl(var(--h) 80% 70% / .3) !important; }
-        .gcard-photo { position: absolute; inset: 0; z-index: -2; background-size: cover; background-position: center; opacity: .22; }
-        .day-dot { width: 30px; height: 26px; border-radius: 9px; display: grid; place-items: center; font-size: 11px; font-weight: 800;
-            color: rgba(233,231,245,.3); background: rgba(255,255,255,.04); }
-        .day-dot.on { color: #fff; background: hsl(var(--h) 75% 50% / .4); box-shadow: inset 0 0 0 1px hsl(var(--h) 85% 70% / .5); }
-        .face { width: 30px; height: 30px; border-radius: 9999px; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #fff;
-            background: linear-gradient(135deg, hsl(var(--h) 80% 60%), hsl(calc(var(--h) + 40) 80% 50%)); box-shadow: 0 0 0 2px #120f20; }
+        .gcard { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 20px; overflow: hidden; isolation: isolate; box-shadow: var(--shadow); }
+        .gcard-photo { position: absolute; inset: 0; z-index: -1; background-size: cover; background-position: center; opacity: .1; }
+        .gicon { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; flex-shrink: 0; background: var(--accent-soft); color: var(--accent-ink); }
+        .gcard:hover .gicon { background: var(--accent); color: #fff; }
+        .day-dot { width: 30px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-size: 11px; font-weight: 800;
+            color: var(--faint); background: var(--surface-2); }
+        .day-dot.on { color: var(--accent-ink); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); }
+        .face { width: 30px; height: 30px; border-radius: 9999px; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: var(--ink-2);
+            background: var(--surface-3); box-shadow: 0 0 0 2px var(--surface); }
         .face + .face { margin-left: -8px; }
-        .gcard-tools a, .gcard-tools button { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: rgba(0,0,0,.35); color: rgba(233,231,245,.7);
-            transition: transform var(--spring-dur) var(--spring), color .2s ease, background .2s ease; }
-        .gcard-tools a:hover, .gcard-tools button:hover { transform: scale(1.12); color: #fff; background: rgba(0,0,0,.55); }
+        .gcard-tools a, .gcard-tools button { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-2); color: var(--muted);
+            border: 1px solid var(--line); transition: color .2s ease, background .2s ease; }
+        .gcard-tools a:hover, .gcard-tools button:hover { color: var(--ink); background: var(--surface-3); }
     </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
@@ -126,11 +109,10 @@
             <div class="panel p-7 sm:p-9 flex items-center gap-6 lg:min-w-[340px]">
                 <div class="relative w-24 h-24 flex-shrink-0">
                     <svg class="sec-ring w-24 h-24 -rotate-90" viewBox="0 0 100 100" aria-hidden="true">
-                        <defs><linearGradient id="secGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset=".6" stop-color="#e879f9"/><stop offset="1" stop-color="#fbbf24"/></linearGradient></defs>
                         <circle class="track" cx="50" cy="50" r="44" fill="none" stroke-width="6"/>
                         <circle class="bar" id="secBar" cx="50" cy="50" r="44" fill="none" stroke-width="6" stroke-dasharray="276.46" stroke-dashoffset="276.46"/>
                     </svg>
-                    <i class="fas fa-bolt absolute inset-0 m-auto w-fit h-fit text-amber-300 text-2xl"></i>
+                    <i class="fas fa-bolt absolute inset-0 m-auto w-fit h-fit text-orange-500 text-2xl"></i>
                 </div>
                 <div>
                     <p class="clock text-white text-5xl" id="clock">--<span class="colon">:</span>--</p>
@@ -147,9 +129,9 @@
                     <h3 class="text-xl sm:text-2xl font-bold text-white">Занятия сегодня</h3>
                 </div>
                 <div class="flex items-center gap-4 text-xs font-bold text-gray-400">
-                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-fuchsia-400 animate-pulse"></span>идёт</span>
-                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-violet-400"></span>впереди</span>
-                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-gray-500"></span>прошло</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full animate-pulse" style="background: var(--accent)"></span>идёт</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background: var(--surface); box-shadow: inset 0 0 0 2px var(--accent)"></span>впереди</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background: var(--line-strong)"></span>прошло</span>
                 </div>
             </div>
             {% if today_lessons_count %}
@@ -193,7 +175,7 @@
             <div class="panel ee-own-spot hover-scale p-6 flex items-center gap-5 col-span-2 lg:col-span-1">
                 <svg class="donut w-20 h-20 sm:w-24 sm:h-24 -rotate-90 flex-shrink-0" viewBox="0 0 100 100">
                     <circle class="track" cx="50" cy="50" r="40"/>
-                    <circle class="bar" cx="50" cy="50" r="40" stroke="#34d399" data-ring="{{ paid_count }}" data-total="{{ paid_count|add:unpaid_count }}"/>
+                    <circle class="bar" cx="50" cy="50" r="40" style="stroke: var(--ok)" data-ring="{{ paid_count }}" data-total="{{ paid_count|add:unpaid_count }}"/>
                 </svg>
                 <div>
                     <p class="eyebrow">Оплаты</p>
@@ -210,7 +192,7 @@
             <div class="panel ee-own-spot hover-scale p-6 flex items-center gap-5 col-span-2 lg:col-span-1">
                 <svg class="donut w-20 h-20 sm:w-24 sm:h-24 -rotate-90 flex-shrink-0" viewBox="0 0 100 100">
                     <circle class="track" cx="50" cy="50" r="40"/>
-                    <circle class="bar" cx="50" cy="50" r="40" stroke="#a78bfa" data-ring="{{ present_count }}" data-total="{{ total_attendance }}"/>
+                    <circle class="bar" cx="50" cy="50" r="40" style="stroke: var(--accent)" data-ring="{{ present_count }}" data-total="{{ total_attendance }}"/>
                 </svg>
                 <div>
                     <p class="eyebrow">Посещаемость</p>
@@ -233,8 +215,8 @@
                             <i class="fas fa-chalkboard-user"></i> Индивидуальные · {{ individual_count }}
                         </a>
                     {% if role == 'admin' or role == 'developer' %}
-                        <a href="{% url 'dashboard' %}" class="chip-btn !py-1.5 !px-3 !text-xs {% if not show_archive %}!bg-violet-500/30 !border-violet-400/50{% endif %}">Активные</a>
-                        <a href="{% url 'dashboard' %}?archived=1" class="chip-btn !py-1.5 !px-3 !text-xs {% if show_archive %}!bg-violet-500/30 !border-violet-400/50{% endif %}">
+                        <a href="{% url 'dashboard' %}" class="chip-btn !py-1.5 !px-3 !text-xs {% if not show_archive %}!bg-orange-50 !border-orange-300 !text-orange-700{% endif %}">Активные</a>
+                        <a href="{% url 'dashboard' %}?archived=1" class="chip-btn !py-1.5 !px-3 !text-xs {% if show_archive %}!bg-orange-50 !border-orange-300 !text-orange-700{% endif %}">
                             <i class="fas fa-box-archive"></i> Архив{% if archived_groups_count %} · {{ archived_groups_count }}{% endif %}
                         </a>
                     {% endif %}
@@ -251,11 +233,11 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {% for group in group_cards %}
-                <div class="gcard ee-own-spot hover-scale" style="--h: {{ group.ee_hue }}">
+                <div class="gcard hover-scale">
                     {% if group.photo %}<div class="gcard-photo" style="background-image: url('{{ group.photo.url }}')"></div>{% endif %}
                     <a href="{% url 'group_detail' group.id %}" class="block p-6">
                         <div class="flex items-start gap-3 pr-20">
-                            <span class="w-11 h-11 rounded-2xl grid place-items-center text-white flex-shrink-0" style="background: linear-gradient(135deg, hsl({{ group.ee_hue }} 80% 58%), hsl({{ group.ee_hue }} 70% 40%)); box-shadow: 0 10px 24px -10px hsl({{ group.ee_hue }} 80% 55%);">
+                            <span class="gicon">
                                 <i class="fas {% if group.group_type == 'individual' %}fa-user{% else %}fa-users{% endif %}"></i>
                             </span>
                             <div class="min-w-0">
@@ -271,13 +253,13 @@
                         </div>
                         <p class="text-xs text-gray-400 mt-2 truncate">{{ group.get_schedule_display|default:"расписание не задано" }}</p>
 
-                        <div class="flex items-center justify-between mt-5 pt-4 border-t border-white/10">
+                        <div class="flex items-center justify-between mt-5 pt-4 border-t border-gray-200">
                             <div class="flex items-center">
                                 {% for f in group.ee_faces %}<span class="face notranslate">{{ f }}</span>{% endfor %}
-                                {% if group.ee_more %}<span class="face" style="background: rgba(255,255,255,.12)">+{{ group.ee_more }}</span>{% endif %}
+                                {% if group.ee_more %}<span class="face">+{{ group.ee_more }}</span>{% endif %}
                                 {% if not group.ee_count %}<span class="text-sm text-gray-500">пока без учеников</span>{% endif %}
                             </div>
-                            <span class="text-sm font-bold" style="color: hsl({{ group.ee_hue }} 85% 72%)">{{ group.ee_count }} <i class="fas fa-user-group text-xs"></i></span>
+                            <span class="text-sm font-bold text-gray-500">{{ group.ee_count }} <i class="fas fa-user-group text-xs"></i></span>
                         </div>
                     </a>
                     {% if role == 'admin' or role == 'developer' %}
@@ -353,7 +335,7 @@
                 const t = nowMin();
                 const live = lessons.filter(l => l.start <= t && t < l.end);
                 const upcoming = lessons.filter(l => l.start > t);
-                if (live.length) next.innerHTML = '<span class="text-fuchsia-300 font-bold">● Идёт:</span> ' + live.map(l => l.group).join(', ');
+                if (live.length) next.innerHTML = '<span class="text-orange-600 font-bold">● Идёт:</span> ' + live.map(l => l.group).join(', ');
                 else if (upcoming.length) next.innerHTML = 'Следующее через <b class="text-white">' + until(upcoming[0].start - t) + '</b>';
                 else next.textContent = lessons.length ? 'На сегодня всё 🎉' : 'Хорошего дня ✨';
             }

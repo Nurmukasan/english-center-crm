@@ -8,62 +8,52 @@
     <script>tailwind.config = { darkMode: 'class' }</script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
-
         /* ---------- Лента «Сегодня» ---------- */
         .today-chip {
-            --c: hsl(var(--h) 85% 65%);
-            display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 18px; flex-shrink: 0;
-            background: linear-gradient(135deg, hsl(var(--h) 70% 50% / .22), hsl(var(--h) 70% 40% / .08));
-            border: 1px solid hsl(var(--h) 80% 70% / .3); box-shadow: inset 3px 0 0 var(--c);
-            transition: transform var(--spring-dur) var(--spring), box-shadow .3s ease;
+            display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px; flex-shrink: 0;
+            background: var(--surface); border: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--accent), var(--shadow-sm);
+            transition: transform var(--spring-dur) var(--spring), box-shadow .25s ease;
         }
-        .today-chip:hover { transform: translateY(-2px); box-shadow: inset 3px 0 0 var(--c), 0 14px 30px -14px hsl(var(--h) 80% 55% / .9); }
-        .today-chip .time { font-family: 'Unbounded', sans-serif; font-weight: 700; font-size: 15px; color: #fff; }
-        .today-chip.is-past { opacity: .45; filter: saturate(.4); }
-        .today-chip.is-live { animation: livePulse 2.2s ease-in-out infinite; border-color: hsl(var(--h) 90% 75% / .9); }
-        @keyframes livePulse {
-            0%, 100% { box-shadow: inset 3px 0 0 var(--c), 0 0 0 0 hsl(var(--h) 90% 65% / .55); }
-            50% { box-shadow: inset 3px 0 0 var(--c), 0 0 0 8px hsl(var(--h) 90% 65% / 0); }
-        }
+        .today-chip:hover { transform: translateY(-2px); box-shadow: inset 3px 0 0 var(--accent), var(--shadow); }
+        .today-chip .time { font-weight: 800; font-size: 15px; color: var(--ink); }
+        .today-chip.is-past { opacity: .55; background: var(--surface-2); box-shadow: inset 3px 0 0 var(--line-strong); }
+        .today-chip.is-live { border-color: var(--accent-line); background: var(--accent-soft); }
 
         /* ---------- Карточка ученика ---------- */
-        .icard { --c: hsl(var(--h) 85% 66%); position: relative; overflow: hidden; isolation: isolate; padding: 22px; }
-        .icard::before { content: ''; position: absolute; z-index: -1; width: 240px; height: 240px; right: -90px; top: -110px; border-radius: 50%;
-            background: radial-gradient(circle, hsl(var(--h) 90% 60% / .4), transparent 65%); transition: transform .8s var(--spring-soft); }
-        .icard:hover::before { transform: scale(1.3) translate(-20px, 20px); }
-        .icard.hover-scale:hover { box-shadow: 0 30px 70px -30px hsl(var(--h) 85% 55% / .75), 0 0 0 1px hsl(var(--h) 80% 70% / .3) !important; }
-        .avatar { width: 54px; height: 54px; border-radius: 18px; display: grid; place-items: center; flex-shrink: 0;
-            font: 700 22px 'Unbounded', sans-serif; color: #fff;
-            background: linear-gradient(135deg, hsl(var(--h) 85% 62%), hsl(calc(var(--h) + 40) 80% 48%));
-            box-shadow: 0 12px 26px -10px hsl(var(--h) 85% 55%); transition: transform var(--spring-dur) var(--spring); }
-        .icard:hover .avatar { transform: rotate(-6deg) scale(1.06); }
+        .icard { position: relative; overflow: hidden; padding: 22px; }
+        .avatar { width: 54px; height: 54px; border-radius: 16px; display: grid; place-items: center; flex-shrink: 0;
+            font-weight: 800; font-size: 22px; color: var(--accent-ink); background: var(--accent-soft);
+            transition: background .2s ease, color .2s ease; }
+        .icard:hover .avatar { background: var(--accent); color: #fff; }
         .next { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 9999px; font-size: 13px; font-weight: 700;
-            background: rgba(255,255,255,.06); color: rgba(233,231,245,.85); }
-        .next.is-live { background: hsl(var(--h) 80% 55% / .25); color: #fff; }
-        .next.is-live i { color: var(--c); animation: blink 1.2s steps(1) infinite; }
+            background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line); }
+        .next i { color: var(--faint); }
+        .next.is-live { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent-line); }
+        .next.is-live i { color: var(--accent); animation: blink 1.2s steps(1) infinite; }
         @keyframes blink { 50% { opacity: .2; } }
         .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-        .week-day { border-radius: 12px; padding: 7px 0; text-align: center; background: rgba(255,255,255,.035); }
-        .week-day b { display: block; font-size: 11px; font-weight: 800; color: rgba(233,231,245,.35); }
-        .week-day span { display: block; font-size: 11px; font-weight: 700; color: #fff; min-height: 16px; }
-        .week-day.on { background: hsl(var(--h) 75% 50% / .28); box-shadow: inset 0 0 0 1px hsl(var(--h) 85% 70% / .45); }
-        .week-day.on b { color: hsl(var(--h) 90% 80%); }
-        .meter { height: 6px; border-radius: 9999px; background: rgba(255,255,255,.07); overflow: hidden; }
+        .week-day { border-radius: 10px; padding: 7px 0; text-align: center; background: var(--surface-2); }
+        .week-day b { display: block; font-size: 11px; font-weight: 800; color: var(--faint); }
+        .week-day span { display: block; font-size: 11px; font-weight: 700; color: var(--ink); min-height: 16px; }
+        .week-day.on { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); }
+        .week-day.on b { color: var(--accent-ink); }
+        .meter { height: 6px; border-radius: 9999px; background: var(--surface-3); overflow: hidden; }
         .meter i { display: block; height: 100%; border-radius: inherit; width: 0; transition: width 1.4s var(--spring-soft); }
-        .tools a { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; color: rgba(233,231,245,.6);
-            background: rgba(255,255,255,.05); transition: transform var(--spring-dur) var(--spring), color .2s ease, background .2s ease; }
-        .tools a:hover { transform: scale(1.12); color: #fff; background: rgba(255,255,255,.12); }
+        .tools a { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: var(--muted);
+            background: var(--surface-2); border: 1px solid var(--line); transition: color .2s ease, background .2s ease; }
+        .tools a:hover { color: var(--ink); background: var(--surface-3); }
         .pay { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 9999px; font-size: 13px; font-weight: 800;
-            transition: transform var(--spring-dur) var(--spring), background .25s ease; }
-        .pay:hover { transform: scale(1.06); }
-        .pay.is-paid { background: rgba(16, 185, 129, .18); color: #6ee7b7; }
-        .pay.is-unpaid { background: rgba(244, 63, 94, .16); color: #fda4af; }
+            border: 1px solid transparent; transition: transform var(--spring-dur) var(--spring), background .2s ease; }
+        .pay:hover { transform: translateY(-1px); }
+        .pay.is-paid { background: var(--ok-soft); color: var(--ok-ink); border-color: var(--ok-line); }
+        .pay.is-unpaid { background: var(--surface); color: var(--bad-ink); border-color: var(--bad-line); }
 
         /* ---------- Фильтры ---------- */
-        .chip-btn.is-on { background: rgba(139, 92, 246, .3); border-color: rgba(167, 139, 250, .55); }
+        .chip-btn.is-on { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-ink); }
         .donut circle { fill: none; stroke-width: 10; }
-        .donut .track { stroke: rgba(255,255,255,.07); }
+        .donut .track { stroke: var(--surface-3); }
         .donut .bar { stroke-linecap: round; transition: stroke-dashoffset 1.6s cubic-bezier(.22,1,.36,1); }
+        .banner { border-color: var(--warn-line); background: var(--warn-soft); }
     </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
@@ -73,7 +63,7 @@
     <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center gap-3">
             <div class="flex items-center gap-3">
-                <i class="fas fa-chalkboard-user text-2xl text-violet-300"></i>
+                <i class="fas fa-chalkboard-user text-2xl text-orange-500"></i>
                 <h1 class="text-xl font-bold text-white">Индивидуальные</h1>
             </div>
             {% if can_manage %}
@@ -102,7 +92,7 @@
             <div class="panel ee-own-spot hover-scale p-6 flex items-center gap-5 col-span-2 lg:col-span-1">
                 <svg class="donut w-20 h-20 sm:w-24 sm:h-24 -rotate-90 flex-shrink-0" viewBox="0 0 100 100">
                     <circle class="track" cx="50" cy="50" r="40"/>
-                    <circle class="bar" cx="50" cy="50" r="40" stroke="#34d399" data-ring="{{ paid_count }}" data-total="{{ cards|length }}"/>
+                    <circle class="bar" cx="50" cy="50" r="40" style="stroke: var(--ok)" data-ring="{{ paid_count }}" data-total="{{ cards|length }}"/>
                 </svg>
                 <div>
                     <p class="eyebrow">Оплатили</p>
@@ -113,7 +103,7 @@
             <div class="panel ee-own-spot hover-scale p-6 col-span-2 lg:col-span-1">
                 <p class="eyebrow">Собрано за месяц</p>
                 <p class="text-2xl sm:text-3xl font-bold text-white mt-4 notranslate">{{ paid_total }} <span class="text-gray-500 text-lg">/ {{ expected_total }} ₸</span></p>
-                <div class="meter mt-4"><i data-width="{{ paid_share }}" style="background: linear-gradient(90deg, #34d399, #a3e635)"></i></div>
+                <div class="meter mt-4"><i data-width="{{ paid_share }}" style="background: var(--ok)"></i></div>
             </div>
             {% endif %}
         </section>
@@ -121,9 +111,9 @@
         {% if shared_groups %}
         <!-- Общая «индивидуальная» группа: предложить разнести -->
         {% for g in shared_groups %}
-        <section class="panel p-6 mb-6 border-amber-400/30" style="background: linear-gradient(135deg, rgba(245,158,11,.14), rgba(255,255,255,.02))">
+        <section class="panel banner p-6 mb-6">
             <div class="flex flex-col md:flex-row md:items-center gap-4">
-                <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-300 grid place-items-center text-xl flex-shrink-0"><i class="fas fa-people-arrows"></i></div>
+                <div class="w-12 h-12 rounded-2xl grid place-items-center text-xl flex-shrink-0" style="background: #fff; color: var(--warn-ink); border: 1px solid var(--warn-line)"><i class="fas fa-people-arrows"></i></div>
                 {% if g.students_count == 1 %}
                 <div class="flex-1">
                     <p class="font-bold text-white text-lg">«<span class="notranslate">{{ g.name }}</span>» записана как обычная группа</p>
@@ -133,7 +123,7 @@
                       data-confirm="Перенести «{{ g.name }}» во вкладку «Индивидуальные»?"
                       onsubmit="return confirm(this.dataset.confirm)">
                     {% csrf_token %}
-                    <button type="submit" class="bg-amber-500 text-white px-5 py-3 rounded-xl font-bold whitespace-nowrap">
+                    <button type="submit" class="bg-orange-500 text-white px-5 py-3 rounded-xl font-bold whitespace-nowrap">
                         <i class="fas fa-arrow-right-to-bracket mr-1"></i> Перенести сюда
                     </button>
                 </form>
@@ -146,7 +136,7 @@
                       data-confirm="Разнести {{ g.students_count }} уч. из «{{ g.name }}» по отдельным индивидуальным занятиям?"
                       onsubmit="return confirm(this.dataset.confirm)">
                     {% csrf_token %}
-                    <button type="submit" class="bg-amber-500 text-white px-5 py-3 rounded-xl font-bold whitespace-nowrap">
+                    <button type="submit" class="bg-orange-500 text-white px-5 py-3 rounded-xl font-bold whitespace-nowrap">
                         <i class="fas fa-shuffle mr-1"></i> Разнести по ученикам
                     </button>
                 </form>
@@ -167,12 +157,12 @@
             {% if today_lessons %}
             <div class="flex gap-3 overflow-x-auto pb-1">
                 {% for t in today_lessons %}
-                <a href="{% url 'group_detail' t.group.id %}" class="today-chip is-{{ t.state }}" style="--h: {{ t.hue }}">
+                <a href="{% url 'group_detail' t.group.id %}" class="today-chip is-{{ t.state }}">
                     <span class="time">{{ t.slot.start_time|time:"H:i" }}</span>
                     <span>
                         <span class="block font-bold text-white notranslate">{{ t.student.name }}</span>
                         <span class="block text-xs text-gray-400">
-                            {% if t.state == 'live' %}<span class="text-fuchsia-300 font-bold">● идёт</span>{% elif t.state == 'past' %}прошло{% else %}до {{ t.slot.end_time|time:"H:i" }}{% endif %}
+                            {% if t.state == 'live' %}<span class="text-orange-600 font-bold">● идёт</span>{% elif t.state == 'past' %}прошло{% else %}до {{ t.slot.end_time|time:"H:i" }}{% endif %}
                             · <span class="notranslate">{{ t.group.teacher.username|default:"—" }}</span>
                         </span>
                     </span>
@@ -203,7 +193,7 @@
         <!-- Ученики -->
         <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5" id="cards">
             {% for c in cards %}
-            <article class="icard panel ee-own-spot hover-scale" style="--h: {{ c.hue }}"
+            <article class="icard panel hover-scale"
                      data-name="{{ c.student.name|lower }}" data-teacher="{{ c.group.teacher.username|default:'' }}" data-paid="{% if c.paid %}1{% else %}0{% endif %}">
                 <div class="flex items-start gap-4">
                     <a href="{% url 'student_profile' c.student.id %}" class="avatar notranslate" title="Профиль ученика">{{ c.student.name|first|upper }}</a>
@@ -235,21 +225,21 @@
                     <div>
                         <p class="text-gray-400 text-xs font-bold">Посещаемость</p>
                         <p class="text-white font-bold mt-1">{% if c.attendance is None %}—{% else %}{{ c.attendance }}%{% endif %}</p>
-                        <div class="meter mt-1.5"><i data-width="{{ c.attendance|default:0 }}" style="background: #a78bfa"></i></div>
+                        <div class="meter mt-1.5"><i data-width="{{ c.attendance|default:0 }}" style="background: var(--accent)"></i></div>
                     </div>
                     <div>
                         <p class="text-gray-400 text-xs font-bold">ДЗ</p>
                         <p class="text-white font-bold mt-1">{% if c.homework is None %}—{% else %}{{ c.homework }}%{% endif %}</p>
-                        <div class="meter mt-1.5"><i data-width="{{ c.homework|default:0 }}" style="background: #34d399"></i></div>
+                        <div class="meter mt-1.5"><i data-width="{{ c.homework|default:0 }}" style="background: var(--ok)"></i></div>
                     </div>
                     <div>
                         <p class="text-gray-400 text-xs font-bold">Звёзды</p>
-                        <p class="text-yellow-300 font-bold mt-1">⭐ {{ c.stars }}</p>
+                        <p class="font-bold mt-1" style="color: var(--ink)"><i class="fas fa-star text-amber-400 text-xs"></i> {{ c.stars }}</p>
                         <p class="text-gray-500 text-xs mt-1">{{ c.lessons_total }} ур.</p>
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between gap-3 mt-5 pt-4 border-t border-white/10">
+                <div class="flex items-center justify-between gap-3 mt-5 pt-4 border-t border-gray-200">
                     {% if can_money %}
                     <div class="min-w-0">
                         <p class="text-xs text-gray-400">{{ c.month_name }}: {{ c.lessons_in_period }} × <span class="notranslate">{{ c.price_str }}</span> ₸</p>
@@ -266,7 +256,7 @@
                     {% endif %}
                 </div>
 
-                <a href="{% url 'group_detail' c.group.id %}" class="mt-4 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl font-bold text-sm text-white bg-white/5 border border-white/10 hover:bg-white/10 transition">
+                <a href="{% url 'group_detail' c.group.id %}" class="mt-4 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl font-bold text-sm text-gray-800 bg-gray-100 border border-gray-200 hover:bg-gray-200 transition">
                     <i class="fas fa-clipboard-check"></i> Открыть урок
                 </a>
             </article>

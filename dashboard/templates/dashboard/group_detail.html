@@ -8,155 +8,142 @@
     <script>tailwind.config = { darkMode: 'class' }</script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
-
         :root {
-            --ok: #34d399;   --ok-soft: rgba(52, 211, 153, .16);
-            --late: #fbbf24; --late-soft: rgba(251, 191, 36, .16);
-            --miss: #fb7185; --miss-soft: rgba(251, 113, 133, .13);
-            --muted: rgba(233, 231, 245, .5);
+            --late: #d97706; --late-soft: var(--warn-soft); --late-line: var(--warn-line);
+            --miss: var(--bad); --miss-soft: var(--bad-soft); --miss-line: var(--bad-line);
         }
         .tnum { font-variant-numeric: tabular-nums; }
 
         /* ---------- Шапка ---------- */
-        .back { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; color: rgba(233,231,245,.7);
-            background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); transition: background .2s ease, transform var(--spring-dur) var(--spring); }
-        .back:hover { background: rgba(255,255,255,.1); color: #fff; transform: translateX(-2px); }
-        .head-btn { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 12px; font-size: 13px; font-weight: 700;
-            color: rgba(233,231,245,.8); background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); white-space: nowrap;
-            transition: background .2s ease, color .2s ease; }
-        .head-btn:hover { background: rgba(255,255,255,.1); color: #fff; }
+        .back { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; color: var(--muted);
+            background: var(--surface); border: 1px solid var(--line); transition: background .2s ease, color .2s ease, transform var(--spring-dur) var(--spring); }
+        .back:hover { background: var(--surface-2); color: var(--ink); transform: translateX(-2px); }
+        .head-btn { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 11px; font-size: 13px; font-weight: 700;
+            color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); white-space: nowrap; transition: background .2s ease, color .2s ease; }
+        .head-btn:hover { background: var(--surface-2); color: var(--ink); }
 
         /* ---------- Обложка группы ---------- */
-        .cover { --c: hsl(var(--h) 85% 66%); position: relative; overflow: hidden; isolation: isolate; }
-        .cover::before { content: ''; position: absolute; z-index: -1; width: 560px; height: 560px; right: -200px; top: -320px; border-radius: 50%;
-            background: radial-gradient(circle, hsl(var(--h) 90% 60% / .28), transparent 65%); }
-        .gavatar { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; flex-shrink: 0; color: #fff; font-size: 26px;
-            background: linear-gradient(135deg, hsl(var(--h) 85% 62%), hsl(calc(var(--h) + 40) 80% 46%));
-            box-shadow: 0 16px 34px -14px hsl(var(--h) 85% 55%); }
+        .gavatar { width: 64px; height: 64px; border-radius: 18px; display: grid; place-items: center; flex-shrink: 0; color: #fff; font-size: 26px; background: var(--accent); }
         .chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: 9999px; font-size: 12.5px; font-weight: 700;
-            color: rgba(233,231,245,.75); background: rgba(255,255,255,.055); }
-        .chip i { color: var(--c); }
-        .chip.is-live { color: #fff; background: hsl(var(--h) 80% 55% / .25); }
-        .chip.is-live i { animation: blink 1.2s steps(1) infinite; }
+            color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line); }
+        .chip i { color: var(--faint); }
+        .chip.is-live { color: var(--accent-ink); background: var(--accent-soft); border-color: var(--accent-line); }
+        .chip.is-live i { color: var(--accent); animation: blink 1.2s steps(1) infinite; }
         @keyframes blink { 50% { opacity: .25; } }
         .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-        .wday { border-radius: 12px; padding: 7px 0; text-align: center; background: rgba(255,255,255,.03); }
-        .wday b { display: block; font-size: 11px; font-weight: 800; color: rgba(233,231,245,.35); }
-        .wday span { display: block; font-size: 11px; font-weight: 700; color: #fff; min-height: 16px; }
-        .wday.on { background: hsl(var(--h) 75% 50% / .2); box-shadow: inset 0 0 0 1px hsl(var(--h) 85% 70% / .35); }
-        .wday.on b { color: hsl(var(--h) 90% 82%); }
-        .wday.today { box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.55); }
-        .book { display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; border-radius: 16px; background: rgba(255,255,255,.04);
-            border: 1px solid rgba(255,255,255,.07); transition: background .2s ease, transform var(--spring-dur) var(--spring); }
-        .book:hover { background: rgba(255,255,255,.08); transform: translateY(-2px); }
-        .book-cover { width: 38px; height: 52px; border-radius: 7px; object-fit: cover; flex-shrink: 0; display: grid; place-items: center; color: #fff;
-            background: linear-gradient(160deg, #f59e0b, #b45309); box-shadow: 0 8px 16px -8px rgba(245, 158, 11, .8); }
+        .wday { border-radius: 10px; padding: 7px 0; text-align: center; background: var(--surface-2); }
+        .wday b { display: block; font-size: 11px; font-weight: 800; color: var(--faint); }
+        .wday span { display: block; font-size: 11px; font-weight: 700; color: var(--ink); min-height: 16px; }
+        .wday.on { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); }
+        .wday.on b { color: var(--accent-ink); }
+        .wday.today { box-shadow: inset 0 0 0 1.5px var(--ink-2); }
+        .book { display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; border-radius: 14px; background: var(--surface);
+            border: 1px solid var(--line); transition: border-color .2s ease, transform var(--spring-dur) var(--spring); }
+        .book:hover { border-color: var(--accent-line); transform: translateY(-2px); }
+        .book-cover { width: 38px; height: 52px; border-radius: 6px; object-fit: cover; flex-shrink: 0; display: grid; place-items: center; color: #fff; background: var(--accent); }
 
         /* ---------- Плитки статистики ---------- */
         .kpi { padding: 20px; position: relative; overflow: hidden; }
-        .kpi-value { font-size: 34px; font-weight: 800; color: #fff; line-height: 1; letter-spacing: -.02em; }
+        .kpi-value { font-size: 34px; font-weight: 800; color: var(--ink); line-height: 1; letter-spacing: -.02em; }
         .kpi-value small { font-size: 16px; color: var(--muted); font-weight: 700; letter-spacing: 0; }
         .delta { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 9999px; }
-        .delta.up { color: #6ee7b7; background: rgba(16, 185, 129, .14); }
-        .delta.down { color: #fda4af; background: rgba(244, 63, 94, .12); }
-        .delta.flat { color: var(--muted); background: rgba(255,255,255,.06); }
-        .meter { height: 6px; border-radius: 9999px; overflow: hidden; }
+        .delta.up { color: var(--ok-ink); background: var(--ok-soft); }
+        .delta.down { color: var(--bad-ink); background: var(--bad-soft); }
+        .delta.flat { color: var(--muted); background: var(--surface-2); }
+        .meter { height: 6px; border-radius: 9999px; overflow: hidden; background: var(--surface-3); }
         .meter i { display: block; height: 100%; width: 0; border-radius: inherit; transition: width 1.3s var(--spring-soft); }
         .bars { display: flex; align-items: flex-end; gap: 3px; height: 40px; flex-shrink: 0; }
-        .bars span { width: 8px; min-height: 3px; border-radius: 3px 3px 0 0; background: rgba(167, 139, 250, .38);
+        .bars span { width: 8px; min-height: 3px; border-radius: 3px 3px 0 0; background: #fdba74;
             transform-origin: bottom; animation: grow .8s var(--spring-soft) both; animation-delay: calc(var(--i) * 40ms + .2s); }
-        .bars span:last-child { background: #a78bfa; }
+        .bars span:last-child { background: var(--accent); }
         @keyframes grow { from { transform: scaleY(0); } }
 
         /* ---------- Сегодняшний урок ---------- */
-        .lesson-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding: 20px 22px;
-            border-bottom: 1px solid rgba(255,255,255,.06); }
-        .today-pill { display: inline-flex; align-items: center; gap: 10px; padding: 7px 12px; border-radius: 12px; background: rgba(255,255,255,.05);
-            font-size: 13px; font-weight: 700; color: rgba(233,231,245,.7); }
-        .today-pill b { color: #fff; }
-        .act { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 12px; font-size: 13px; font-weight: 800;
-            transition: transform var(--spring-dur) var(--spring), background .2s ease, color .2s ease; white-space: nowrap; }
+        .lesson-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding: 20px 22px; border-bottom: 1px solid var(--line); }
+        .today-pill { display: inline-flex; align-items: center; gap: 10px; padding: 7px 12px; border-radius: 11px; background: var(--surface-2); border: 1px solid var(--line);
+            font-size: 13px; font-weight: 700; color: var(--muted); }
+        .today-pill b { color: var(--ink); }
+        .act { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 11px; font-size: 13px; font-weight: 800;
+            border: 1px solid transparent; transition: transform var(--spring-dur) var(--spring), background .2s ease, color .2s ease; white-space: nowrap; }
         .act:hover { transform: translateY(-1px); }
-        .act-star { color: #fde68a; background: rgba(251, 191, 36, .14); box-shadow: inset 0 0 0 1px rgba(251, 191, 36, .3); }
-        .act-star:hover { background: rgba(251, 191, 36, .22); }
-        .act-ok { color: #a7f3d0; background: rgba(16, 185, 129, .12); box-shadow: inset 0 0 0 1px rgba(52, 211, 153, .28); }
-        .act-ok:hover { background: rgba(16, 185, 129, .2); }
-        .act-ghost { color: rgba(233,231,245,.7); background: rgba(255,255,255,.05); }
-        .act-ghost:hover { color: #fff; background: rgba(255,255,255,.1); }
+        .act-star { color: #fff; background: var(--accent); }
+        .act-star:hover { background: var(--accent-hover); }
+        .act-ok { color: var(--ok-ink); background: var(--ok-soft); border-color: var(--ok-line); }
+        .act-ok:hover { background: #dcf7e6; }
+        .act-ghost { color: var(--ink-2); background: var(--surface); border-color: var(--line); }
+        .act-ghost:hover { color: var(--ink); background: var(--surface-2); }
         .act:disabled { opacity: .55; cursor: progress; }
 
-        .srow { display: flex; align-items: center; gap: 14px; padding: 14px 22px; transition: background .25s ease; }
-        .srow + .srow { border-top: 1px solid rgba(255,255,255,.05); }
-        .srow:hover { background: rgba(255,255,255,.025); }
-        .savatar { position: relative; width: 44px; height: 44px; border-radius: 15px; display: grid; place-items: center; flex-shrink: 0;
-            font-weight: 800; font-size: 17px; color: #fff;
-            background: linear-gradient(135deg, hsl(var(--h) 70% 55% / .85), hsl(calc(var(--h) + 40) 70% 40% / .85)); }
+        .srow { display: flex; align-items: center; gap: 14px; padding: 14px 22px; transition: background .2s ease; }
+        .srow + .srow { border-top: 1px solid var(--line); }
+        .srow:hover { background: var(--surface-2); }
+        .savatar { position: relative; width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; flex-shrink: 0;
+            font-weight: 800; font-size: 17px; color: var(--ink-2); background: var(--surface-3); }
         .savatar .paid { position: absolute; right: -4px; bottom: -4px; width: 18px; height: 18px; border-radius: 9999px; display: grid; place-items: center;
-            font-size: 9px; border: 2px solid #0e0b19; }
-        .savatar .paid.yes { background: #10b981; color: #fff; }
-        .savatar .paid.no { background: #3a3550; color: rgba(233,231,245,.6); }
-        .sname { color: #fff; font-weight: 700; font-size: 15px; text-align: left; transition: color .2s ease; }
-        .student-name-btn:hover .sname { color: hsl(var(--h) 90% 80%); }
+            font-size: 9px; border: 2px solid var(--surface); }
+        .savatar .paid.yes { background: var(--ok); color: #fff; }
+        .savatar .paid.no { background: var(--line-strong); color: #fff; }
+        .sname { color: var(--ink); font-weight: 700; font-size: 15px; text-align: left; transition: color .2s ease; }
+        .student-name-btn:hover .sname { color: var(--accent-ink); }
         .smeta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; font-size: 12px; font-weight: 600; color: var(--muted); }
-        .smeta .star { color: #fcd34d; }
+        .smeta .star { color: #f59e0b; }
         .dots { display: inline-flex; gap: 3px; vertical-align: middle; }
-        .dots i { width: 8px; height: 8px; border-radius: 9999px; background: rgba(255,255,255,.1); }
+        .dots i { width: 8px; height: 8px; border-radius: 9999px; background: var(--surface-3); }
         .dots i.present { background: var(--ok); }
-        .dots i.late { background: var(--late); }
+        .dots i.late { background: #f59e0b; }
         .dots i.absent { background: transparent; box-shadow: inset 0 0 0 1.5px var(--miss); }
 
         /* Переключатель посещаемости: подсветка переезжает к выбранному */
         .att { --idx: 2; position: relative; display: grid; grid-template-columns: repeat(3, 1fr); width: 276px; flex-shrink: 0; padding: 4px;
-            border-radius: 14px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.07); }
-        .att::before { content: ''; position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 3); border-radius: 10px;
-            transform: translateX(calc(var(--idx) * 100%)); background: var(--att-bg); box-shadow: inset 0 0 0 1px var(--att-ring);
+            border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); }
+        .att::before { content: ''; position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 3); border-radius: 9px;
+            transform: translateX(calc(var(--idx) * 100%)); background: var(--att-bg); box-shadow: inset 0 0 0 1px var(--att-ring), var(--shadow-sm);
             transition: transform var(--spring-dur) var(--spring), background .3s ease, box-shadow .3s ease; }
-        .att[data-status="present"] { --idx: 0; --att-bg: var(--ok-soft); --att-ring: rgba(52, 211, 153, .4); }
-        .att[data-status="late"] { --idx: 1; --att-bg: var(--late-soft); --att-ring: rgba(251, 191, 36, .38); }
-        .att[data-status="absent"] { --idx: 2; --att-bg: var(--miss-soft); --att-ring: rgba(251, 113, 133, .3); }
-        .att button { position: relative; z-index: 1; height: 36px; border-radius: 10px; font-size: 13px; font-weight: 700; color: rgba(233,231,245,.45);
-            display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: color .25s ease; }
-        .att button:hover { color: rgba(233,231,245,.85); }
-        .att[data-status="present"] [data-v="present"] { color: #a7f3d0; }
-        .att[data-status="late"] [data-v="late"] { color: #fde68a; }
-        .att[data-status="absent"] [data-v="absent"] { color: #fecdd3; }
+        .att[data-status="present"] { --idx: 0; --att-bg: var(--ok-soft); --att-ring: var(--ok-line); }
+        .att[data-status="late"] { --idx: 1; --att-bg: var(--late-soft); --att-ring: var(--late-line); }
+        .att[data-status="absent"] { --idx: 2; --att-bg: var(--surface); --att-ring: var(--line-strong); }
+        .att button { position: relative; z-index: 1; height: 36px; border-radius: 9px; font-size: 13px; font-weight: 700; color: var(--faint);
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: color .2s ease; }
+        .att button:hover { color: var(--ink-2); }
+        .att[data-status="present"] [data-v="present"] { color: var(--ok-ink); }
+        .att[data-status="late"] [data-v="late"] { color: var(--late); }
+        .att[data-status="absent"] [data-v="absent"] { color: var(--bad-ink); }
         .att.busy { opacity: .7; }
-        .hw { width: 44px; height: 44px; flex-shrink: 0; border-radius: 14px; display: grid; place-items: center; font-size: 16px; position: relative;
-            color: rgba(233,231,245,.35); background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.07);
-            transition: transform var(--spring-dur) var(--spring), background .25s ease, color .25s ease, border-color .25s ease; }
-        .hw:hover { color: rgba(233,231,245,.75); transform: scale(1.06); }
-        .hw[aria-pressed="true"] { color: #a7f3d0; background: var(--ok-soft); border-color: rgba(52, 211, 153, .4); }
+        .hw { width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px; display: grid; place-items: center; font-size: 16px; position: relative;
+            color: var(--faint); background: var(--surface-2); border: 1px solid var(--line);
+            transition: transform var(--spring-dur) var(--spring), background .2s ease, color .2s ease, border-color .2s ease; }
+        .hw:hover { color: var(--ink-2); }
+        .hw[aria-pressed="true"] { color: var(--ok-ink); background: var(--ok-soft); border-color: var(--ok-line); }
         .hw .tick { position: absolute; right: -4px; top: -4px; width: 17px; height: 17px; border-radius: 9999px; font-size: 9px; display: none; place-items: center;
-            background: #10b981; color: #fff; border: 2px solid #0e0b19; }
-        .hw[aria-pressed="true"] .tick { display: grid; animation: pop .45s var(--spring) both; }
+            background: var(--ok); color: #fff; border: 2px solid var(--surface); }
+        .hw[aria-pressed="true"] .tick { display: grid; animation: pop .4s var(--spring) both; }
         @keyframes pop { from { transform: scale(0); } }
-        .hw-label { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; text-align: center; margin-top: 4px; }
+        .hw-label { font-size: 10px; font-weight: 800; color: var(--faint); text-transform: uppercase; letter-spacing: .06em; text-align: center; margin-top: 4px; }
         .rate-ring { width: 46px; height: 46px; flex-shrink: 0; }
         .rate-ring circle { fill: none; stroke-width: 5; }
-        .rate-ring text { font: 800 12px 'Manrope', sans-serif; fill: #fff; }
+        .rate-ring text { font: 800 12px 'Manrope', sans-serif; fill: var(--ink); }
 
         /* ---------- Боковая колонка ---------- */
         .side-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
         .hist { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
-        .hist + .hist { border-top: 1px solid rgba(255,255,255,.05); }
-        .hist-date { width: 46px; flex-shrink: 0; text-align: center; border-radius: 12px; padding: 5px 0; background: rgba(255,255,255,.05); }
-        .hist-date b { display: block; color: #fff; font-size: 16px; font-weight: 800; line-height: 1.1; }
+        .hist + .hist { border-top: 1px solid var(--line); }
+        .hist-date { width: 46px; flex-shrink: 0; text-align: center; border-radius: 11px; padding: 5px 0; background: var(--surface-2); border: 1px solid var(--line); }
+        .hist-date b { display: block; color: var(--ink); font-size: 16px; font-weight: 800; line-height: 1.1; }
         .hist-date span { display: block; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
         .hist.is-cancelled { opacity: .55; }
         .podium { display: grid; grid-template-columns: repeat(3, 1fr); align-items: end; gap: 10px; }
         .pod { text-align: center; }
-        .pod .face { width: 46px; height: 46px; margin: 0 auto 8px; border-radius: 16px; display: grid; place-items: center; font-weight: 800; color: #fff; position: relative;
-            background: linear-gradient(135deg, hsl(var(--h) 70% 55%), hsl(calc(var(--h) + 40) 70% 40%)); }
-        .pod .medal { position: absolute; right: -6px; top: -6px; width: 20px; height: 20px; border-radius: 9999px; display: grid; place-items: center; font-size: 10px; color: #1c1917; }
-        .pod .step { border-radius: 12px 12px 4px 4px; padding: 8px 4px; font-weight: 800; color: #fff; font-size: 14px; }
-        .pod.p1 .step { height: 74px; background: linear-gradient(180deg, rgba(251, 191, 36, .28), rgba(251, 191, 36, .06)); }
-        .pod.p2 .step { height: 56px; background: linear-gradient(180deg, rgba(203, 213, 225, .22), rgba(203, 213, 225, .05)); }
-        .pod.p3 .step { height: 44px; background: linear-gradient(180deg, rgba(217, 119, 6, .24), rgba(217, 119, 6, .05)); }
-        .pod.p1 .medal { background: #fbbf24; } .pod.p2 .medal { background: #cbd5e1; } .pod.p3 .medal { background: #d97706; }
-        .pod p { font-size: 12px; font-weight: 700; color: rgba(233,231,245,.8); margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pod .face { width: 46px; height: 46px; margin: 0 auto 8px; border-radius: 14px; display: grid; place-items: center; font-weight: 800; color: var(--ink-2); position: relative; background: var(--surface-3); }
+        .pod .medal { position: absolute; right: -6px; top: -6px; width: 20px; height: 20px; border-radius: 9999px; display: grid; place-items: center; font-size: 10px; color: #fff; border: 2px solid var(--surface); }
+        .pod .step { border-radius: 10px 10px 4px 4px; padding: 8px 4px; font-weight: 800; color: var(--ink); font-size: 14px; }
+        .pod.p1 .step { height: 74px; background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); }
+        .pod.p2 .step { height: 56px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+        .pod.p3 .step { height: 44px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+        .pod.p1 .medal { background: var(--accent); } .pod.p2 .medal { background: #a8a29e; } .pod.p3 .medal { background: #c08457; }
+        .pod p { font-size: 12px; font-weight: 700; color: var(--ink-2); margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
         /* ---------- Модалки ---------- */
-        .star-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.035); }
+        .star-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); }
         .stepper { display: flex; align-items: center; gap: 6px; }
         .stepper button { width: 34px; height: 34px; border-radius: 10px; font-weight: 800; font-size: 16px; transition: transform var(--spring-dur) var(--spring); }
         .stepper button:active { transform: scale(.88); }
@@ -230,7 +217,7 @@
                     <a href="{% url 'book_reader' book.id %}" class="book mt-3">
                         {% if book.photo %}<img src="{{ book.photo.url }}" alt="" class="book-cover">{% else %}<span class="book-cover"><i class="fas fa-book-open"></i></span>{% endif %}
                         <span class="min-w-0 flex-1">
-                            <span class="block text-[11px] font-extrabold uppercase tracking-wider text-amber-300/80">Учебник группы</span>
+                            <span class="block text-[11px] font-extrabold uppercase tracking-wider text-orange-600">Учебник группы</span>
                             <span class="block text-white font-bold truncate notranslate">{{ book.title }}</span>
                         </span>
                         <i class="fas fa-arrow-up-right-from-square text-gray-500"></i>
@@ -260,7 +247,7 @@
             <div class="panel kpi">
                 <p class="eyebrow">Домашка</p>
                 <p class="kpi-value mt-4">{% if homework_rate is not None %}{{ homework_rate }}<small>%</small>{% else %}—{% endif %}</p>
-                <div class="meter mt-4" style="background: rgba(52, 211, 153, .13)"><i data-width="{{ homework_rate|default:0 }}" style="background: var(--ok)"></i></div>
+                <div class="meter mt-4"><i data-width="{{ homework_rate|default:0 }}" style="background: var(--ok)"></i></div>
                 <p class="mt-3 text-xs text-gray-400 flex items-center gap-2">
                     {% if homework_delta is not None %}<span title="Сравнение с 30 днями до этого" class="delta {% if homework_delta > 0 %}up{% elif homework_delta < 0 %}down{% else %}flat{% endif %}"><i class="fas {% if homework_delta > 0 %}fa-arrow-up{% elif homework_delta < 0 %}fa-arrow-down{% else %}fa-minus{% endif %}"></i>{% if homework_delta > 0 %}+{% endif %}{{ homework_delta }}</span> за 30 дней
                     {% else %}сдано за 30 дней{% endif %}
@@ -269,14 +256,14 @@
             <div class="panel kpi">
                 <p class="eyebrow">Уроки</p>
                 <p class="kpi-value mt-4">{{ held }}<small> из {{ planned }}</small></p>
-                <div class="meter mt-4" style="background: rgba(167, 139, 250, .14)"><i data-width="{{ held_share }}" style="background: #a78bfa"></i></div>
+                <div class="meter mt-4"><i data-width="{{ held_share }}" style="background: var(--accent)"></i></div>
                 <p class="mt-3 text-xs text-gray-400">проведено в периоде {{ period_start|date:"d.m" }}–{{ period_end|date:"d.m" }}</p>
             </div>
             {% if can_money %}
             <a href="{% url 'payments_page' %}" class="panel kpi block">
                 <p class="eyebrow">Оплаты</p>
                 <p class="kpi-value mt-4">{{ paid_count }}<small> из {{ billable_count }}</small></p>
-                <div class="flex gap-[2px] mt-4 h-[6px]">{% for d in student_data %}{% if d.billable or d.is_paid %}<i class="flex-1 rounded-sm" style="background: {% if d.is_paid %}var(--ok){% else %}rgba(52, 211, 153, .13){% endif %}"></i>{% endif %}{% endfor %}</div>
+                <div class="flex gap-[2px] mt-4 h-[6px]">{% for d in student_data %}{% if d.billable or d.is_paid %}<i class="flex-1 rounded-sm" style="background: {% if d.is_paid %}var(--ok){% else %}var(--surface-3){% endif %}"></i>{% endif %}{% endfor %}</div>
                 <p class="mt-3 text-xs text-gray-400">оплатили за месяц →</p>
             </a>
             {% else %}
@@ -380,8 +367,8 @@
                         </div>
                         {% elif data.rate is not None %}
                         <svg class="rate-ring -rotate-90" viewBox="0 0 46 46" aria-label="Посещаемость {{ data.rate }}%">
-                            <circle cx="23" cy="23" r="19" stroke="rgba(255,255,255,.08)"/>
-                            <circle cx="23" cy="23" r="19" stroke="{% if data.rate >= 80 %}#34d399{% elif data.rate >= 50 %}#fbbf24{% else %}#fb7185{% endif %}" stroke-linecap="round"
+                            <circle cx="23" cy="23" r="19" style="stroke: var(--surface-3)"/>
+                            <circle cx="23" cy="23" r="19" stroke="{% if data.rate >= 80 %}#16a34a{% elif data.rate >= 50 %}#f59e0b{% else %}#dc2626{% endif %}" stroke-linecap="round"
                                     stroke-dasharray="119.4" style="stroke-dashoffset: calc(119.4px * (1 - {{ data.rate }} / 100))"/>
                             <text x="23" y="27" text-anchor="middle" transform="rotate(90 23 23)">{{ data.rate }}</text>
                         </svg>
@@ -420,7 +407,7 @@
                 <section class="panel p-6">
                     <div class="side-title">
                         <p class="eyebrow">Лидеры по звёздам</p>
-                        <span class="text-xs font-bold text-amber-200/80"><i class="fas fa-star mr-1"></i>{{ stars_month }} за месяц</span>
+                        <span class="text-xs font-bold text-gray-500"><i class="fas fa-star mr-1"></i>{{ stars_month }} за месяц</span>
                     </div>
                     {% if leaders %}
                     <div class="podium">
@@ -451,20 +438,20 @@
                     <span class="savatar notranslate" style="width: 36px; height: 36px; font-size: 14px; border-radius: 12px">{{ data.student.name|slice:":1"|upper }}</span>
                     <div class="flex-1 min-w-0">
                         <p class="font-bold text-white truncate notranslate">{{ data.student.name }}</p>
-                        <p class="text-xs text-gray-400"><i class="fas fa-star text-amber-300/70"></i> всего {{ data.stars }}</p>
+                        <p class="text-xs text-gray-400"><i class="fas fa-star text-amber-400"></i> всего {{ data.stars }}</p>
                     </div>
                     <div class="stepper">
-                        <button type="button" onclick="stepStars({{ data.student.id }}, -1)" class="bg-white/10 text-white" aria-label="Меньше">−</button>
+                        <button type="button" onclick="stepStars({{ data.student.id }}, -1)" class="bg-gray-100 text-gray-800 border border-gray-200" aria-label="Меньше">−</button>
                         <input type="number" min="0" max="100" inputmode="numeric" class="star-input"
                                data-student-id="{{ data.student.id }}" data-initial="{{ data.stars_today }}" value="{{ data.stars_today }}">
-                        <button type="button" onclick="stepStars({{ data.student.id }}, 1)" class="bg-amber-400 text-stone-900" aria-label="Больше">+</button>
+                        <button type="button" onclick="stepStars({{ data.student.id }}, 1)" class="bg-orange-500 text-white" aria-label="Больше">+</button>
                     </div>
                 </div>
                 {% endfor %}
             </div>
             <div class="flex gap-3">
-                <button onclick="submitStars()" class="flex-1 bg-amber-400 text-stone-900 py-3 rounded-xl font-extrabold"><i class="fas fa-check mr-1"></i> Выдать</button>
-                <button onclick="toggleStarModal()" class="px-6 py-3 bg-white/10 text-white rounded-xl font-bold">Отмена</button>
+                <button onclick="submitStars()" class="flex-1 bg-orange-500 text-white py-3 rounded-xl font-extrabold"><i class="fas fa-check mr-1"></i> Выдать</button>
+                <button onclick="toggleStarModal()" class="px-6 py-3 bg-gray-100 text-gray-800 rounded-xl font-bold">Отмена</button>
             </div>
         </div>
     </div>
@@ -488,14 +475,14 @@
             </div>
             <div class="flex gap-2">
                 <button onclick="openProfile()" class="flex-1 bg-indigo-500 text-white py-2.5 rounded-xl text-sm font-bold"><i class="fas fa-user mr-1"></i>Профиль</button>
-                <button onclick="openCalibration()" class="flex-1 bg-white/10 text-white py-2.5 rounded-xl text-sm font-bold"><i class="fas fa-scale-balanced mr-1"></i>Калибровка</button>
+                <button onclick="openCalibration()" class="flex-1 bg-gray-100 text-gray-800 py-2.5 rounded-xl text-sm font-bold"><i class="fas fa-scale-balanced mr-1"></i>Калибровка</button>
             </div>
             {% if can_manage %}
             <form id="deleteFromGroupForm" method="POST"
                   data-url-template="{% url 'remove_student_from_group' 999999999 group.id %}"
                   onsubmit="return deleteFromGroupConfirm();">
                 {% csrf_token %}
-                <button type="submit" class="block text-center w-full mt-2 bg-rose-500/15 text-rose-200 py-2.5 rounded-xl text-sm font-bold hover:bg-rose-500/25 transition">
+                <button type="submit" class="block text-center w-full mt-2 bg-red-50 text-red-600 py-2.5 rounded-xl text-sm font-bold hover:bg-red-100 transition">
                     <i class="fas fa-user-minus mr-1"></i>Убрать из группы
                 </button>
             </form>
@@ -529,7 +516,7 @@
             </div>
             <div class="flex gap-2">
                 <button onclick="submitCalibration()" class="flex-1 bg-indigo-500 text-white py-2.5 rounded-xl text-sm font-bold"><i class="fas fa-check mr-1"></i>Сохранить</button>
-                <button onclick="closeCalibration()" class="px-4 py-2.5 bg-white/10 text-white rounded-xl text-sm font-bold">Отмена</button>
+                <button onclick="closeCalibration()" class="px-4 py-2.5 bg-gray-100 text-gray-800 rounded-xl text-sm font-bold">Отмена</button>
             </div>
         </div>
     </div>
@@ -554,8 +541,8 @@
                 <textarea id="bookRequestComment" rows="3" class="w-full px-3 py-2 border rounded-xl text-sm" placeholder="Например: Family and Friends 2, Workbook"></textarea>
             </div>
             <div class="flex gap-3">
-                <button onclick="submitBookRequest()" class="flex-1 bg-amber-400 text-stone-900 py-3 rounded-xl font-extrabold">Отправить запрос</button>
-                <button onclick="toggleBookRequest()" class="px-6 py-3 bg-white/10 text-white rounded-xl font-bold">Отмена</button>
+                <button onclick="submitBookRequest()" class="flex-1 bg-orange-500 text-white py-3 rounded-xl font-extrabold">Отправить запрос</button>
+                <button onclick="toggleBookRequest()" class="px-6 py-3 bg-gray-100 text-gray-800 rounded-xl font-bold">Отмена</button>
             </div>
         </div>
     </div>
