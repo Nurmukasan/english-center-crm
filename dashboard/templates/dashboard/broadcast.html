@@ -136,6 +136,13 @@
         .howto b { color: var(--ink); }
         .howto .n { width: 24px; height: 24px; border-radius: 9999px; display: grid; place-items: center; font-size: 12px; font-weight: 800; flex-shrink: 0;
             background: var(--accent-soft); color: var(--accent-ink); }
+        .prov { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .prov button { text-align: left; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
+        .prov button b { display: block; font-size: 14px; color: var(--ink); }
+        .prov button span { font-size: 12px; color: var(--muted); }
+        .prov button.is-on { border-color: var(--wa); background: var(--wa-soft); box-shadow: inset 0 0 0 1px var(--wa); }
+        .qr-frame { display: grid; place-items: center; min-height: 244px; padding: 12px; border-radius: 16px; background: #fff; border: 1px solid var(--line); color: #555; font-size: 14px; text-align: center; }
+        .qr-frame img { width: 220px; height: 220px; image-rendering: pixelated; }
         .bind-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
         .bind-row + .bind-row { border-top: 1px solid var(--line); }
         html.ee .bind-row select { flex: 1; min-width: 0; padding: 7px 10px; border-radius: 10px; font-size: 13px; }
@@ -327,26 +334,58 @@
             </div>
 
             {% if can_setup %}
+            {% if settings.provider == 'waha' and settings.is_configured and mode != 'api' %}
+            <div class="qr-box mb-6" id="qrBox">
+                <p class="font-bold mb-1">Отсканируйте QR-код</p>
+                <p class="text-sm text-gray-500 mb-3">На телефоне с WhatsApp центра: <b>Настройки → Связанные устройства → Привязка устройства</b>. Код обновляется сам.</p>
+                <div class="qr-frame"><img id="qrImg" alt="QR-код WhatsApp" hidden><span id="qrNote"><i class="fas fa-spinner fa-spin mr-1"></i>Загружаем QR-код…</span></div>
+            </div>
+            {% endif %}
             <p class="font-bold mb-2">Как подключить автоматическую отправку</p>
-            <ol class="howto mb-6">
-                <li><span class="n">1</span><span>Зарегистрируйтесь на <b>green-api.com</b> и создайте инстанс (выберите платный тариф — на бесплатном можно писать только в 3 чата).</span></li>
-                <li><span class="n">2</span><span>В кабинете Green API отсканируйте QR-код телефоном с WhatsApp центра: <b>Настройки → Связанные устройства</b>.</span></li>
-                <li><span class="n">3</span><span>Скопируйте из кабинета <b>apiUrl</b>, <b>idInstance</b> и <b>apiTokenInstance</b> в поля ниже и нажмите «Подключить».</span></li>
-                <li><span class="n">4</span><span>Привяжите группы CRM к групповым чатам WhatsApp — список появится ниже.</span></li>
-            </ol>
+            <div class="prov mb-4" role="radiogroup">
+                <button type="button" data-prov="waha" onclick="setProvider('waha')"><b>Свой сервер</b><span>WAHA · бесплатно</span></button>
+                <button type="button" data-prov="green" onclick="setProvider('green')"><b>Green API</b><span>платный сервис</span></button>
+            </div>
 
             <form method="POST" action="{% url 'whatsapp_settings' %}" class="space-y-3">
                 {% csrf_token %}
-                <label class="block text-sm font-bold">apiUrl
-                    <input type="text" name="api_url" value="{{ settings.api_url }}" class="mt-1 w-full px-3 py-2.5 border rounded-xl font-normal" placeholder="https://api.green-api.com">
-                </label>
-                <label class="block text-sm font-bold">idInstance
-                    <input type="text" name="instance_id" value="{{ settings.instance_id }}" inputmode="numeric" class="mt-1 w-full px-3 py-2.5 border rounded-xl font-normal" placeholder="1101000001">
-                </label>
-                <label class="block text-sm font-bold">apiTokenInstance
-                    <input type="password" name="token" class="mt-1 w-full px-3 py-2.5 border rounded-xl font-normal" autocomplete="off"
-                           placeholder="{% if token_hint %}сохранён ({{ token_hint }}) — оставьте пустым, чтобы не менять{% else %}d75b3a66374942c5b3c019c698abc2067e151558acbd412345{% endif %}">
-                </label>
+                <input type="hidden" name="provider" id="providerInput" value="{{ settings.provider }}">
+
+                <div data-section="waha" class="space-y-3">
+                    <ol class="howto mb-3">
+                        <li><span class="n">1</span><span>Программист ставит <b>WAHA</b> на сервер CRM — это бесплатно, инструкция в файле <b>docs/whatsapp-waha.md</b>.</span></li>
+                        <li><span class="n">2</span><span>Впишите адрес WAHA и API-ключ (он в файле <b>.env</b> рядом с WAHA) и нажмите «Подключить».</span></li>
+                        <li><span class="n">3</span><span>Ниже появится QR-код — отсканируйте его телефоном с WhatsApp центра: <b>Настройки → Связанные устройства</b>.</span></li>
+                        <li><span class="n">4</span><span>Привяжите группы CRM к групповым чатам WhatsApp — список появится ниже.</span></li>
+                    </ol>
+                    <label class="block text-sm font-bold">Адрес WAHA
+                        <input type="text" name="api_url" value="{% if settings.provider == 'waha' %}{{ settings.api_url }}{% else %}http://localhost:3000{% endif %}" class="mt-1 w-full px-3 py-2.5 border rounded-xl font-normal" placeholder="http://localhost:3000">
+                    </label>
+                    <label class="block text-sm font-bold">API-ключ
+                        <input type="password" name="token" class="mt-1 w-full px-3 py-2.5 border rounded-xl font-normal" autocomplete="off"
+                               placeholder="{% if token_hint and settings.provider == 'waha' %}сохранён ({{ token_hint }}) — оставьте пустым, чтобы не менять{% else %}WAHA_API_KEY из файла .env{% endif %}">
+                    </label>
+                </div>
+
+                <div data-section="green" class="space-y-3">
+                    <ol class="howto mb-3">
+                        <li><span class="n">1</span><span>Зарегистрируйтесь на <b>green-api.com</b> и создайте инстанс (выберите платный тариф — на бесплатном можно писать только в 3 чата).</span></li>
+                        <li><span class="n">2</span><span>В кабинете Green API отсканируйте QR-код телефоном с WhatsApp центра: <b>Настройки → Связанные устройства</b>.</span></li>
+                        <li><span class="n">3</span><span>Скопируйте из кабинета <b>apiUrl</b>, <b>idInstance</b> и <b>apiTokenInstance</b> в поля ниже и нажмите «Подключить».</span></li>
+                        <li><span class="n">4</span><span>Привяжите группы CRM к групповым чатам WhatsApp — список появится ниже.</span></li>
+                    </ol>
+                    <label class="block text-sm font-bold">apiUrl
+                        <input type="text" name="api_url" value="{% if settings.provider == 'green' %}{{ settings.api_url }}{% else %}https://api.green-api.com{% endif %}" class="mt-1 w-full px-3 py-2.5 border rounded-xl font-normal" placeholder="https://api.green-api.com">
+                    </label>
+                    <label class="block text-sm font-bold">idInstance
+                        <input type="text" name="instance_id" value="{{ settings.instance_id }}" inputmode="numeric" class="mt-1 w-full px-3 py-2.5 border rounded-xl font-normal" placeholder="1101000001">
+                    </label>
+                    <label class="block text-sm font-bold">apiTokenInstance
+                        <input type="password" name="token" class="mt-1 w-full px-3 py-2.5 border rounded-xl font-normal" autocomplete="off"
+                               placeholder="{% if token_hint and settings.provider == 'green' %}сохранён ({{ token_hint }}) — оставьте пустым, чтобы не менять{% else %}d75b3a66374942c5b3c019c698abc2067e151558acbd412345{% endif %}">
+                    </label>
+                </div>
+
                 <div class="flex gap-2 pt-1">
                     <button type="submit" class="flex-1 bg-orange-500 text-white py-3 rounded-xl font-bold">Подключить и проверить</button>
                     {% if settings.is_configured %}
@@ -631,8 +670,43 @@
         }
 
         /* ---------- Подключение ---------- */
-        function openDrawer() { $('drawer').classList.add('open'); if (MODE === 'api' && !window.chatsLoaded) loadChats(); }
-        function closeDrawer() { $('drawer').classList.remove('open'); }
+        function openDrawer() {
+            $('drawer').classList.add('open');
+            if (MODE === 'api' && !window.chatsLoaded) loadChats();
+            if ($('qrBox')) pollQr();
+        }
+        function closeDrawer() { $('drawer').classList.remove('open'); clearTimeout(window.qrTimer); }
+        // Способ подключения: поля другого способа выключаем, чтобы не ушли с формой
+        function setProvider(p) {
+            if (!$('providerInput')) return;
+            $('providerInput').value = p;
+            document.querySelectorAll('.prov button').forEach(b => b.classList.toggle('is-on', b.dataset.prov === p));
+            document.querySelectorAll('[data-section]').forEach(sec => {
+                sec.hidden = sec.dataset.section !== p;
+                sec.querySelectorAll('input').forEach(i => i.disabled = sec.hidden);
+            });
+        }
+        // WAHA: показываем QR-код и ждём, пока его отсканируют
+        async function pollQr() {
+            clearTimeout(window.qrTimer);
+            let next = 4000;
+            try {
+                const data = await (await fetch('{% url "whatsapp_qr" %}')).json();
+                if (data.state === 'WORKING') { location.href = location.pathname; return; }
+                const img = $('qrImg'), note = $('qrNote');
+                img.hidden = !data.qr;
+                if (data.qr) img.src = data.qr;
+                note.hidden = !!data.qr;
+                if (data.error) { note.textContent = data.error; next = 10000; }
+                else if (!data.qr) note.textContent = 'WhatsApp запускается — QR-код появится через несколько секунд…';
+            } catch (e) { $('qrNote').textContent = 'Нет связи с сервером'; next = 10000; }
+            if ($('drawer').classList.contains('open')) window.qrTimer = setTimeout(pollQr, next);
+        }
+        setProvider('{{ settings.provider }}');
+        if (new URLSearchParams(location.search).get('setup') === '1') {
+            history.replaceState(null, '', location.pathname);
+            openDrawer();
+        }
         document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
         async function loadChats() {
             try {

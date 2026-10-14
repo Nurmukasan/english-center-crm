@@ -742,7 +742,7 @@ class BroadcastTests(CRMTestCase):
         from unittest import mock
         from .models import WhatsAppSettings
         self.assertNotIn('start=1', self.create(self.admin).json()['url'])
-        WhatsAppSettings.objects.update_or_create(pk=1, defaults={'instance_id': '1101', 'token': 'secret'})
+        WhatsAppSettings.objects.update_or_create(pk=1, defaults={'provider': 'green', 'instance_id': '1101', 'token': 'secret'})
         with mock.patch('dashboard.whatsapp.GreenAPI.state', return_value='authorized'):
             data = self.create(self.admin).json()
         self.assertTrue(data['url'].endswith(f'/broadcast/{data["id"]}/?start=1'))
@@ -759,10 +759,10 @@ class BroadcastTests(CRMTestCase):
         from unittest import mock
         from .models import BroadcastMessage, WhatsAppSettings
         from .whatsapp import WhatsAppError
-        WhatsAppSettings.objects.create(pk=1, instance_id='1101', token='secret')
+        WhatsAppSettings.objects.create(pk=1, provider='green', instance_id='1101', token='secret')
         self.create(self.admin, excluded=['p77014445566'])
         message = BroadcastMessage.objects.get()
-        with mock.patch('dashboard.broadcasts.GreenAPI.send', return_value='BAE5') as send:
+        with mock.patch('dashboard.whatsapp.GreenAPI.send', return_value='BAE5') as send:
             data = self.client.post(f'/broadcast/message/{message.id}/send/').json()
             self.assertEqual(data['status'], 'sent')
             send.assert_called_once_with('77001112233@c.us', message.text)
@@ -771,7 +771,7 @@ class BroadcastTests(CRMTestCase):
             self.assertEqual(send.call_count, 1)
         message.status = 'pending'
         message.save()
-        with mock.patch('dashboard.broadcasts.GreenAPI.send', side_effect=WhatsAppError('Нет связи с Green API')):
+        with mock.patch('dashboard.whatsapp.GreenAPI.send', side_effect=WhatsAppError('Нет связи с Green API')):
             data = self.client.post(f'/broadcast/message/{message.id}/send/').json()
         self.assertEqual(data['status'], 'failed')
         message.refresh_from_db()
@@ -809,7 +809,7 @@ class BroadcastTests(CRMTestCase):
             def __exit__(self, *a):
                 return False
 
-        settings = WhatsAppSettings(api_url='https://7103.api.greenapi.com/', instance_id='1101', token='tok')
+        settings = WhatsAppSettings(provider='green', api_url='https://7103.api.greenapi.com/', instance_id='1101', token='tok')
         with mock.patch('urllib.request.urlopen', return_value=Response(b'{"idMessage": "BAE5"}')) as urlopen:
             self.assertEqual(GreenAPI(settings).send('77001112233@c.us', 'Привет'), 'BAE5')
         request = urlopen.call_args[0][0]
@@ -818,3 +818,65 @@ class BroadcastTests(CRMTestCase):
         contacts = b'[{"id": "1@g.us", "name": "B", "type": "group"}, {"id": "2@c.us", "name": "A", "type": "user"}]'
         with mock.patch('urllib.request.urlopen', return_value=Response(contacts)):
             self.assertEqual(GreenAPI(settings).groups(), [('1@g.us', 'B')])
+
+    def test_waha_client(self):
+        import io
+        import urllib.error
+        from unittest import mock
+        from .models import WhatsAppSettings
+        from .whatsapp import WAHA
+
+        class Response(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        settings = WhatsAppSettings(provider='waha', api_url='http://localhost:3000/', token='key')
+        self.assertTrue(settings.is_configured)
+        with mock.patch('urllib.request.urlopen', return_value=Response(b'{"id": "true_77001112233@c.us_3EB0"}')) as urlopen:
+            self.assertEqual(WAHA(settings).send('77001112233@c.us', 'Привет'), 'true_77001112233@c.us_3EB0')
+        request = urlopen.call_args[0][0]
+        self.assertEqual(request.full_url, 'http://localhost:3000/api/sendText')
+        self.assertEqual(request.get_header('X-api-key'), 'key')
+        self.assertEqual(json.loads(request.data), {'session': 'default', 'chatId': '77001112233@c.us', 'text': 'Привет'})
+        # Группы: у разных движков WAHA разный формат ответа
+        webjs = b'[{"id": {"_serialized": "1@g.us"}, "name": "B"}, {"id": "2@c.us", "name": "A"}]'
+        noweb = b'{"3@g.us": {"id": "3@g.us", "subject": "C"}}'
+        with mock.patch('urllib.request.urlopen', side_effect=[Response(webjs), Response(noweb)]):
+            self.assertEqual(WAHA(settings).groups(), [('1@g.us', 'B')])
+            self.assertEqual(WAHA(settings).groups(), [('3@g.us', 'C')])
+        # Сессии ещё нет — WAHA отвечает 404
+        not_found = urllib.error.HTTPError('http://localhost:3000/api/sessions/default', 404, 'Not Found', {}, None)
+        with mock.patch('urllib.request.urlopen', side_effect=not_found):
+            self.assertEqual(WAHA(settings).state(), 'missing')
+
+    def test_connect_waha_and_send(self):
+        from unittest import mock
+        from .models import BroadcastMessage, WhatsAppSettings
+        self.login(self.admin)
+        with mock.patch('dashboard.whatsapp.WAHA.state', return_value='missing'), \
+                mock.patch('dashboard.whatsapp.WAHA.start') as start:
+            response = self.client.post('/broadcast/whatsapp/', {'provider': 'waha', 'api_url': 'http://localhost:3000', 'token': 'key'})
+        self.assertRedirects(response, '/broadcast/?setup=1', fetch_redirect_response=False)
+        start.assert_called_once()
+        settings = WhatsAppSettings.load()
+        self.assertEqual((settings.provider, settings.token), ('waha', 'key'))
+        # Экран подключения показывает QR-код
+        with mock.patch('dashboard.whatsapp.WAHA.state', return_value='SCAN_QR_CODE'), \
+                mock.patch('dashboard.whatsapp.WAHA.qr', return_value='data:image/png;base64,AAA'):
+            data = self.client.get('/broadcast/whatsapp/qr/').json()
+        self.assertEqual(data, {'state': 'SCAN_QR_CODE', 'qr': 'data:image/png;base64,AAA'})
+        # QR отсканирован — рассылка уходит сама через WAHA
+        with mock.patch('dashboard.whatsapp.WAHA.state', return_value='WORKING'):
+            self.assertEqual(self.client.get('/broadcast/whatsapp/qr/').json()['state'], 'WORKING')
+            created = self.create(self.admin, excluded=['p77014445566']).json()
+        self.assertIn('?start=1', created['url'])
+        message = BroadcastMessage.objects.get()
+        with mock.patch('dashboard.whatsapp.WAHA.send', return_value='3EB0') as send:
+            self.assertEqual(self.client.post(f'/broadcast/message/{message.id}/send/').json()['status'], 'sent')
+        send.assert_called_once_with('77001112233@c.us', message.text)
+        # Учителю и бухгалтеру настройки WAHA недоступны
+        self.login(self.accountant)
+        self.assertEqual(self.client.get('/broadcast/whatsapp/qr/').status_code, 403)

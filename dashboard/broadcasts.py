@@ -11,6 +11,7 @@ from django.contrib import messages
 from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -19,7 +20,7 @@ from .views import (
     MONTHS_RU, crm_view, get_current_period, get_period, get_user_role, money, month_rows,
 )
 from .whatsapp import (
-    GreenAPI, WhatsAppError, chat_id_for_phone, connection_status, format_phone, normalize_phone, wa_link,
+    WhatsAppError, chat_id_for_phone, client, connection_status, format_phone, normalize_phone, wa_link, waha_status,
 )
 
 SEND_ROLES = ('admin', 'developer', 'accountant')
@@ -438,7 +439,7 @@ def broadcast_detail(request, broadcast_id):
     mode, status_label, _ = current_mode()
     items = list(broadcast.messages.all())
     for m in items:
-        # Автоматически — если подключён Green API и есть куда слать; иначе вручную по ссылке
+        # Автоматически — если WhatsApp подключён (WAHA или Green API) и есть куда слать; иначе вручную по ссылке
         m.auto = mode == 'api' and bool(m.chat_id)
         m.link = wa_link(m.phone, m.text) if m.phone else ''
         m.phone_display = format_phone(m.phone)
@@ -462,7 +463,7 @@ def broadcast_detail(request, broadcast_id):
 @crm_view
 @require_POST
 def broadcast_send(request, message_id):
-    """Отправить одно сообщение через Green API (страница шлёт их по очереди)"""
+    """Отправить одно сообщение через WAHA или Green API (страница шлёт их по очереди)"""
     if get_user_role(request.user) not in SEND_ROLES:
         return JsonResponse({'success': False, 'error': 'Нет доступа'}, status=403)
     message = get_object_or_404(BroadcastMessage, id=message_id)
@@ -474,7 +475,7 @@ def broadcast_send(request, message_id):
     if not settings.is_configured:
         return JsonResponse({'success': False, 'error': 'WhatsApp не подключён'})
     try:
-        GreenAPI(settings).send(message.chat_id, message.text)
+        client(settings).send(message.chat_id, message.text)
     except WhatsAppError as e:
         message.status, message.error = 'failed', str(e)[:300]
         message.save(update_fields=['status', 'error'])
@@ -504,7 +505,7 @@ def broadcast_mark(request, message_id):
 @crm_view
 @require_POST
 def whatsapp_settings(request):
-    """Сохранить подключение Green API и сразу проверить его"""
+    """Сохранить подключение (WAHA или Green API) и сразу проверить его"""
     if get_user_role(request.user) not in SETUP_ROLES:
         messages.error(request, 'У вас нет доступа')
         return redirect('broadcast_page')
@@ -514,18 +515,49 @@ def whatsapp_settings(request):
         settings.save()
         messages.success(request, 'WhatsApp отключён — рассылки будут в ручном режиме.')
         return redirect('broadcast_page')
-    settings.api_url = (request.POST.get('api_url') or 'https://api.green-api.com').strip()[:200]
-    settings.instance_id = re.sub(r'\D', '', request.POST.get('instance_id', ''))[:50]
+    provider = request.POST.get('provider') if request.POST.get('provider') in ('waha', 'green') else 'waha'
+    if provider != settings.provider:
+        # Другой способ — старый ключ к нему не подходит
+        settings.provider, settings.token = provider, ''
+    settings.api_url = (request.POST.get('api_url') or settings.DEFAULT_URLS[provider]).strip()[:200]
+    settings.instance_id = re.sub(r'\D', '', request.POST.get('instance_id', ''))[:50] if provider == 'green' else ''
     token = request.POST.get('token', '').strip()
     if token:
         settings.token = token[:200]
     settings.save()
+    if provider == 'waha' and settings.is_configured:
+        # WAHA: проверяем связь и запускаем WhatsApp — дальше на странице покажется QR-код
+        try:
+            state, _ = waha_status(settings)
+        except WhatsAppError as e:
+            messages.error(request, f'Не получилось подключиться: {e}')
+            return redirect('broadcast_page')
+        if state == 'WORKING':
+            messages.success(request, 'WhatsApp подключён — рассылки будут уходить автоматически.')
+        else:
+            messages.success(request, 'WAHA на связи. Отсканируйте QR-код телефоном с WhatsApp центра.')
+        return redirect(reverse('broadcast_page') + '?setup=1')
     mode, label = connection_status(settings, fresh=True)
     if mode == 'api':
         messages.success(request, 'WhatsApp подключён — рассылки будут уходить автоматически.')
     else:
         messages.error(request, f'Не получилось подключиться: {label}')
     return redirect('broadcast_page')
+
+
+@crm_view
+def whatsapp_qr(request):
+    """JSON для экрана подключения WAHA: состояние и QR-код (страница спрашивает раз в несколько секунд)"""
+    if get_user_role(request.user) not in SETUP_ROLES:
+        return JsonResponse({'error': 'Нет доступа'}, status=403)
+    settings = WhatsAppSettings.load()
+    if settings.provider != 'waha' or not settings.is_configured:
+        return JsonResponse({'error': 'WAHA не настроен'}, status=400)
+    try:
+        state, qr = waha_status(settings)
+    except WhatsAppError as e:
+        return JsonResponse({'state': 'error', 'error': str(e)})
+    return JsonResponse({'state': state, 'qr': qr})
 
 
 @crm_view
@@ -537,7 +569,7 @@ def whatsapp_groups(request):
     if not settings.is_configured:
         return JsonResponse({'error': 'WhatsApp не подключён'}, status=400)
     try:
-        chats = GreenAPI(settings).groups()
+        chats = client(settings).groups()
     except WhatsAppError as e:
         return JsonResponse({'error': str(e)}, status=502)
     return JsonResponse({'chats': [{'id': cid, 'name': name} for cid, name in chats]})
