@@ -839,6 +839,7 @@ def profile(request):
 
 
 import openpyxl
+from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from django.http import HttpResponse
 
@@ -863,98 +864,135 @@ def export_excel(request):
     header_alignment = Alignment(horizontal='center', vertical='center')
     cell_alignment = Alignment(vertical='center')
     
-    # Лист 1
+    # Лист 1: ученики — успеваемость и оплаты по новой схеме (уроки в периоде × цена за урок)
+    from django.db.models import Count
+    MONTHS_SHORT = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
+    paid_fill = PatternFill(start_color='DCFCE7', end_color='DCFCE7', fill_type='solid')
+    unpaid_fill = PatternFill(start_color='FEE2E2', end_color='FEE2E2', fill_type='solid')
+    partial_fill = PatternFill(start_color='FEF3C7', end_color='FEF3C7', fill_type='solid')
+    muted_font = Font(color='9CA3AF')
+
+    enrollments = list(Enrollment.objects.select_related('student', 'group').order_by('student__name', 'group__name'))
+    students_without_group = list(Student.objects.filter(enrollments__isnull=True).order_by('name'))
+
+    # Посещаемость, ДЗ и звёзды — одним запросом по каждой паре «ученик + группа»
+    stats = {}
+    for st in Attendance.objects.values('student_id', 'lesson__group_id').annotate(
+        total=Count('id'),
+        present=Count('id', filter=Q(status__in=['present', 'late'])),
+        homework=Count('id', filter=Q(homework_done=True)),
+        starred=Count('id', filter=Q(stars__gt=0)),
+        stars=Sum('stars'),
+    ):
+        stats[(st['student_id'], st['lesson__group_id'])] = st
+
+    # Последние 12 месяцев оплаты, заканчивая самым поздним текущим периодом среди групп
+    current_by_group = {}
+    for e in enrollments:
+        if e.group_id not in current_by_group:
+            current_by_group[e.group_id] = get_current_period(e.group.cycle_start_day)
+    last_y, last_m = max(current_by_group.values(), default=get_current_period())
+    months = []
+    y, m = last_y, last_m
+    for _ in range(12):
+        months.append((y, m))
+        y, m = (y - 1, 12) if m == 1 else (y, m - 1)
+    months.reverse()
+
+    payments = {
+        (p_student, p_group, p_cycle): (p_paid, p_partial)
+        for p_student, p_group, p_cycle, p_paid, p_partial in Payment.objects.filter(
+            cycle_number__in=[y * 100 + m for y, m in months]
+        ).values_list('student_id', 'group_id', 'cycle_number', 'is_paid', 'is_partial')
+    }
+
+    def payment_status(paid_partial):
+        if paid_partial is None:
+            return '❌ Не оплачено', unpaid_fill
+        paid, partial = paid_partial
+        if paid:
+            return '✅ Оплачено', paid_fill
+        if partial:
+            return '🟡 Частично', partial_fill
+        return '❌ Не оплачено', unpaid_fill
+
     ws1 = wb.active
-    ws1.title = 'Ученики и долги'
-    
-    headers1 = ['Имя', 'Телефон', 'Группы', 'Общий долг (₸)', 'Не оплачено циклов']
+    ws1.title = 'Ученики'
+    headers1 = [
+        'Ученик', 'Телефон', 'Телефон родителя', 'Группа',
+        'Посещаемость', 'ДЗ выполнено', 'Уроки со звёздами', 'Звёзд всего',
+        'Цена за урок (₸)', 'Уроков в текущем месяце', 'К оплате за текущий месяц (₸)', 'Текущий месяц',
+    ] + [f'{MONTHS_SHORT[m - 1]} {y}' for y, m in months]
     for col, header in enumerate(headers1, 1):
         cell = ws1.cell(row=1, column=col, value=header)
         cell.font = header_font
         cell.fill = header_fill
-        cell.alignment = header_alignment
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         cell.border = border
-    
-    students = Student.objects.all()
-    for row, student in enumerate(students, 2):
-        enrollments = Enrollment.objects.filter(student=student).select_related('group')
-        
-        groups_info = []
-        for enrollment in enrollments:
-            groups_info.append(enrollment.group.name)
-        groups_str = ', '.join(groups_info) if groups_info else '—'
-        
-        total_debt = 0
-        cycles_unpaid = 0
-        
-        for enrollment in enrollments:
-            unpaid_payments = Payment.objects.filter(
-                student=student,
-                group=enrollment.group,
-                is_paid=False
-            )
-            total_debt += sum([float(p.amount) - float(p.paid_amount) for p in unpaid_payments])
-            cycles_unpaid += unpaid_payments.count()
-        
-        data = [
-            student.name,
-            student.phone or '',
-            groups_str,
-            total_debt if total_debt > 0 else 0,
-            cycles_unpaid,
-        ]
-        for col, value in enumerate(data, 1):
+    ws1.row_dimensions[1].height = 36
+
+    def write_row(row, values, fills=None):
+        for col, value in enumerate(values, 1):
             cell = ws1.cell(row=row, column=col, value=value)
             cell.alignment = cell_alignment
             cell.border = border
-            if col == 4 and total_debt > 0:
-                cell.fill = PatternFill(start_color='FEE2E2', end_color='FEE2E2', fill_type='solid')
-                cell.font = Font(color='DC2626', bold=True)
-            elif col == 5 and cycles_unpaid > 0:
-                cell.fill = PatternFill(start_color='FEE2E2', end_color='FEE2E2', fill_type='solid')
-                cell.font = Font(color='DC2626')
-    
-    ws1.column_dimensions['A'].width = 25
-    ws1.column_dimensions['B'].width = 20
-    ws1.column_dimensions['C'].width = 50
-    ws1.column_dimensions['D'].width = 20
-    ws1.column_dimensions['E'].width = 25
-    
-    # Лист 2
-    ws2 = wb.create_sheet('Долги по циклам')
-    
-    headers2 = ['Ученик', 'Телефон', 'Телефон родителя', 'Группа', 'Цена за урок', 'Цикл', 'Период', 'Долг', 'Статус']
-    for col, header in enumerate(headers2, 1):
-        cell = ws2.cell(row=1, column=col, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = header_alignment
-        cell.border = border
-    
-    unpaid = Payment.objects.filter(is_paid=False).select_related('student', 'group').order_by('student__name', 'cycle_number')
-    for row, payment in enumerate(unpaid, 2):
-        period = f"{payment.start_date.strftime('%d.%m')} — {payment.end_date.strftime('%d.%m')}" if payment.start_date and payment.end_date else '—'
-        data = [
-            payment.student.name,
-            payment.student.phone or '—',
-            payment.student.parent_phone or '—',
-            payment.group.name,
-            float(payment.student.price_per_lesson),
-            f"Цикл {payment.cycle_number}",
-            period,
-            float(payment.amount) - float(payment.paid_amount),
-            '❌ Не оплачено',
+            if 5 <= col <= 7 and isinstance(value, float):
+                cell.number_format = '0%'
+            elif col in (9, 11) and isinstance(value, (int, float)):
+                cell.number_format = '#,##0'
+            if fills and col in fills:
+                cell.fill = fills[col]
+            if value == '—':
+                cell.font = muted_font
+
+    def share(part, total):
+        return part / total if total else '—'
+
+    row = 2
+    for e in enrollments:
+        student, group = e.student, e.group
+        st = stats.get((student.id, group.id), {})
+        total = st.get('total', 0)
+
+        cur_y, cur_m = current_by_group[group.id]
+        cur_start, cur_end = get_period(cur_y, cur_m, group.cycle_start_day)
+        price = float(student.price_per_lesson or 0)
+        lessons = count_lessons_in_period(group, cur_start, cur_end)
+        cur_text, cur_fill = payment_status(payments.get((student.id, group.id, cur_y * 100 + cur_m)))
+
+        values = [
+            student.name, student.phone or '—', student.parent_phone or '—', group.name,
+            share(st.get('present', 0), total), share(st.get('homework', 0), total),
+            share(st.get('starred', 0), total), st.get('stars') or 0,
+            price, lessons, price * lessons, cur_text,
         ]
-        for col, value in enumerate(data, 1):
-            cell = ws2.cell(row=row, column=col, value=value)
-            cell.alignment = cell_alignment
-            cell.border = border
-            if col == 7:
-                cell.fill = PatternFill(start_color='FEE2E2', end_color='FEE2E2', fill_type='solid')
-                cell.font = Font(color='DC2626')
-    
-    for letter, width in [('A', 25), ('B', 20), ('C', 20), ('D', 25), ('E', 15), ('F', 15), ('G', 25), ('H', 15), ('I', 20)]:
-        ws2.column_dimensions[letter].width = width
+        fills = {12: cur_fill}
+        for i, (y, m) in enumerate(months):
+            col = len(headers1) - len(months) + 1 + i
+            paid_partial = payments.get((student.id, group.id, y * 100 + m))
+            if paid_partial is not None:
+                text, fill = payment_status(paid_partial)
+                fills[col] = fill
+            elif (y, m) > (cur_y, cur_m):
+                text = ''  # период ещё не начался
+            elif not is_enrolled_by(e, get_period(y, m, group.cycle_start_day)[1]):
+                text = '—'  # ещё не учился в этой группе
+            else:
+                text, fill = payment_status(None)
+                fills[col] = fill
+            values.append(text)
+        write_row(row, values, fills)
+        row += 1
+
+    for student in students_without_group:
+        write_row(row, [student.name, student.phone or '—', student.parent_phone or '—', '—'] + ['—'] * (len(headers1) - 4))
+        row += 1
+
+    widths1 = [26, 18, 18, 22, 14, 14, 14, 12, 14, 14, 18, 16] + [14] * len(months)
+    for i, width in enumerate(widths1, 1):
+        ws1.column_dimensions[get_column_letter(i)].width = width
+    ws1.freeze_panes = 'B2'
+    ws1.auto_filter.ref = ws1.dimensions
     
     # Лист 3
     ws3 = wb.create_sheet('Группы')
