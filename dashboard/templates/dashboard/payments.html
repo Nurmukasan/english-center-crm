@@ -8,10 +8,6 @@
     <script>tailwind.config = { darkMode: 'class' }</script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
-        .goog-te-banner-frame { display: none !important; }
-        body { top: 0 !important; }
-        .skiptranslate { display: none !important; }
-        #google_translate_element { display: none !important; }
 
         :root {
             --money: #34d399;          /* собрано */
@@ -228,7 +224,6 @@
 </head>
 <body class="min-h-screen">
     {% include 'dashboard/partials/shell.html' %}
-    <div id="google_translate_element" style="display:none !important;"></div>
 
     <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
@@ -244,7 +239,7 @@
                 {% endif %}
                 <nav class="month-nav" aria-label="Месяц">
                     <a href="?year={{ prev_year }}&month={{ prev_month }}" aria-label="Предыдущий месяц"><i class="fas fa-chevron-left"></i></a>
-                    <span class="notranslate">{{ month_name }} <b>{{ year }}</b></span>
+                    <span>{{ month_name }} <b>{{ year }}</b></span>
                     <a href="?year={{ next_year }}&month={{ next_month }}" aria-label="Следующий месяц"><i class="fas fa-chevron-right"></i></a>
                 </nav>
             </div>
@@ -316,7 +311,7 @@
                                         <span class="ybar-fill" style="--f: {{ b.fill }}%"></span>
                                         {% if b.is_selected %}<em class="ybar-label" style="--t: {{ b.track }}%" id="selShare">{{ share }}%</em>{% endif %}
                                     </span>
-                                    <span class="ybar-name notranslate">{{ b.short }}</span>
+                                    <span class="ybar-name">{{ b.short }}</span>
                                 </a>
                                 {% endfor %}
                             </div>
@@ -363,10 +358,10 @@
                 <button type="button" class="gcard-head" onclick="toggleCard(this)" aria-expanded="{% if c.all_paid %}false{% else %}true{% endif %}">
                     <span class="gicon"><i class="fas {% if c.group.group_type == 'individual' %}fa-user{% else %}fa-users{% endif %}"></i></span>
                     <span class="min-w-0 flex-1">
-                        <span class="gname notranslate">{{ c.group.name }}{% if not c.group.is_active %}<span class="gtag">архив</span>{% endif %}</span>
+                        <span class="gname"><span class="notranslate">{{ c.group.name }}</span>{% if not c.group.is_active %}<span class="gtag">архив</span>{% endif %}</span>
                         <span class="gmeta"><span class="notranslate">{{ c.group.teacher.username|default:"без учителя" }}</span> · {{ c.lessons }} ур. в периоде</span>
                     </span>
-                    <span class="gsum notranslate"><b data-role="collected">{{ c.collected }}</b><small>из {{ c.expected }} ₸</small></span>
+                    <span class="gsum"><b data-role="collected">{{ c.collected }}</b><small>из {{ c.expected }} ₸</small></span>
                     <i class="fas fa-chevron-down chev"></i>
                 </button>
                 <div class="segbar" aria-hidden="true">{% for r in c.rows %}<i{% if r.is_paid %} class="on"{% endif %}></i>{% endfor %}</div>
@@ -386,7 +381,7 @@
                                 <p class="truncate">
                                     <a href="{% url 'student_profile' r.student.id %}" class="pname notranslate">{{ r.student.name }}</a>{% if r.left %}<span class="tag-left">выбыл</span>{% endif %}
                                 </p>
-                                <p class="pformula notranslate">
+                                <p class="pformula">
                                     {% if r.formula_ok %}{{ r.price_str }} ₸ × {{ c.lessons }} = <b>{{ r.amount_str }} ₸</b>
                                     {% elif r.amount_int %}<b>{{ r.amount_str }} ₸</b>
                                     {% else %}<a href="{% url 'edit_student' r.student.id %}" class="noprice"><i class="fas fa-triangle-exclamation"></i> Задать цену за урок</a>{% endif %}

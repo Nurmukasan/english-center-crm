@@ -64,7 +64,7 @@
             <i class="fas fa-magnifying-glass"></i><span>Поиск</span>
         </button>
         <button type="button" class="ee-rail-item ee-rail-lang" data-label="Язык: RU / EN" onclick="eeToggleLang()">
-            <span class="ee-lang-code notranslate" id="eeLangCode">RU</span><span>Язык</span>
+            <span class="ee-lang-code notranslate" id="eeLangCode">{% if ee_lang == 'kk' %}KZ{% elif ee_lang == 'en' %}EN{% else %}RU{% endif %}</span><span>Язык</span>
         </button>
         <a href="{% url 'profile' %}" data-label="{{ request.user.username }}"
            class="ee-rail-item ee-rail-avatar {% if url_name == 'profile' %}is-active{% endif %}">
@@ -146,14 +146,15 @@
     addEventListener('resize', () => moveGlow(active, true));
     if (active && !vertical()) active.scrollIntoView({ inline: 'center', block: 'nearest' });
 
-    /* ---------- Язык ---------- */
-    const current = (document.cookie.match(/googtrans=\/ru\/(\w+)/) || [])[1] || 'ru';
-    document.getElementById('eeLangCode').textContent = current === 'ru' ? 'RU' : current.toUpperCase();
+    /* ---------- Язык: страница приходит с сервера уже на нужном языке ---------- */
     window.eeToggleLang = function () {
-        const next = current === 'ru' ? 'en' : 'ru';
-        document.cookie = `googtrans=/ru/${next}; path=/`;
-        document.cookie = `googtrans=/ru/${next}; domain=.${location.hostname}; path=/`;
-        location.reload();
+        const next = '{{ ee_lang }}' === 'en' ? 'ru' : 'en';
+        document.cookie = `ee_lang=${next}; path=/; max-age=31536000; samesite=lax`;
+        // Казахский (Google Translate) выключаем: RU и EN приходят с сервера сразу готовыми
+        document.cookie = 'googtrans=; path=/; max-age=0';
+        document.cookie = `googtrans=; domain=.${location.hostname}; path=/; max-age=0`;
+        document.documentElement.classList.add('ee-lang-switch');
+        setTimeout(() => location.reload(), 160);
     };
 
     /* ---------- Командная палитра ---------- */
@@ -256,3 +257,4 @@
 })();
 </script>
 {% endwith %}
+{% include 'dashboard/partials/google_kk.html' %}

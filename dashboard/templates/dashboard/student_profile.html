@@ -27,21 +27,12 @@
             transition: stroke-dashoffset 1s ease-in-out;
         }
 
-        .goog-te-banner-frame { display: none !important; }
-        body { top: 0 !important; }
-        .skiptranslate { display: none !important; }
-        #google_translate_element { display: none !important; }
     </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
 <body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
     {% include 'dashboard/partials/shell.html' %}
 
-    <div class="fixed bottom-4 right-4 z-50 flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-1 border border-gray-200 dark:border-gray-700">
-        <button onclick="changeLang('ru')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇷🇺 RU</button>
-        <button onclick="changeLang('en')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇬🇧 EN</button>
-    </div>
-    <div id="google_translate_element" style="display:none !important;"></div>
 
     <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
         <div class="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
@@ -281,20 +272,7 @@
         function toggleTheme() {
             document.documentElement.classList.toggle('dark');
         }
-        function changeLang(lang) {
-            document.cookie = `googtrans=/ru/${lang}; path=/`;
-            document.cookie = `googtrans=/ru/${lang}; domain=.${location.hostname}; path=/`;
-            location.reload();
-        }
-        function googleTranslateElementInit() {
-            new google.translate.TranslateElement({
-                pageLanguage: 'ru',
-                includedLanguages: 'ru,kk,en',
-                autoDisplay: false
-            }, 'google_translate_element');
-        }
     </script>
-    <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
 </body>
 </html>

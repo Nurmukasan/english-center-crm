@@ -8,10 +8,6 @@
     <script>tailwind.config = { darkMode: 'class' }</script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
-        .goog-te-banner-frame { display: none !important; }
-        body { top: 0 !important; }
-        .skiptranslate { display: none !important; }
-        #google_translate_element { display: none !important; }
 
         /* ---------- Лента «Сегодня» ---------- */
         .today-chip {
@@ -73,7 +69,6 @@
 </head>
 <body class="min-h-screen">
     {% include 'dashboard/partials/shell.html' %}
-    <div id="google_translate_element" style="display:none !important;"></div>
 
     <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center gap-3">
@@ -368,11 +363,5 @@
             .catch(() => { btn.disabled = false; alert('Нет связи с сервером'); });
         }
     </script>
-    <script>
-        function googleTranslateElementInit() {
-            new google.translate.TranslateElement({ pageLanguage: 'ru', includedLanguages: 'ru,kk,en', autoDisplay: false }, 'google_translate_element');
-        }
-    </script>
-    <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 </body>
 </html>

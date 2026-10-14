@@ -519,3 +519,88 @@ class IndividualTests(CRMTestCase):
         self.assertEqual(lone.group_type, 'individual')
         self.assertTrue(lone.is_active)
         self.assertTrue(Lesson.objects.filter(id=lesson.id, group=lone).exists())
+
+
+class EnglishTests(CRMTestCase):
+    """Английская версия: страница приходит с сервера уже переведённой (dashboard/i18n.py)"""
+
+    def test_phrases(self):
+        from . import i18n
+        self.assertEqual(i18n.translate_text('  Сохранить '), '  Save ')
+        self.assertEqual(i18n.translate_text('Собрано за октябрь'), 'Collected in October')
+        self.assertEqual(i18n.translate_text('Следующий урок в пт 10:00'), 'Next lesson on Fri 10:00')
+        self.assertEqual(i18n.translate_text('1 учеников'), '1 student')
+        self.assertEqual(i18n.translate_text('5 учеников'), '5 students')
+        self.assertEqual(i18n.translate_text('Октябрь 2026'), 'October 2026')
+        self.assertEqual(i18n.translate_text('Оплата: Алия'), 'Payment: Алия')
+        self.assertEqual(i18n.translate_text('Алия'), 'Алия')
+
+    def test_html(self):
+        from . import i18n
+        page = ('<html lang="ru"><title>Оплаты — Enjoy English CRM</title>'
+                '<p class="notranslate">Сохранить</p><input placeholder="Найти ученика…">'
+                '<textarea>Сохранить</textarea>'
+                "<script>alert('У вас нет доступа'); const k = 'л';</script>"
+                '<button onclick="confirm(\'Выберите направление\')">Сохранить</button></html>')
+        html = i18n.translate_html(page)
+        self.assertIn('<html lang="en">', html)
+        self.assertIn('<title>Payments — Enjoy English CRM</title>', html)
+        self.assertIn('<p class="notranslate">Сохранить</p>', html)
+        self.assertIn('placeholder="Find a student…"', html)
+        self.assertIn('<textarea>Сохранить</textarea>', html)
+        self.assertIn("alert('You don\\'t have access')", html)
+        self.assertIn("const k = 'л'", html)
+        self.assertIn('Choose a direction', html)
+        self.assertIn('>Save</button>', html)
+
+    def test_page_comes_translated(self):
+        self.login(self.admin)
+        self.assertContains(self.client.get('/dashboard/'), 'Посещаемость')
+        self.client.cookies['ee_lang'] = 'en'
+        response = self.client.get('/dashboard/')
+        self.assertContains(response, '<html lang="en"')
+        self.assertContains(response, 'Attendance')
+        self.assertNotContains(response, 'Посещаемость')
+        self.assertNotContains(response, 'translate.google.com')
+
+    def test_ajax_errors_translated(self):
+        self.login(self.teacher)
+        self.client.cookies['ee_lang'] = 'en'
+        data = self.client.post(f'/group/{self.group.id}/attendance/', {'student_id': self.student.id, 'status': 'bogus'}).json()
+        self.assertIn(data['error'], ['There is no lesson today', 'Invalid status'])
+
+    def test_english_chosen_in_google_is_kept(self):
+        self.login(self.admin)
+        self.client.cookies['googtrans'] = '/ru/en'
+        self.assertContains(self.client.get('/dashboard/'), '<html lang="en"')
+        self.client.cookies['ee_lang'] = 'ru'
+        self.assertContains(self.client.get('/dashboard/'), '<html lang="ru"')
+
+    def test_kazakh_still_uses_google(self):
+        self.client.cookies['googtrans'] = '/ru/kk'
+        self.assertContains(self.client.get('/'), 'translate.google.com')
+        self.client.cookies['googtrans'] = ''
+        self.assertNotContains(self.client.get('/'), 'translate.google.com')
+
+    def test_every_phrase_has_translation(self):
+        """Новый русский текст в шаблонах — добавьте перевод в dashboard/locale_en.py"""
+        from . import i18n
+        today = timezone.localdate()
+        ScheduleSlot.objects.create(group=self.group, day_of_week=today.weekday(), start_time=time(10), end_time=time(11))
+        names = {'Алия', 'Тимур', 'Альфа', 'алия', 'тимур', 'альфа'}
+        i18n.missing = set()
+        try:
+            self.client.cookies['ee_lang'] = 'en'
+            self.client.get('/')
+            for user in [self.admin, self.teacher, self.accountant]:
+                self.login(user)
+                for url in ['/dashboard/', '/students/', '/students/add/', '/schedule/', '/individual/', '/payments/',
+                            '/accountant-stats/', '/groups/add/', '/books-status/', '/star-rating/', '/profile/',
+                            f'/group/{self.group.id}/', f'/group/{self.group.id}/history/', f'/group/{self.group.id}/edit/',
+                            f'/students/{self.student.id}/', f'/student/{self.student.id}/edit/']:
+                    self.client.get(url)
+            # Одна буква — инициалы на аватарах и сочетание Ctrl+Л
+            missing = {phrase for phrase in i18n.missing - names if len(phrase) > 1}
+        finally:
+            i18n.missing = None
+        self.assertFalse(missing, f'Нет английского перевода (добавьте в dashboard/locale_en.py): {sorted(missing)}')

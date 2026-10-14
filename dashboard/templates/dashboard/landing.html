@@ -231,13 +231,7 @@
         .shake { animation: shake .5s cubic-bezier(.36,.07,.19,.97); }
         @keyframes shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
 
-        /* ---------- Google Translate скрываем ---------- */
-        .goog-te-banner-frame { display: none !important; }
-        body { top: 0 !important; }
-        .skiptranslate { display: none !important; }
-        #google_translate_element { display: none !important; }
-        .goog-logo-link { display: none !important; }
-        .goog-te-gadget { display: none !important; }
+        html.lang-switch body { opacity: 0; transition: opacity .16s ease; }
 
         @media (max-width: 640px) {
             .blob { filter: blur(70px); opacity: .45; }
@@ -262,8 +256,6 @@
         <div class="spotlight" id="spotlight"></div>
         <div class="grain"></div>
     </div>
-
-    <div id="google_translate_element" style="display:none !important;"></div>
 
     <!-- Навигация -->
     <header class="fixed top-0 inset-x-0 z-40 px-4 pt-4">
@@ -588,9 +580,9 @@
 
     <!-- Переключатель языков -->
     <div class="fixed bottom-4 right-4 z-30 flex gap-1 glass-strong rounded-full p-1 text-sm font-semibold">
-        <button onclick="changeLang('ru')" class="px-3 py-1.5 rounded-full hover:bg-white/10 transition">RU</button>
-        <button onclick="changeLang('kk')" class="px-3 py-1.5 rounded-full hover:bg-white/10 transition">KZ</button>
-        <button onclick="changeLang('en')" class="px-3 py-1.5 rounded-full hover:bg-white/10 transition">EN</button>
+        <button onclick="changeLang('ru')" class="px-3 py-1.5 rounded-full hover:bg-white/10 transition notranslate{% if ee_lang == 'ru' %} bg-white/15{% endif %}">RU</button>
+        <button onclick="changeLang('kk')" class="px-3 py-1.5 rounded-full hover:bg-white/10 transition notranslate{% if ee_lang == 'kk' %} bg-white/15{% endif %}">KZ</button>
+        <button onclick="changeLang('en')" class="px-3 py-1.5 rounded-full hover:bg-white/10 transition notranslate{% if ee_lang == 'en' %} bg-white/15{% endif %}">EN</button>
     </div>
 
     <!-- Окно входа -->
@@ -638,10 +630,15 @@
     </div>
 
     <script>
+        // RU и EN сервер отдаёт сразу готовыми; KZ пока переводит Google Translate
         function changeLang(lang) {
-            document.cookie = `googtrans=/ru/${lang}; path=/`;
-            document.cookie = `googtrans=/ru/${lang}; domain=.${location.hostname}; path=/`;
-            location.reload();
+            document.cookie = `ee_lang=${lang === 'en' ? 'en' : 'ru'}; path=/; max-age=31536000; samesite=lax`;
+            const google = lang === 'kk' ? '/ru/kk' : '';
+            const life = google ? '' : '; max-age=0';
+            document.cookie = `googtrans=${google}; path=/${life}`;
+            document.cookie = `googtrans=${google}; domain=.${location.hostname}; path=/${life}`;
+            document.documentElement.classList.add('lang-switch');
+            setTimeout(() => location.reload(), 160);
         }
 
         (function () {
@@ -817,16 +814,8 @@
                 btn.style.pointerEvents = 'none';
             });
         })();
-
-        function googleTranslateElementInit() {
-            new google.translate.TranslateElement({
-                pageLanguage: 'ru',
-                includedLanguages: 'ru,kk,en',
-                autoDisplay: false
-            }, 'google_translate_element');
-        }
     </script>
-    <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+    {% include 'dashboard/partials/google_kk.html' %}
 
 </body>
 </html>

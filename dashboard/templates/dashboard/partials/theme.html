@@ -315,6 +315,9 @@
     @keyframes ee-toast-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
     @media (max-width: 767px) { .ee-toasts { top: 12px; right: 12px; } }
 
+    /* Смена языка: страница плавно гаснет и перезагружается уже на другом языке */
+    html.ee-lang-switch body { opacity: 0; transition: opacity .16s ease; }
+
     /* ---------- Командная палитра ---------- */
     .ee-palette { position: fixed; inset: 0; z-index: 70; display: flex; justify-content: center; align-items: flex-start; padding: 12vh 16px 16px; visibility: hidden; transition: visibility 0s linear .3s; }
     .ee-palette.open { visibility: visible; transition-delay: 0s; }

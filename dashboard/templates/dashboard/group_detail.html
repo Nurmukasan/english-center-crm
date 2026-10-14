@@ -8,12 +8,6 @@
     <script>tailwind.config = { darkMode: 'class' }</script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
-        .goog-te-banner-frame { display: none !important; }
-        body { top: 0 !important; }
-        .skiptranslate { display: none !important; }
-        #google_translate_element { display: none !important; }
-        .goog-logo-link { display: none !important; }
-        .goog-te-gadget { display: none !important; }
 
         :root {
             --ok: #34d399;   --ok-soft: rgba(52, 211, 153, .16);
@@ -182,7 +176,6 @@
 </head>
 <body class="min-h-screen">
     {% include 'dashboard/partials/shell.html' %}
-    <div id="google_translate_element" style="display:none !important;"></div>
 
     <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
@@ -328,7 +321,7 @@
                             {% csrf_token %}
                             <input type="hidden" name="next" value="{{ request.path }}">
                             <button type="submit" class="act {% if lesson_active %}act-ghost{% else %}act-ok{% endif %}" title="{% if lesson_active %}Отменить урок{% else %}Вернуть урок{% endif %}">
-                                {% if lesson_active %}<i class="fas fa-ban"></i><span class="hidden sm:inline">Отменить</span>{% else %}<i class="fas fa-rotate-left"></i>Вернуть урок{% endif %}
+                                {% if lesson_active %}<i class="fas fa-ban"></i><span class="hidden sm:inline">Отменить урок</span>{% else %}<i class="fas fa-rotate-left"></i>Вернуть урок{% endif %}
                             </button>
                         </form>
                         {% endif %}
@@ -796,10 +789,6 @@
         }), { threshold: .3 });
         document.querySelectorAll('.meter i[data-width]').forEach(m => meterObserver.observe(m));
 
-        function googleTranslateElementInit() {
-            new google.translate.TranslateElement({ pageLanguage: 'ru', includedLanguages: 'ru,kk,en', autoDisplay: false }, 'google_translate_element');
-        }
     </script>
-    <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 </body>
 </html>

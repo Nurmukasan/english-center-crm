@@ -1,0 +1,14 @@
+{% if ee_lang == 'kk' %}
+{# Казахский пока переводит Google Translate — скрипт грузится только тем, кто выбрал KZ. Русский и английский — без него #}
+<style>
+    .goog-te-banner-frame, .skiptranslate, #google_translate_element, .goog-logo-link, .goog-te-gadget { display: none !important; }
+    body { top: 0 !important; }
+</style>
+<div id="google_translate_element"></div>
+<script>
+    function googleTranslateElementInit() {
+        new google.translate.TranslateElement({ pageLanguage: 'ru', includedLanguages: 'ru,kk', autoDisplay: false }, 'google_translate_element');
+    }
+</script>
+<script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+{% endif %}
