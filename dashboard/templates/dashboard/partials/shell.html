@@ -31,6 +31,10 @@
             <i class="fas fa-user-graduate"></i><span>Ученики</span>
         </a>
         {% endif %}
+        <a href="{% url 'individual_lessons' %}" data-label="Индивидуальные"
+           class="ee-rail-item {% if url_name in 'individual_lessons add_individual' %}is-active{% endif %}">
+            <i class="fas fa-chalkboard-user"></i><span>Индивидуальные</span>
+        </a>
         {% if role == 'admin' or role == 'accountant' or role == 'developer' %}
         <a href="{% url 'payments_page' %}" data-label="Оплаты"
            class="ee-rail-item {% if url_name in 'payments_page payment_management' %}is-active{% endif %}">
@@ -162,6 +166,7 @@
     {% if role == 'admin' or role == 'developer' %}
     pages.push({ name: 'Создать группу', url: '{% url "add_group" %}', icon: 'fas fa-users-rectangle' });
     pages.push({ name: 'Добавить ученика', url: '{% url "add_student" %}', icon: 'fas fa-user-plus' });
+    pages.push({ name: 'Новый индивидуальный ученик', url: '{% url "add_individual" %}', icon: 'fas fa-chalkboard-user' });
     {% endif %}
 
     const root = document.getElementById('eePalette');

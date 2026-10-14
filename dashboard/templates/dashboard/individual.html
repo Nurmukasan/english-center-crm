@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Индивидуальные — Enjoy English CRM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        .goog-te-banner-frame { display: none !important; }
+        body { top: 0 !important; }
+        .skiptranslate { display: none !important; }
+        #google_translate_element { display: none !important; }
+
+        /* ---------- Лента «Сегодня» ---------- */
+        .today-chip {
+            --c: hsl(var(--h) 85% 65%);
+            display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 18px; flex-shrink: 0;
+            background: linear-gradient(135deg, hsl(var(--h) 70% 50% / .22), hsl(var(--h) 70% 40% / .08));
+            border: 1px solid hsl(var(--h) 80% 70% / .3); box-shadow: inset 3px 0 0 var(--c);
+            transition: transform var(--spring-dur) var(--spring), box-shadow .3s ease;
+        }
+        .today-chip:hover { transform: translateY(-2px); box-shadow: inset 3px 0 0 var(--c), 0 14px 30px -14px hsl(var(--h) 80% 55% / .9); }
+        .today-chip .time { font-family: 'Unbounded', sans-serif; font-weight: 700; font-size: 15px; color: #fff; }
+        .today-chip.is-past { opacity: .45; filter: saturate(.4); }
+        .today-chip.is-live { animation: livePulse 2.2s ease-in-out infinite; border-color: hsl(var(--h) 90% 75% / .9); }
+        @keyframes livePulse {
+            0%, 100% { box-shadow: inset 3px 0 0 var(--c), 0 0 0 0 hsl(var(--h) 90% 65% / .55); }
+            50% { box-shadow: inset 3px 0 0 var(--c), 0 0 0 8px hsl(var(--h) 90% 65% / 0); }
+        }
+
+        /* ---------- Карточка ученика ---------- */
+        .icard { --c: hsl(var(--h) 85% 66%); position: relative; overflow: hidden; isolation: isolate; padding: 22px; }
+        .icard::before { content: ''; position: absolute; z-index: -1; width: 240px; height: 240px; right: -90px; top: -110px; border-radius: 50%;
+            background: radial-gradient(circle, hsl(var(--h) 90% 60% / .4), transparent 65%); transition: transform .8s var(--spring-soft); }
+        .icard:hover::before { transform: scale(1.3) translate(-20px, 20px); }
+        .icard.hover-scale:hover { box-shadow: 0 30px 70px -30px hsl(var(--h) 85% 55% / .75), 0 0 0 1px hsl(var(--h) 80% 70% / .3) !important; }
+        .avatar { width: 54px; height: 54px; border-radius: 18px; display: grid; place-items: center; flex-shrink: 0;
+            font: 700 22px 'Unbounded', sans-serif; color: #fff;
+            background: linear-gradient(135deg, hsl(var(--h) 85% 62%), hsl(calc(var(--h) + 40) 80% 48%));
+            box-shadow: 0 12px 26px -10px hsl(var(--h) 85% 55%); transition: transform var(--spring-dur) var(--spring); }
+        .icard:hover .avatar { transform: rotate(-6deg) scale(1.06); }
+        .next { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 9999px; font-size: 13px; font-weight: 700;
+            background: rgba(255,255,255,.06); color: rgba(233,231,245,.85); }
+        .next.is-live { background: hsl(var(--h) 80% 55% / .25); color: #fff; }
+        .next.is-live i { color: var(--c); animation: blink 1.2s steps(1) infinite; }
+        @keyframes blink { 50% { opacity: .2; } }
+        .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        .week-day { border-radius: 12px; padding: 7px 0; text-align: center; background: rgba(255,255,255,.035); }
+        .week-day b { display: block; font-size: 11px; font-weight: 800; color: rgba(233,231,245,.35); }
+        .week-day span { display: block; font-size: 11px; font-weight: 700; color: #fff; min-height: 16px; }
+        .week-day.on { background: hsl(var(--h) 75% 50% / .28); box-shadow: inset 0 0 0 1px hsl(var(--h) 85% 70% / .45); }
+        .week-day.on b { color: hsl(var(--h) 90% 80%); }
+        .meter { height: 6px; border-radius: 9999px; background: rgba(255,255,255,.07); overflow: hidden; }
+        .meter i { display: block; height: 100%; border-radius: inherit; width: 0; transition: width 1.4s var(--spring-soft); }
+        .tools a { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; color: rgba(233,231,245,.6);
+            background: rgba(255,255,255,.05); transition: transform var(--spring-dur) var(--spring), color .2s ease, background .2s ease; }
+        .tools a:hover { transform: scale(1.12); color: #fff; background: rgba(255,255,255,.12); }
+        .pay { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 9999px; font-size: 13px; font-weight: 800;
+            transition: transform var(--spring-dur) var(--spring), background .25s ease; }
+        .pay:hover { transform: scale(1.06); }
+        .pay.is-paid { background: rgba(16, 185, 129, .18); color: #6ee7b7; }
+        .pay.is-unpaid { background: rgba(244, 63, 94, .16); color: #fda4af; }
+
+        /* ---------- Фильтры ---------- */
+        .chip-btn.is-on { background: rgba(139, 92, 246, .3); border-color: rgba(167, 139, 250, .55); }
+        .donut circle { fill: none; stroke-width: 10; }
+        .donut .track { stroke: rgba(255,255,255,.07); }
+        .donut .bar { stroke-linecap: round; transition: stroke-dashoffset 1.6s cubic-bezier(.22,1,.36,1); }
+    </style>
+    {% include 'dashboard/partials/theme.html' %}
+</head>
+<body class="min-h-screen">
+    {% include 'dashboard/partials/shell.html' %}
+    <div id="google_translate_element" style="display:none !important;"></div>
+
+    <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center gap-3">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-chalkboard-user text-2xl text-violet-300"></i>
+                <h1 class="text-xl font-bold text-white">Индивидуальные</h1>
+            </div>
+            {% if can_manage %}
+            <a href="{% url 'add_individual' %}" class="bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap" aria-label="Новый ученик">
+                <i class="fas fa-user-plus sm:mr-1"></i><span class="hidden sm:inline"> Новый ученик</span>
+            </a>
+            {% endif %}
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+
+        <!-- Сводка -->
+        <section class="grid grid-cols-2 {% if can_money %}lg:grid-cols-4{% endif %} gap-4 sm:gap-6 mb-6">
+            <div class="panel ee-own-spot hover-scale p-6">
+                <p class="eyebrow">Учеников</p>
+                <p class="text-4xl sm:text-5xl font-bold text-white mt-4">{{ cards|length }}</p>
+                <p class="text-sm text-gray-400 mt-2">занимаются один на один</p>
+            </div>
+            <div class="panel ee-own-spot hover-scale p-6">
+                <p class="eyebrow">Занятий в неделю</p>
+                <p class="text-4xl sm:text-5xl font-bold grad-text mt-4">{{ week_lessons }}</p>
+                <p class="text-sm text-gray-400 mt-2">по расписанию</p>
+            </div>
+            {% if can_money %}
+            <div class="panel ee-own-spot hover-scale p-6 flex items-center gap-5 col-span-2 lg:col-span-1">
+                <svg class="donut w-20 h-20 sm:w-24 sm:h-24 -rotate-90 flex-shrink-0" viewBox="0 0 100 100">
+                    <circle class="track" cx="50" cy="50" r="40"/>
+                    <circle class="bar" cx="50" cy="50" r="40" stroke="#34d399" data-ring="{{ paid_count }}" data-total="{{ cards|length }}"/>
+                </svg>
+                <div>
+                    <p class="eyebrow">Оплатили</p>
+                    <p class="text-3xl font-bold text-white mt-2">{{ paid_count }}<span class="text-gray-500 text-xl">/{{ cards|length }}</span></p>
+                    <p class="text-sm text-gray-400 mt-1">за текущий месяц</p>
+                </div>
+            </div>
+            <div class="panel ee-own-spot hover-scale p-6 col-span-2 lg:col-span-1">
+                <p class="eyebrow">Собрано за месяц</p>
+                <p class="text-2xl sm:text-3xl font-bold text-white mt-4 notranslate">{{ paid_total }} <span class="text-gray-500 text-lg">/ {{ expected_total }} ₸</span></p>
+                <div class="meter mt-4"><i data-width="{{ paid_share }}" style="background: linear-gradient(90deg, #34d399, #a3e635)"></i></div>
+            </div>
+            {% endif %}
+        </section>
+
+        {% if shared_groups %}
+        <!-- Общая «индивидуальная» группа: предложить разнести -->
+        {% for g in shared_groups %}
+        <section class="panel p-6 mb-6 border-amber-400/30" style="background: linear-gradient(135deg, rgba(245,158,11,.14), rgba(255,255,255,.02))">
+            <div class="flex flex-col md:flex-row md:items-center gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-300 grid place-items-center text-xl flex-shrink-0"><i class="fas fa-people-arrows"></i></div>
+                {% if g.students_count == 1 %}
+                <div class="flex-1">
+                    <p class="font-bold text-white text-lg">«<span class="notranslate">{{ g.name }}</span>» записана как обычная группа</p>
+                    <p class="text-gray-300 text-sm mt-1">В ней один ученик — перенесём её сюда, во «Индивидуальные». Уроки, оплаты и звёзды останутся как есть.</p>
+                </div>
+                <form method="POST" action="{% url 'split_individual_group' g.id %}"
+                      data-confirm="Перенести «{{ g.name }}» во вкладку «Индивидуальные»?"
+                      onsubmit="return confirm(this.dataset.confirm)">
+                    {% csrf_token %}
+                    <button type="submit" class="bg-amber-500 text-white px-5 py-3 rounded-xl font-bold whitespace-nowrap">
+                        <i class="fas fa-arrow-right-to-bracket mr-1"></i> Перенести сюда
+                    </button>
+                </form>
+                {% else %}
+                <div class="flex-1">
+                    <p class="font-bold text-white text-lg">В «<span class="notranslate">{{ g.name }}</span>» вместе {{ g.students_count }} уч.</p>
+                    <p class="text-gray-300 text-sm mt-1">Разнесём каждого в отдельное индивидуальное занятие со своим расписанием. Оплаты, посещаемость, звёзды и калибровки переедут вместе с учениками, а общая группа уйдёт в архив.</p>
+                </div>
+                <form method="POST" action="{% url 'split_individual_group' g.id %}"
+                      data-confirm="Разнести {{ g.students_count }} уч. из «{{ g.name }}» по отдельным индивидуальным занятиям?"
+                      onsubmit="return confirm(this.dataset.confirm)">
+                    {% csrf_token %}
+                    <button type="submit" class="bg-amber-500 text-white px-5 py-3 rounded-xl font-bold whitespace-nowrap">
+                        <i class="fas fa-shuffle mr-1"></i> Разнести по ученикам
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </section>
+        {% endfor %}
+        {% endif %}
+
+        <!-- Сегодня -->
+        <section class="panel p-6 sm:p-7 mb-6">
+            <div class="flex items-end justify-between gap-4 mb-4">
+                <div>
+                    <p class="eyebrow mb-2">Сегодня</p>
+                    <h3 class="text-xl font-bold text-white">{% if today_lessons %}{{ today_lessons|length }} {% if today_lessons|length == 1 %}занятие{% elif today_lessons|length < 5 %}занятия{% else %}занятий{% endif %}{% else %}Индивидуальных занятий нет{% endif %}</h3>
+                </div>
+            </div>
+            {% if today_lessons %}
+            <div class="flex gap-3 overflow-x-auto pb-1">
+                {% for t in today_lessons %}
+                <a href="{% url 'group_detail' t.group.id %}" class="today-chip is-{{ t.state }}" style="--h: {{ t.hue }}">
+                    <span class="time">{{ t.slot.start_time|time:"H:i" }}</span>
+                    <span>
+                        <span class="block font-bold text-white notranslate">{{ t.student.name }}</span>
+                        <span class="block text-xs text-gray-400">
+                            {% if t.state == 'live' %}<span class="text-fuchsia-300 font-bold">● идёт</span>{% elif t.state == 'past' %}прошло{% else %}до {{ t.slot.end_time|time:"H:i" }}{% endif %}
+                            · <span class="notranslate">{{ t.group.teacher.username|default:"—" }}</span>
+                        </span>
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-400">Сегодня один на один никто не занимается 🌙</p>
+            {% endif %}
+        </section>
+
+        <!-- Фильтры -->
+        <section class="flex flex-col lg:flex-row lg:items-center gap-3 mb-5">
+            <input type="search" id="q" placeholder="Найти ученика…" autocomplete="off"
+                   class="lg:w-72 px-4 py-2.5 border rounded-full dark:bg-gray-800 dark:text-white">
+            <div class="flex flex-wrap gap-2" id="teacherChips">
+                <button type="button" class="chip-btn !py-2 !px-3.5 !text-xs is-on" data-teacher="">Все учителя</button>
+                {% for t in teachers %}
+                <button type="button" class="chip-btn !py-2 !px-3.5 !text-xs notranslate" data-teacher="{{ t }}">{{ t }}</button>
+                {% endfor %}
+                {% if can_money %}
+                <button type="button" class="chip-btn !py-2 !px-3.5 !text-xs" id="unpaidOnly"><i class="fas fa-circle-exclamation !text-rose-300"></i> Не оплатили</button>
+                {% endif %}
+            </div>
+            <p class="lg:ml-auto text-sm text-gray-400">Показано: <b class="text-white" id="shown">{{ cards|length }}</b></p>
+        </section>
+
+        <!-- Ученики -->
+        <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5" id="cards">
+            {% for c in cards %}
+            <article class="icard panel ee-own-spot hover-scale" style="--h: {{ c.hue }}"
+                     data-name="{{ c.student.name|lower }}" data-teacher="{{ c.group.teacher.username|default:'' }}" data-paid="{% if c.paid %}1{% else %}0{% endif %}">
+                <div class="flex items-start gap-4">
+                    <a href="{% url 'student_profile' c.student.id %}" class="avatar notranslate" title="Профиль ученика">{{ c.student.name|first|upper }}</a>
+                    <div class="min-w-0 flex-1">
+                        <h4 class="text-lg font-bold text-white truncate notranslate"><a href="{% url 'student_profile' c.student.id %}">{{ c.student.name }}</a></h4>
+                        <p class="text-sm text-gray-400 truncate"><i class="fas fa-chalkboard-user mr-1"></i><span class="notranslate">{{ c.group.teacher.username|default:"без учителя" }}</span></p>
+                    </div>
+                    <div class="tools flex gap-1.5">
+                        <a href="{% url 'lesson_history' c.group.id %}" title="История уроков"><i class="fas fa-clock-rotate-left text-sm"></i></a>
+                        {% if can_manage %}<a href="{% url 'edit_group' c.group.id %}?return={{ request.path|urlencode }}" title="Расписание и учитель"><i class="fas fa-pen text-sm"></i></a>{% endif %}
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    {% if c.next_label %}
+                    <span class="next {% if c.live %}is-live{% endif %}"><i class="fas {% if c.live %}fa-circle{% else %}fa-clock{% endif %} text-xs"></i>{% if c.live %}Идёт сейчас{% else %}Следующее: {{ c.next_label }}{% endif %}</span>
+                    {% else %}
+                    <span class="next text-amber-300"><i class="fas fa-triangle-exclamation text-xs"></i>Расписание не задано</span>
+                    {% endif %}
+                </div>
+
+                <div class="week mt-4">
+                    {% for d in c.days %}
+                    <div class="week-day {% if d.times %}on{% endif %}"><b>{{ d.short }}</b><span>{{ d.times|first|default:"" }}</span></div>
+                    {% endfor %}
+                </div>
+
+                <div class="grid grid-cols-3 gap-4 mt-5 text-sm">
+                    <div>
+                        <p class="text-gray-400 text-xs font-bold">Посещаемость</p>
+                        <p class="text-white font-bold mt-1">{% if c.attendance is None %}—{% else %}{{ c.attendance }}%{% endif %}</p>
+                        <div class="meter mt-1.5"><i data-width="{{ c.attendance|default:0 }}" style="background: #a78bfa"></i></div>
+                    </div>
+                    <div>
+                        <p class="text-gray-400 text-xs font-bold">ДЗ</p>
+                        <p class="text-white font-bold mt-1">{% if c.homework is None %}—{% else %}{{ c.homework }}%{% endif %}</p>
+                        <div class="meter mt-1.5"><i data-width="{{ c.homework|default:0 }}" style="background: #34d399"></i></div>
+                    </div>
+                    <div>
+                        <p class="text-gray-400 text-xs font-bold">Звёзды</p>
+                        <p class="text-yellow-300 font-bold mt-1">⭐ {{ c.stars }}</p>
+                        <p class="text-gray-500 text-xs mt-1">{{ c.lessons_total }} ур.</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between gap-3 mt-5 pt-4 border-t border-white/10">
+                    {% if can_money %}
+                    <div class="min-w-0">
+                        <p class="text-xs text-gray-400">{{ c.month_name }}: {{ c.lessons_in_period }} × <span class="notranslate">{{ c.price_str }}</span> ₸</p>
+                        <p class="text-white font-bold notranslate">{{ c.amount_str }} ₸</p>
+                    </div>
+                    <button type="button" class="pay {% if c.paid %}is-paid{% else %}is-unpaid{% endif %}" onclick="togglePaid(this)"
+                            data-url="{% url 'toggle_student_payment' c.group.id %}" data-student="{{ c.student.id }}"
+                            data-year="{{ c.year }}" data-month="{{ c.month }}" data-month-name="{{ c.month_name }}" data-amount="{{ c.amount_str }}"
+                            data-paid="{% if c.paid %}1{% else %}0{% endif %}">
+                        {% if c.paid %}<i class="fas fa-circle-check"></i> Оплачено{% else %}<i class="fas fa-circle-xmark"></i> Не оплачено{% endif %}
+                    </button>
+                    {% else %}
+                    <span class="text-sm text-gray-400">{{ c.group.get_schedule_display|default:"" }}</span>
+                    {% endif %}
+                </div>
+
+                <a href="{% url 'group_detail' c.group.id %}" class="mt-4 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl font-bold text-sm text-white bg-white/5 border border-white/10 hover:bg-white/10 transition">
+                    <i class="fas fa-clipboard-check"></i> Открыть урок
+                </a>
+            </article>
+            {% empty %}
+            <div class="col-span-full panel p-12 text-center">
+                <p class="text-5xl mb-4">🎯</p>
+                <p class="text-white text-lg font-bold">Индивидуальных учеников пока нет</p>
+                <p class="text-gray-400 mt-2">{% if can_manage %}Добавьте первого — ученик, учитель и расписание в одной форме.{% else %}Когда появятся, они будут здесь.{% endif %}</p>
+                {% if can_manage %}
+                <a href="{% url 'add_individual' %}" class="inline-flex mt-6 bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold"><i class="fas fa-user-plus mr-2"></i> Новый ученик</a>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </section>
+        <p id="noMatch" class="hidden text-center text-gray-400 py-10">Никого не нашлось 🤷</p>
+
+    </main>
+
+    <script>
+        (function () {
+            /* ---------- Полоски и кольца заполняются при появлении ---------- */
+            const io = new IntersectionObserver(entries => entries.forEach(e => {
+                if (!e.isIntersecting) return;
+                io.unobserve(e.target);
+                const el = e.target;
+                if (el.dataset.ring !== undefined) {
+                    const C = 2 * Math.PI * 40, total = +el.dataset.total;
+                    el.style.strokeDashoffset = C * (1 - (total ? +el.dataset.ring / total : 0));
+                } else {
+                    el.style.width = Math.min(100, +el.dataset.width || 0) + '%';
+                }
+            }), { threshold: 0.3 });
+            document.querySelectorAll('[data-ring]').forEach(el => {
+                const C = 2 * Math.PI * 40;
+                el.style.strokeDasharray = C; el.style.strokeDashoffset = C;
+                io.observe(el);
+            });
+            document.querySelectorAll('.meter i[data-width]').forEach(el => io.observe(el));
+
+            /* ---------- Фильтры: имя, учитель, «не оплатили» ---------- */
+            const q = document.getElementById('q');
+            const chips = document.querySelectorAll('#teacherChips [data-teacher]');
+            const unpaid = document.getElementById('unpaidOnly');
+            let teacher = '', onlyUnpaid = false;
+            function apply() {
+                const text = q.value.trim().toLowerCase();
+                let shown = 0;
+                document.querySelectorAll('#cards .icard').forEach(card => {
+                    const ok = (!text || card.dataset.name.includes(text))
+                        && (!teacher || card.dataset.teacher === teacher)
+                        && (!onlyUnpaid || card.dataset.paid === '0');
+                    card.style.display = ok ? '' : 'none';
+                    shown += ok;
+                });
+                document.getElementById('shown').textContent = shown;
+                document.getElementById('noMatch').classList.toggle('hidden', shown > 0 || !document.querySelector('#cards .icard'));
+            }
+            q.addEventListener('input', apply);
+            chips.forEach(chip => chip.addEventListener('click', () => {
+                teacher = chip.dataset.teacher;
+                chips.forEach(c => c.classList.toggle('is-on', c === chip));
+                apply();
+            }));
+            if (unpaid) unpaid.addEventListener('click', () => {
+                onlyUnpaid = !onlyUnpaid;
+                unpaid.classList.toggle('is-on', onlyUnpaid);
+                apply();
+            });
+        })();
+
+        /* ---------- Оплата прямо с карточки ---------- */
+        function togglePaid(btn) {
+            const paid = btn.dataset.paid === '1';
+            const question = paid
+                ? `Снять отметку об оплате за ${btn.dataset.monthName}?`
+                : `Отметить оплату ${btn.dataset.amount} ₸ за ${btn.dataset.monthName}?`;
+            if (!confirm(question)) return;
+            btn.disabled = true;
+            fetch(btn.dataset.url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': '{{ csrf_token }}' },
+                body: `student_id=${btn.dataset.student}&year=${btn.dataset.year}&month=${btn.dataset.month}`,
+            })
+            .then(r => r.json())
+            .then(data => {
+                btn.disabled = false;
+                if (!data.success) { alert(data.error || 'Не удалось'); return; }
+                btn.dataset.paid = data.is_paid ? '1' : '0';
+                btn.closest('.icard').dataset.paid = btn.dataset.paid;
+                btn.className = 'pay ' + (data.is_paid ? 'is-paid' : 'is-unpaid');
+                btn.innerHTML = data.is_paid ? '<i class="fas fa-circle-check"></i> Оплачено' : '<i class="fas fa-circle-xmark"></i> Не оплачено';
+                btn.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.18)' }, { transform: 'scale(1)' }], { duration: 450, easing: 'ease-out' });
+            })
+            .catch(() => { btn.disabled = false; alert('Нет связи с сервером'); });
+        }
+    </script>
+    <script>
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({ pageLanguage: 'ru', includedLanguages: 'ru,kk,en', autoDisplay: false }, 'google_translate_element');
+        }
+    </script>
+    <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+</body>
+</html>

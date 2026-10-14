@@ -266,6 +266,29 @@
         .ee-rail-item > span:last-child { display: none; }
     }
 
+    /* ---------- Общие блоки страниц: панель, надзаголовок, кнопка-чип, градиентный текст ---------- */
+    .grad-text {
+        background: linear-gradient(100deg, #c4b5fd 0%, #e879f9 35%, #fbbf24 65%, #c4b5fd 100%);
+        background-size: 220% auto; -webkit-background-clip: text; background-clip: text;
+        color: transparent; -webkit-text-fill-color: transparent; animation: ee-shimmer 7s linear infinite;
+    }
+    .panel {
+        background:
+            radial-gradient(380px circle at var(--mx, 50%) var(--my, 50%), rgba(192, 132, 252, var(--spot, 0)), transparent 45%),
+            linear-gradient(160deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
+        border: 1px solid rgba(255,255,255,.09); border-radius: 28px;
+        backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%);
+        box-shadow: 0 30px 80px -40px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.05);
+    }
+    .eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: rgba(233,231,245,.45); }
+    .chip-btn {
+        display: inline-flex; align-items: center; gap: .5rem; padding: .6rem 1rem; border-radius: 9999px;
+        font-size: 14px; font-weight: 700; color: #fff; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+        transition: transform var(--spring-dur) var(--spring), background-color .25s ease, border-color .25s ease, box-shadow .3s ease;
+    }
+    .chip-btn:hover { transform: translateY(-2px) scale(1.04); background: rgba(255,255,255,.11); border-color: rgba(255,255,255,.25); box-shadow: 0 12px 30px -12px rgba(167,139,250,.8); }
+    .chip-btn i { color: #c4b5fd; }
+
     /* ---------- Уведомления ---------- */
     .ee-toasts { position: fixed; z-index: 80; top: 18px; right: 18px; display: flex; flex-direction: column; gap: 10px; width: min(380px, calc(100vw - 36px)); }
     .ee-toast {

@@ -272,3 +272,116 @@ class CleanupTests(CRMTestCase):
         self.client.get(f'/group/{self.other_group.id}/')  # «нет доступа» — сообщение
         self.client.get('/logout/')
         self.assertFalse(list(self.client.get('/').context['messages']))
+
+
+class IndividualTests(CRMTestCase):
+    def setUp(self):
+        super().setUp()
+        self.solo = Group.objects.create(name='Индивид. Алия', group_type='individual', teacher=self.teacher)
+        ScheduleSlot.objects.create(group=self.solo, day_of_week=0, start_time=time(16), end_time=time(17))
+        Enrollment.objects.create(student=self.student, group=self.solo)
+        self.other_solo = Group.objects.create(name='Индивид. Тимур', group_type='individual', teacher=self.other_teacher)
+        Enrollment.objects.create(student=self.other_student, group=self.other_solo)
+
+    def test_tab_lists_individual_students(self):
+        self.login(self.admin)
+        response = self.client.get('/individual/')
+        self.assertEqual(response.status_code, 200)
+        names = sorted(c['student'].name for c in response.context['cards'])
+        self.assertEqual(names, ['Алия', 'Тимур'])
+        self.assertTrue(response.context['can_money'])
+
+    def test_teacher_sees_only_own_students_without_money(self):
+        self.login(self.teacher)
+        response = self.client.get('/individual/')
+        self.assertEqual([c['student'].name for c in response.context['cards']], ['Алия'])
+        self.assertFalse(response.context['can_money'])
+        self.assertNotContains(response, '/payments/group/')
+
+    def test_dashboard_hides_individual_groups(self):
+        self.login(self.admin)
+        response = self.client.get('/dashboard/')
+        shown = {g.id for g in response.context['group_cards']}
+        self.assertIn(self.group.id, shown)
+        self.assertNotIn(self.solo.id, shown)
+        self.assertEqual(response.context['individual_count'], 2)
+
+    def test_add_individual(self):
+        newbie = Student.objects.create(name='Дана')
+        self.login(self.admin)
+        response = self.client.post('/individual/add/', {
+            'student': newbie.id, 'teacher': self.teacher.id, 'price': '5 000',
+            'day_1': '1', 'start_1': '18:00', 'end_1': '19:00',
+            'day_3': '1', 'start_3': '18:00', 'end_3': 'oops',
+            'cycle_start_day': '5',
+        })
+        self.assertRedirects(response, '/individual/')
+        group = Group.objects.get(enrollments__student=newbie)
+        self.assertEqual(group.group_type, 'individual')
+        self.assertEqual(group.teacher, self.teacher)
+        self.assertEqual(group.cycle_start_day, 5)
+        self.assertEqual(list(group.schedule_slots.values_list('day_of_week', flat=True)), [1])
+        newbie.refresh_from_db()
+        self.assertEqual(newbie.price_per_lesson, Decimal('5000'))
+
+    def test_add_individual_admin_only(self):
+        newbie = Student.objects.create(name='Дана')
+        self.login(self.teacher)
+        self.client.post('/individual/add/', {'student': newbie.id, 'teacher': self.teacher.id})
+        self.assertFalse(Enrollment.objects.filter(student=newbie).exists())
+
+    def test_split_shared_group_moves_history(self):
+        shared = Group.objects.create(name='individual', teacher=self.teacher, cycle_start_day=5)
+        ScheduleSlot.objects.create(group=shared, day_of_week=2, start_time=time(15), end_time=time(16))
+        Enrollment.objects.create(student=self.student, group=shared)
+        Enrollment.objects.create(student=self.other_student, group=shared)
+        day = timezone.localdate() - timedelta(days=7)
+        # Два урока в один день не должны склеиться в один
+        first = Lesson.objects.create(group=shared, date=day, topic='Present Simple')
+        second = Lesson.objects.create(group=shared, date=day, topic='Доп. урок')
+        for lesson in (first, second):
+            Attendance.objects.create(lesson=lesson, student=self.student, status='present', stars=2)
+        Attendance.objects.create(lesson=first, student=self.other_student, status='absent')
+        Payment.objects.create(student=self.student, group=shared, cycle_number=202610, amount=Decimal('8000'), is_paid=True)
+        LevelCalibration.objects.create(student=self.student, group=shared, direction='up')
+
+        self.login(self.admin)
+        self.assertEqual(self.client.get('/individual/').context['shared_groups'], [shared])
+        response = self.client.post(f'/individual/split/{shared.id}/')
+        self.assertRedirects(response, '/individual/')
+
+        shared.refresh_from_db()
+        self.assertFalse(shared.is_active)
+        self.assertFalse(shared.enrollments.exists())
+        aliya = Group.objects.get(enrollments__student=self.student, group_type='individual', is_active=True,
+                                  schedule_slots__day_of_week=2)
+        self.assertEqual(aliya.teacher, self.teacher)
+        self.assertEqual(aliya.cycle_start_day, 5)
+        self.assertEqual(sorted(aliya.lessons.values_list('topic', flat=True)), ['Present Simple', 'Доп. урок'])
+        self.assertEqual(Attendance.objects.filter(student=self.student, lesson__group=aliya).count(), 2)
+        self.assertTrue(Payment.objects.filter(student=self.student, group=aliya, is_paid=True).exists())
+        self.assertTrue(LevelCalibration.objects.filter(student=self.student, group=aliya).exists())
+        timur = Group.objects.get(enrollments__student=self.other_student, schedule_slots__day_of_week=2)
+        self.assertEqual(list(timur.lessons.values_list('topic', flat=True)), ['Present Simple'])
+        self.assertFalse(Attendance.objects.filter(lesson__group=shared).exists())
+
+    def test_split_requires_post_and_admin(self):
+        shared = Group.objects.create(name='individual', teacher=self.teacher)
+        Enrollment.objects.create(student=self.student, group=shared)
+        self.login(self.admin)
+        self.assertEqual(self.client.get(f'/individual/split/{shared.id}/').status_code, 405)
+        self.login(self.teacher)
+        self.client.post(f'/individual/split/{shared.id}/')
+        shared.refresh_from_db()
+        self.assertTrue(shared.is_active)
+
+    def test_single_student_group_just_moves(self):
+        lone = Group.objects.create(name='Индивид. Марат', teacher=self.teacher)
+        Enrollment.objects.create(student=self.student, group=lone)
+        lesson = Lesson.objects.create(group=lone, date=timezone.localdate())
+        self.login(self.admin)
+        self.client.post(f'/individual/split/{lone.id}/')
+        lone.refresh_from_db()
+        self.assertEqual(lone.group_type, 'individual')
+        self.assertTrue(lone.is_active)
+        self.assertTrue(Lesson.objects.filter(id=lesson.id, group=lone).exists())

@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum, Count
+from django.db import transaction
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -218,6 +219,29 @@ def dashboard_extras(base_groups, groups):
     }
 
 
+TIME_RE = re.compile(r'^\d{1,2}:\d{2}$')
+
+
+def save_schedule(request, group):
+    """Расписание из формы (day_N, start_N, end_N) → слоты и текст расписания группы"""
+    group.schedule_slots.all().delete()
+    for i in range(7):
+        if request.POST.get(f'day_{i}') != '1':
+            continue
+        start = request.POST.get(f'start_{i}', '').strip()
+        end = request.POST.get(f'end_{i}', '').strip()
+        if TIME_RE.match(start) and TIME_RE.match(end):
+            try:
+                ScheduleSlot.objects.create(group=group, day_of_week=i, start_time=start, end_time=end)
+            except Exception as e:
+                messages.error(request, f'Ошибка в дне {DAYS_SHORT[i]}: {e}')
+    group.schedule = ', '.join(
+        f"{DAYS_SHORT[slot.day_of_week]} {slot.start_time:%H:%M}-{slot.end_time:%H:%M}"
+        for slot in group.schedule_slots.order_by('day_of_week', 'start_time')
+    )
+    group.save(update_fields=['schedule'])
+
+
 def search_filter(queryset, query, field='name'):
     """Поиск без учёта регистра (и для кириллицы в SQLite) без ошибок на ( [ * и т.п."""
     query = (query or '').strip()[:100]
@@ -259,7 +283,8 @@ def dashboard(request):
     if role == 'teacher':
         mine = Q(teacher=request.user) | Q(teachers=request.user)
         base_groups = Group.objects.filter(mine, is_active=True).distinct()
-        groups = search_filter(base_groups, search_query)
+        # Индивидуальные — в своей вкладке, здесь только групповые
+        groups = search_filter(base_groups.exclude(group_type='individual'), search_query)
         context = {
             'role': 'teacher',
             'groups': groups,
@@ -273,7 +298,10 @@ def dashboard(request):
         base_groups = Group.objects.filter(is_active=True)
         # Архив групп видят админ и разработчик
         show_archive = request.GET.get('archived') == '1' and role in ['admin', 'developer']
-        groups = search_filter(Group.objects.filter(is_active=not show_archive), search_query)
+        groups = Group.objects.filter(is_active=not show_archive)
+        if not show_archive:
+            groups = groups.exclude(group_type='individual')  # они в своей вкладке
+        groups = search_filter(groups, search_query)
 
         paid_count, billable_count = current_payment_summary(base_groups)
         today_attendance = Attendance.objects.filter(lesson__date=today, lesson__is_cancelled=False)
@@ -282,7 +310,7 @@ def dashboard(request):
             'role': role,
             'groups': groups,
             'total_students': Student.objects.filter(is_active=True).count(),
-            'total_groups': base_groups.count(),
+            'total_groups': base_groups.exclude(group_type='individual').count(),
             'paid_count': paid_count,
             'unpaid_count': billable_count - paid_count,
             'present_count': today_attendance.filter(status__in=['present', 'late']).count(),
@@ -293,6 +321,9 @@ def dashboard(request):
         }
         context.update(dashboard_extras(base_groups, groups))
     
+    context['individual_count'] = Enrollment.objects.filter(
+        group__in=base_groups.filter(group_type='individual'), student__is_active=True
+    ).count()
     return render(request, 'dashboard/dashboard.html', context)
 
 
@@ -784,6 +815,240 @@ def search_api(request):
                     })
 
     return JsonResponse({'groups': found_groups, 'students': list(students.values())[:8]})
+
+
+def money(value):
+    """36000 → «36 000»"""
+    return f'{int(value or 0):,}'.replace(',', '\u202f')
+
+
+def next_lesson_label(slots, now):
+    """Ближайшее занятие по слотам: «идёт сейчас», «сегодня 16:00», «завтра 16:00», «в пт 16:00»"""
+    today = now.date()
+    for shift in range(8):
+        day = today + timedelta(days=shift)
+        for slot in sorted((sl for sl in slots if sl.day_of_week == day.weekday()), key=lambda sl: sl.start_time):
+            if shift == 0 and slot.end_time <= now.time():
+                continue
+            if shift == 0 and slot.start_time <= now.time():
+                return 'идёт сейчас', True
+            when = 'сегодня' if shift == 0 else 'завтра' if shift == 1 else f'в {DAYS_SHORT[day.weekday()].lower()}'
+            return f'{when} {slot.start_time:%H:%M}', False
+    return '', False
+
+
+def shared_individual_groups(groups):
+    """Группы, где «индивидуальные» ученики сидят вместе: их стоит разнести по отдельным занятиям"""
+    result = []
+    for g in groups.annotate(students_count=Count('enrollments', distinct=True)):
+        name = g.name.lower()
+        looks_individual = 'individ' in name or 'индивид' in name
+        if (g.group_type == 'individual' and g.students_count > 1) or (g.group_type == 'group' and looks_individual and g.students_count):
+            result.append(g)
+    return result
+
+
+@crm_view
+def individual_lessons(request):
+    """Индивидуальные ученики: отдельная вкладка с карточкой на каждого"""
+    role = get_user_role(request.user)
+    can_money = role in ['admin', 'accountant', 'developer']
+    can_manage = role in ['admin', 'developer']
+
+    groups = Group.objects.filter(is_active=True)
+    if role == 'teacher':
+        groups = groups.filter(Q(teacher=request.user) | Q(teachers=request.user)).distinct()
+    individual = (groups.filter(group_type='individual')
+                  .select_related('teacher')
+                  .prefetch_related('schedule_slots', 'enrollments__student'))
+
+    stats = {}
+    for st in Attendance.objects.filter(lesson__group__in=individual).values('student_id', 'lesson__group_id').annotate(
+        total=Count('id'),
+        came=Count('id', filter=Q(status__in=['present', 'late'])),
+        homework=Count('id', filter=Q(homework_done=True)),
+        stars=Sum('stars'),
+    ):
+        stats[(st['student_id'], st['lesson__group_id'])] = st
+
+    now = timezone.localtime()
+    cards, today_lessons = [], []
+    periods = {}
+    for g in individual:
+        slots = list(g.schedule_slots.all())
+        y, m = periods.setdefault(g.id, get_current_period(g.cycle_start_day))
+        start, end = get_period(y, m, g.cycle_start_day)
+        lessons_in_period = count_lessons_in_period(g, start, end)
+        next_label, live = next_lesson_label(slots, now)
+        for slot in slots:
+            if slot.day_of_week == now.weekday():
+                state = 'past' if slot.end_time <= now.time() else 'live' if slot.start_time <= now.time() else 'soon'
+                for e in g.enrollments.all():
+                    today_lessons.append({'slot': slot, 'student': e.student, 'group': g, 'state': state,
+                                          'hue': GROUP_HUES[e.student_id % len(GROUP_HUES)]})
+        for e in g.enrollments.all():
+            student = e.student
+            st = stats.get((student.id, g.id), {})
+            total = st.get('total', 0)
+            price = student.price_per_lesson or Decimal('0')
+            cards.append({
+                'student': student,
+                'group': g,
+                'hue': GROUP_HUES[student.id % len(GROUP_HUES)],
+                'days': [{'short': d, 'times': [f'{sl.start_time:%H:%M}' for sl in slots if sl.day_of_week == i]} for i, d in enumerate(DAYS_SHORT)],
+                'next_label': next_label,
+                'live': live,
+                'attendance': round(st.get('came', 0) / total * 100) if total else None,
+                'homework': round(st.get('homework', 0) / total * 100) if total else None,
+                'stars': st.get('stars') or 0,
+                'lessons_total': total,
+                'price': price,
+                'lessons_in_period': lessons_in_period,
+                'amount': price * lessons_in_period,
+                'price_str': money(price),
+                'amount_str': money(price * lessons_in_period),
+                'year': y,
+                'month': m,
+                'month_name': MONTHS_RU[m - 1],
+            })
+
+    paid_keys = set(Payment.objects.filter(
+        group__in=[c['group'] for c in cards], is_paid=True,
+        cycle_number__in={c['year'] * 100 + c['month'] for c in cards},
+    ).values_list('student_id', 'group_id', 'cycle_number'))
+    for c in cards:
+        c['paid'] = (c['student'].id, c['group'].id, c['year'] * 100 + c['month']) in paid_keys
+    cards.sort(key=lambda c: c['student'].name.lower())
+    today_lessons.sort(key=lambda t: t['slot'].start_time)
+
+    teachers = sorted({c['group'].teacher.username for c in cards if c['group'].teacher})
+    context = {
+        'role': role,
+        'cards': cards,
+        'today_lessons': today_lessons,
+        'teachers': teachers,
+        'can_money': can_money,
+        'can_manage': can_manage,
+        'week_lessons': sum(len(g.schedule_slots.all()) for g in individual),
+        'paid_count': sum(1 for c in cards if c['paid']),
+        'expected_total': money(sum(c['amount'] for c in cards)),
+        'paid_total': money(sum(c['amount'] for c in cards if c['paid'])),
+        'paid_share': round(sum(c['amount'] for c in cards if c['paid']) / sum(c['amount'] for c in cards) * 100)
+                      if sum(c['amount'] for c in cards) else 0,
+        'shared_groups': shared_individual_groups(Group.objects.filter(is_active=True)) if can_manage else [],
+    }
+    return render(request, 'dashboard/individual.html', context)
+
+
+@crm_view
+def add_individual(request):
+    """Новый индивидуальный ученик: ученик + учитель + расписание одним шагом"""
+    role = get_user_role(request.user)
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('individual_lessons')
+
+    if request.method == 'POST':
+        student = Student.objects.filter(id=request.POST.get('student'), is_active=True).first()
+        teacher = User.objects.filter(id=request.POST.get('teacher'), profile__role='teacher').first()
+        if not student or not teacher:
+            messages.error(request, 'Выберите ученика и учителя')
+        else:
+            try:
+                cycle_start_day = int(request.POST.get('cycle_start_day', 11))
+            except (TypeError, ValueError):
+                cycle_start_day = 11
+            group = Group.objects.create(
+                name=f'Индивид. {student.name}'[:100],
+                group_type='individual',
+                teacher=teacher,
+                cycle_start_day=cycle_start_day if 2 <= cycle_start_day <= 28 else 11,
+            )
+            save_schedule(request, group)
+            Enrollment.objects.create(student=student, group=group)
+            price = request.POST.get('price', '').replace(' ', '').replace(',', '.')
+            if price:
+                try:
+                    student.price_per_lesson = Decimal(price)
+                    student.save(update_fields=['price_per_lesson'])
+                except ArithmeticError:
+                    messages.error(request, 'Цена за урок не сохранилась — проверьте число')
+            messages.success(request, f'{student.name} — теперь индивидуально у {teacher.username}.')
+            return redirect('individual_lessons')
+
+    busy = Enrollment.objects.filter(group__group_type='individual', group__is_active=True).values_list('student_id', flat=True)
+    context = {
+        'role': role,
+        'students': Student.objects.filter(is_active=True).exclude(id__in=busy).order_by('name'),
+        'teachers': User.objects.filter(profile__role='teacher').order_by('username'),
+        'days': list(enumerate(DAYS_SHORT)),
+        'selected_student': request.GET.get('student', ''),
+    }
+    return render(request, 'dashboard/add_individual.html', context)
+
+
+@crm_view
+@require_POST
+def split_individual_group(request, group_id):
+    """Общую «индивидуальную» группу — в отдельное занятие на каждого ученика (вместе с историей)"""
+    role = get_user_role(request.user)
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('individual_lessons')
+
+    shared = get_object_or_404(Group, id=group_id)
+    enrollments = list(Enrollment.objects.filter(group=shared).select_related('student'))
+    if not enrollments:
+        messages.error(request, f'В «{shared.name}» нет учеников')
+        return redirect('individual_lessons')
+    if len(enrollments) == 1:
+        # Один ученик — достаточно сменить тип: группа со всей историей переезжает во вкладку
+        shared.group_type = 'individual'
+        shared.save(update_fields=['group_type'])
+        messages.success(request, f'«{shared.name}» теперь во вкладке «Индивидуальные».')
+        return redirect('individual_lessons')
+
+    with transaction.atomic():
+        for e in enrollments:
+            student = e.student
+            group = Group.objects.create(
+                name=f'Индивид. {student.name}'[:100],
+                group_type='individual',
+                teacher=shared.teacher,
+                schedule=shared.schedule,
+                cycle_start_day=shared.cycle_start_day,
+            )
+            group.teachers.set(shared.teachers.all())
+            group.books.set(shared.books.all())
+            for slot in shared.schedule_slots.all():
+                ScheduleSlot.objects.create(group=group, day_of_week=slot.day_of_week,
+                                            start_time=slot.start_time, end_time=slot.end_time)
+            # Переносим ученика со всей историей: запись, оплаты, калибровки, уроки
+            Enrollment.objects.filter(id=e.id).update(group=group)
+            Payment.objects.filter(student=student, group=shared).update(group=group)
+            LevelCalibration.objects.filter(student=student, group=shared).update(group=group)
+            # Уроки копируем по одному на исходный (два урока в один день не склеятся);
+            # отменённые уроки без отметок — тоже, если они были после записи ученика
+            attendances = list(Attendance.objects.filter(student=student, lesson__group=shared))
+            old_lessons = Lesson.objects.filter(group=shared).filter(
+                Q(id__in=[a.lesson_id for a in attendances]) |
+                Q(is_cancelled=True, date__gte=timezone.localtime(e.enrolled_at).date())
+            )
+            new_lessons = {}
+            for old in old_lessons:
+                new_lessons[old.id] = Lesson.objects.create(
+                    group=group, date=old.date, topic=old.topic, is_cancelled=old.is_cancelled,
+                    edited_by=old.edited_by, edited_at=old.edited_at,
+                )
+            for att in attendances:
+                att.lesson = new_lessons[att.lesson_id]
+                att.save(update_fields=['lesson'])
+        shared.is_active = False
+        shared.save(update_fields=['is_active'])
+
+    messages.success(request, f'{len(enrollments)} уч. из «{shared.name}» теперь занимаются индивидуально — история перенесена. '
+                              'Расписание скопировано из общей группы: поправьте время у каждого.')
+    return redirect('individual_lessons')
 
 
 @crm_view
@@ -1353,37 +1618,14 @@ def add_group(request):
                 is_active=True,
             )
             
-            import re
-            for i in range(7):
-                if request.POST.get(f'day_{i}') == '1':
-                    start = request.POST.get(f'start_{i}', '').strip()
-                    end = request.POST.get(f'end_{i}', '').strip()
-                    
-                    if re.match(r'^\d{1,2}:\d{2}$', start) and re.match(r'^\d{1,2}:\d{2}$', end):
-                        try:
-                            ScheduleSlot.objects.create(
-                                group=group,
-                                day_of_week=i,
-                                start_time=start,
-                                end_time=end,
-                            )
-                        except Exception as e:
-                            messages.error(request, f'Ошибка в дне {i}: {e}')
-            
-            slots = group.schedule_slots.all().order_by('day_of_week')
-            days_names = {0: 'Пн', 1: 'Вт', 2: 'Ср', 3: 'Чт', 4: 'Пт', 5: 'Сб', 6: 'Вс'}
-            schedule_parts = []
-            for slot in slots:
-                schedule_parts.append(f"{days_names[slot.day_of_week]} {slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}")
-            group.schedule = ', '.join(schedule_parts)
-            group.save()
+            save_schedule(request, group)
             
             additional_teacher_ids = request.POST.getlist('additional_teachers', [])
             additional_teacher_ids = [tid for tid in additional_teacher_ids if int(tid) != int(teacher_id)]
             if additional_teacher_ids:
                 group.teachers.set(additional_teacher_ids)
             messages.success(request, f'Группа "{name}" создана!')
-            return redirect('dashboard')
+            return redirect('individual_lessons' if group_type == 'individual' else 'dashboard')
         else:
             messages.error(request, 'Заполните название и выберите учителя')
     
@@ -1719,38 +1961,13 @@ def edit_group(request, group_id):
         group.cycle_start_day = cycle_start_day
         group.save()
         
-        group.schedule_slots.all().delete()
-        
-        import re
-        for i in range(7):
-            if request.POST.get(f'day_{i}') == '1':
-                start = request.POST.get(f'start_{i}', '').strip()
-                end = request.POST.get(f'end_{i}', '').strip()
-                
-                if re.match(r'^\d{1,2}:\d{2}$', start) and re.match(r'^\d{1,2}:\d{2}$', end):
-                    try:
-                        ScheduleSlot.objects.create(
-                            group=group,
-                            day_of_week=i,
-                            start_time=start,
-                            end_time=end,
-                        )
-                    except Exception as e:
-                        messages.error(request, f'Ошибка в дне {i}: {e}')
-        
-        slots = group.schedule_slots.all().order_by('day_of_week')
-        days_names = {0: 'Пн', 1: 'Вт', 2: 'Ср', 3: 'Чт', 4: 'Пт', 5: 'Сб', 6: 'Вс'}
-        schedule_parts = []
-        for slot in slots:
-            schedule_parts.append(f"{days_names[slot.day_of_week]} {slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}")
-        group.schedule = ', '.join(schedule_parts)
-        group.save()
+        save_schedule(request, group)
         
         messages.success(request, f'Группа "{group.name}" обновлена!')
         return_url = request.POST.get('return_url', '')
-        if return_url:
+        if return_url and url_has_allowed_host_and_scheme(return_url, allowed_hosts={request.get_host()}):
             return redirect(return_url)
-        return redirect('dashboard')
+        return redirect('individual_lessons' if group.group_type == 'individual' else 'dashboard')
     
     teachers = User.objects.filter(profile__role='teacher')
     schedule_slots = {str(s.day_of_week): s for s in group.schedule_slots.all()}
