@@ -701,7 +701,11 @@ PHRASES = {
     "Отправить ${chosen.length} ${plural(chosen.length, 'сообщение', 'сообщения', 'сообщений')}": "Send ${chosen.length} ${plural(chosen.length, 'message', 'messages', 'messages')}",
     "Отправить ${count} ${plural(count, 'сообщение', 'сообщения', 'сообщений')} в WhatsApp?": "Send ${count} ${plural(count, 'message', 'messages', 'messages')} to WhatsApp?",
     'Сообщения уйдут автоматически с номера центра — на следующей странице будет видно, как они отправляются.': 'Messages will be sent automatically from the center\'s number — the next page shows how they go out.',
-    'На следующей странице каждое сообщение откроется в WhatsApp с готовым текстом — останется нажать «Отправить».': 'On the next page each message opens in WhatsApp with the text ready — just press Send.',
+    'WhatsApp не подключён, поэтому каждое сообщение придётся отправлять вручную.': 'WhatsApp is not connected, so each message has to be sent by hand.',
+    'Подключить WhatsApp': 'Connect WhatsApp',
+    'WhatsApp не подключён — сообщения (${count}) придётся отправлять вручную, по одному. Продолжить?':
+        'WhatsApp is not connected — the messages (${count}) will have to be sent by hand, one by one. Continue?',
+    ', и рассылка будет уходить сама в один клик.': ' and broadcasts will go out by themselves in one click.',
     'Не удалось загрузить список': 'Could not load the list',
     'Никого не нашли — измените фильтры': 'Nobody found — change the filters',
     'Не удалось создать рассылку': 'Could not create the broadcast',

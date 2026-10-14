@@ -274,7 +274,8 @@
                     </button>
                     <p class="text-xs text-gray-500 mt-2 text-center" id="modeNote">
                         {% if mode == 'api' %}Сообщения уйдут автоматически с номера центра — на следующей странице будет видно, как они отправляются.
-                        {% else %}На следующей странице каждое сообщение откроется в WhatsApp с готовым текстом — останется нажать «Отправить».{% endif %}
+                        {% else %}WhatsApp не подключён, поэтому каждое сообщение придётся отправлять вручную.
+                        <button type="button" class="font-bold underline" onclick="openDrawer()">Подключить WhatsApp</button>, и рассылка будет уходить сама в один клик.{% endif %}
                     </p>
                 </section>
             </aside>
@@ -607,7 +608,8 @@
         async function createBroadcast() {
             const btn = $('sendBtn');
             const count = selectable().filter(r => !excluded.has(r.key)).length;
-            if (!confirm(`Отправить ${count} ${plural(count, 'сообщение', 'сообщения', 'сообщений')} в WhatsApp?`)) return;
+            // Вручную всё равно придётся открывать каждого — предупреждаем, что сам WhatsApp не отправит
+            if (MODE !== 'api' && !confirm(`WhatsApp не подключён — сообщения (${count}) придётся отправлять вручную, по одному. Продолжить?`)) return;
             btn.disabled = true;
             try {
                 const res = await fetch('{% url "broadcast_create" %}', {

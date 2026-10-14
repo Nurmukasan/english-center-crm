@@ -738,6 +738,15 @@ class BroadcastTests(CRMTestCase):
         self.assertTrue(message.text.startswith('Здравствуйте, Айгуль! К оплате '))
         self.assertEqual(self.client.get(f'/broadcast/{broadcast.id}/').status_code, 200)
 
+    def test_connected_whatsapp_starts_sending_at_once(self):
+        from unittest import mock
+        from .models import WhatsAppSettings
+        self.assertNotIn('start=1', self.create(self.admin).json()['url'])
+        WhatsAppSettings.objects.update_or_create(pk=1, defaults={'instance_id': '1101', 'token': 'secret'})
+        with mock.patch('dashboard.whatsapp.GreenAPI.state', return_value='authorized'):
+            data = self.create(self.admin).json()
+        self.assertTrue(data['url'].endswith(f'/broadcast/{data["id"]}/?start=1'))
+
     def test_news_needs_text_and_teacher_has_no_access(self):
         from .broadcasts import TEMPLATES
         response = self.create(self.admin, kind='news', audience='group', text=TEMPLATES[('news', 'group')])

@@ -240,6 +240,11 @@
         }
         window.addEventListener('beforeunload', e => { if (running) { e.preventDefault(); e.returnValue = ''; } });
         paintGo();
+        // Пришли сюда сразу после «Отправить» — начинаем отправку сами, без второго нажатия
+        if (new URLSearchParams(location.search).get('start') === '1') {
+            history.replaceState(null, '', location.pathname);
+            if (autoLeft().length) toggleAuto();
+        }
     </script>
 </body>
 </html>
