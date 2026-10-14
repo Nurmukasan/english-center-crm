@@ -15,7 +15,7 @@ from django.test import Client
 from django.urls import reverse
 
 from dashboard import i18n
-from dashboard.models import Book, Group, Student
+from dashboard.models import Book, Broadcast, Group, Student
 from dashboard.views import get_current_period
 
 
@@ -31,7 +31,7 @@ class Command(BaseCommand):
 
         pages = ['dashboard', 'students_list', 'add_student', 'weekly_schedule', 'individual_lessons',
                  'add_individual', 'payments_page', 'accountant_stats', 'add_group', 'books_status',
-                 'star_rating', 'profile']
+                 'star_rating', 'profile', 'broadcast_page']
         urls = [reverse(name) for name in pages]
         urls += ['/dashboard/?archived=1', '/students/?archived=1',
                  f'/payments/?year={year}&month={month}', f'/payments/?year={year + 1}&month=1']
@@ -43,6 +43,11 @@ class Command(BaseCommand):
         for s in Student.objects.order_by('-is_active', 'id')[:3]:
             urls += [reverse('student_profile', args=[s.id]), reverse('edit_student', args=[s.id]),
                      reverse('add_existing_student_to_group', args=[s.id])]
+        for b in Broadcast.objects.all()[:3]:
+            urls.append(reverse('broadcast_detail', args=[b.id]))
+        for kind, audience in [('payment', 'student'), ('payment', 'teacher'), ('payment', 'group'), ('news', 'parent')]:
+            urls.append(f'/broadcast/?kind={kind}&audience={audience}')
+            urls.append(f'/broadcast/recipients/?kind={kind}&audience={audience}')
         for b in Book.objects.all()[:2]:
             urls += [reverse('book_detail', args=[b.id]), reverse('book_reader', args=[b.id])]
 

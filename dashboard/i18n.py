@@ -264,13 +264,17 @@ def _translate_text_node(text):
 
 # ---------------- JSON ----------------
 
+# Данные, которые уходят клиентам в WhatsApp, остаются на русском
+NO_TRANSLATE_KEYS = {'vars', 'text', 'name', 'sub', 'phone_display'}
+
+
 def translate_data(value):
     if isinstance(value, str):
         return translate_text(value)
     if isinstance(value, list):
         return [translate_data(v) for v in value]
     if isinstance(value, dict):
-        return {k: translate_data(v) for k, v in value.items()}
+        return {k: v if k in NO_TRANSLATE_KEYS else translate_data(v) for k, v in value.items()}
     return value
 
 

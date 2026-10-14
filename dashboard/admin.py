@@ -48,3 +48,25 @@ class PaymentAdmin(admin.ModelAdmin):
     list_display = ['student', 'group', 'cycle_number', 'start_date', 'end_date', 'amount', 'is_paid', 'marked_by']
     list_filter = ['is_paid', 'group', 'cycle_number']
     search_fields = ['student__name']
+
+
+from .models import Broadcast, BroadcastMessage, WhatsAppSettings
+
+
+@admin.register(WhatsAppSettings)
+class WhatsAppSettingsAdmin(admin.ModelAdmin):
+    list_display = ['instance_id', 'api_url', 'updated_at']
+
+
+class BroadcastMessageInline(admin.TabularInline):
+    model = BroadcastMessage
+    extra = 0
+    fields = ['recipient', 'phone', 'chat_id', 'amount', 'status', 'error', 'sent_at']
+    readonly_fields = fields
+
+
+@admin.register(Broadcast)
+class BroadcastAdmin(admin.ModelAdmin):
+    list_display = ['title', 'kind', 'audience', 'mode', 'created_by', 'created_at']
+    list_filter = ['kind', 'audience', 'mode']
+    inlines = [BroadcastMessageInline]

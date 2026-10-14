@@ -41,6 +41,12 @@
             <i class="fas fa-coins"></i><span>Оплаты</span>
         </a>
         {% endif %}
+        {% if role == 'admin' or role == 'accountant' or role == 'developer' %}
+        <a href="{% url 'broadcast_page' %}" data-label="Рассылки"
+           class="ee-rail-item {% if url_name in 'broadcast_page broadcast_detail' %}is-active{% endif %}">
+            <i class="fas fa-paper-plane"></i><span>Рассылки</span>
+        </a>
+        {% endif %}
         {% if role == 'admin' or role == 'developer' %}
         <a href="{% url 'books_status' %}" data-label="Книги"
            class="ee-rail-item {% if url_name in 'books_status book_detail' %}is-active{% endif %}">
@@ -164,6 +170,7 @@
     pages.push({ name: 'Профиль', url: '{% url "profile" %}', icon: 'fas fa-user' });
     pages.push({ name: 'Выйти', url: '{% url "logout" %}', icon: 'fas fa-arrow-right-from-bracket' });
     {% if role != 'teacher' %}pages.push({ name: 'Скачать Excel', url: '{% url "export_excel" %}', icon: 'fas fa-file-excel' });{% endif %}
+    {% if role != 'teacher' %}pages.push({ name: 'Напомнить об оплате в WhatsApp', url: '{% url "broadcast_page" %}?kind=payment', icon: 'fab fa-whatsapp' });{% endif %}
     {% if role == 'admin' or role == 'developer' %}
     pages.push({ name: 'Создать группу', url: '{% url "add_group" %}', icon: 'fas fa-users-rectangle' });
     pages.push({ name: 'Добавить ученика', url: '{% url "add_student" %}', icon: 'fas fa-user-plus' });

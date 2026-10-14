@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
-from dashboard import views
+from dashboard import broadcasts, views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -48,6 +48,15 @@ urlpatterns = [
     path('group/<int:group_id>/stars/', views.give_stars, name='give_stars'),
     path('star-rating/', views.star_rating, name='star_rating'),
     path('api/search/', views.search_api, name='search_api'),
+    path('broadcast/', broadcasts.broadcast_page, name='broadcast_page'),
+    path('broadcast/recipients/', broadcasts.broadcast_recipients, name='broadcast_recipients'),
+    path('broadcast/create/', broadcasts.broadcast_create, name='broadcast_create'),
+    path('broadcast/<int:broadcast_id>/', broadcasts.broadcast_detail, name='broadcast_detail'),
+    path('broadcast/message/<int:message_id>/send/', broadcasts.broadcast_send, name='broadcast_send'),
+    path('broadcast/message/<int:message_id>/mark/', broadcasts.broadcast_mark, name='broadcast_mark'),
+    path('broadcast/whatsapp/', broadcasts.whatsapp_settings, name='whatsapp_settings'),
+    path('broadcast/whatsapp/groups/', broadcasts.whatsapp_groups, name='whatsapp_groups'),
+    path('broadcast/whatsapp/bind/', broadcasts.bind_group_chat, name='bind_group_chat'),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
