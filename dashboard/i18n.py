@@ -276,9 +276,14 @@ def translate_data(value):
 
 def current_language(request):
     """'ru', 'en' или 'kk' (казахский пока переводит Google Translate, если выбран на лендинге)"""
-    if 'kk' in request.COOKIES.get('googtrans', ''):
+    google = request.COOKIES.get('googtrans', '')
+    if 'kk' in google:
         return 'kk'
-    return 'en' if request.COOKIES.get(LANG_COOKIE) == 'en' else 'ru'
+    chosen = request.COOKIES.get(LANG_COOKIE)
+    if chosen is None:
+        # Английский, выбранный раньше через Google Translate, подхватываем сами
+        return 'en' if google.endswith('/en') else 'ru'
+    return 'en' if chosen == 'en' else 'ru'
 
 
 def is_english(request):

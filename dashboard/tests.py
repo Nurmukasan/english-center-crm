@@ -569,6 +569,13 @@ class EnglishTests(CRMTestCase):
         data = self.client.post(f'/group/{self.group.id}/attendance/', {'student_id': self.student.id, 'status': 'bogus'}).json()
         self.assertIn(data['error'], ['There is no lesson today', 'Invalid status'])
 
+    def test_english_chosen_in_google_is_kept(self):
+        self.login(self.admin)
+        self.client.cookies['googtrans'] = '/ru/en'
+        self.assertContains(self.client.get('/dashboard/'), '<html lang="en"')
+        self.client.cookies['ee_lang'] = 'ru'
+        self.assertContains(self.client.get('/dashboard/'), '<html lang="ru"')
+
     def test_kazakh_still_uses_google(self):
         self.client.cookies['googtrans'] = '/ru/kk'
         self.assertContains(self.client.get('/'), 'translate.google.com')

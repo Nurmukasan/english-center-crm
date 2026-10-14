@@ -148,7 +148,7 @@
 
     /* ---------- Язык: страница приходит с сервера уже на нужном языке ---------- */
     window.eeToggleLang = function () {
-        const next = /(?:^|; )ee_lang=en/.test(document.cookie) ? 'ru' : 'en';
+        const next = '{{ ee_lang }}' === 'en' ? 'ru' : 'en';
         document.cookie = `ee_lang=${next}; path=/; max-age=31536000; samesite=lax`;
         // Казахский (Google Translate) выключаем: RU и EN приходят с сервера сразу готовыми
         document.cookie = 'googtrans=; path=/; max-age=0';
