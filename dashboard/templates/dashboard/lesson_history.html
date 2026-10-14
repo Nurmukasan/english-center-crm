@@ -63,68 +63,110 @@
         </div>
     </header>
     
-    <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
-        
+    <main class="max-w-5xl mx-auto px-4 py-8 fade-in">
+
+        {% if can_edit %}
+        <!-- Урок за прошедшую дату -->
+        <form method="POST" action="{% url 'add_past_lesson' group.id %}"
+              class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 p-5 mb-6 flex flex-wrap items-end gap-3">
+            {% csrf_token %}
+            <div class="flex-1 min-w-[220px]">
+                <p class="font-bold text-gray-800 dark:text-white"><i class="fas fa-calendar-plus text-indigo-400 mr-1"></i> Забыли отметить урок?</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Выберите дату — урок появится в истории, и его можно будет заполнить.</p>
+            </div>
+            <input type="date" name="date" max="{{ today|date:'Y-m-d' }}" value="{{ today|date:'Y-m-d' }}" required
+                   class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
+            <button type="submit" class="bg-indigo-500 text-white px-5 py-2.5 rounded-lg font-medium">
+                <i class="fas fa-plus mr-1"></i> Добавить урок
+            </button>
+        </form>
+        {% endif %}
+
         <div class="space-y-4">
             {% for data in lesson_data %}
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
-                
-                <button onclick="toggleStudents({{ forloop.counter }})" 
-                        class="w-full flex justify-between items-center p-6 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition text-left">
-                    <div class="flex items-center gap-4">
-                        <i class="fas fa-book-open text-2xl text-indigo-400"></i>
-                        <div>
-                            <p class="font-bold text-gray-800 dark:text-white text-lg">{{ data.lesson.date|date:"d.m.Y" }}</p>
-                            {% if data.lesson.topic %}
-                            <p class="text-gray-500 dark:text-gray-400 text-sm">{{ data.lesson.topic }}</p>
-                            {% endif %}
+            {% with lesson=data.lesson %}
+            <div id="lesson-{{ lesson.id }}" class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors scroll-mt-28">
+
+                <div class="flex flex-wrap items-center gap-4 p-5 sm:p-6">
+                    <button type="button" onclick="toggleStudents({{ lesson.id }})" class="flex items-center gap-4 flex-1 min-w-[200px] text-left">
+                        <i class="fas {% if lesson.is_cancelled %}fa-ban text-gray-500{% else %}fa-book-open text-indigo-400{% endif %} text-2xl"></i>
+                        <div class="min-w-0">
+                            <p class="font-bold text-gray-800 dark:text-white text-lg">
+                                {{ lesson.date|date:"d.m.Y" }}
+                                {% if lesson.is_cancelled %}<span class="ml-2 align-middle text-xs font-bold px-2 py-0.5 rounded-full bg-gray-500/20 text-gray-400">отменён</span>{% endif %}
+                            </p>
+                            {% if lesson.topic %}<p class="text-gray-500 dark:text-gray-400 text-sm truncate">{{ lesson.topic }}</p>{% endif %}
+                            {% if lesson.edited_by %}<p class="text-xs text-gray-500 mt-0.5"><i class="fas fa-pen mr-1"></i>изменил(а) <span class="notranslate">{{ lesson.edited_by.username }}</span>, {{ lesson.edited_at|date:"d.m H:i" }}</p>{% endif %}
                         </div>
+                    </button>
+
+                    {% if not lesson.is_cancelled %}
+                    <div class="flex gap-3 text-sm font-medium">
+                        <span class="text-green-500" title="Был(и)"><i class="fas fa-check mr-1"></i>{{ data.present_count }}</span>
+                        {% if data.late_count %}<span class="text-amber-400" title="Из них опоздали"><i class="fas fa-clock mr-1"></i>{{ data.late_count }}</span>{% endif %}
+                        <span class="text-red-500" title="Не был(и)"><i class="fas fa-times mr-1"></i>{{ data.absent_count }}</span>
+                        <span class="text-emerald-300" title="Сделали ДЗ"><i class="fas fa-book mr-1"></i>{{ data.homework_count }}</span>
+                        {% if data.stars_total %}<span class="text-yellow-400" title="Звёзд за урок"><i class="fas fa-star mr-1"></i>{{ data.stars_total }}</span>{% endif %}
                     </div>
-                    <div class="flex items-center gap-4">
-                        <div class="flex gap-3 text-sm">
-                            <span class="text-green-600 font-medium"><i class="fas fa-check mr-1"></i>{{ data.present_count }}</span>
-                            <span class="text-red-600 font-medium"><i class="fas fa-times mr-1"></i>{{ data.absent_count }}</span>
-                        </div>
-                        <i class="fas fa-chevron-down text-gray-400" id="arrow-{{ forloop.counter }}"></i>
+                    {% endif %}
+
+                    {% if can_edit %}
+                    <div class="flex gap-2">
+                        {% if not lesson.is_cancelled %}
+                        <button type="button" onclick="openEditor({{ lesson.id }})"
+                                class="bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                            <i class="fas fa-pen mr-1"></i> Изменить
+                        </button>
+                        {% endif %}
+                        <form method="POST" action="{% url 'toggle_lesson_cancel' lesson.id %}"
+                              {% if not lesson.is_cancelled %}data-confirm="Отменить урок {{ lesson.date|date:'d.m.Y' }}? Отметки этого урока удалятся, в статистику он не попадёт." onsubmit="return confirm(this.dataset.confirm)"{% endif %}>
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+                                {% if lesson.is_cancelled %}<i class="fas fa-rotate-left mr-1"></i> Вернуть урок{% else %}<i class="fas fa-ban mr-1"></i> Отменить{% endif %}
+                            </button>
+                        </form>
                     </div>
-                </button>
-                
-                <div class="px-6 pb-3">
-                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                        <div class="bg-green-500 h-2 rounded-full transition-all" 
-                             style="width: {% if data.total_count > 0 %}{% widthratio data.present_count data.total_count 100 %}%{% else %}0%{% endif %}">
-                        </div>
+                    {% endif %}
+                </div>
+
+                {% if not lesson.is_cancelled %}
+                <div class="px-6 pb-4">
+                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                        <div class="bg-green-500 h-2 rounded-full transition-all"
+                             style="width: {% if data.total_count %}{% widthratio data.present_count data.total_count 100 %}%{% else %}0%{% endif %}"></div>
                     </div>
                 </div>
-                
-                <div id="students-{{ forloop.counter }}" class="hidden border-t border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700/30">
+
+                <div id="students-{{ lesson.id }}" class="hidden border-t border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700/30">
                     {% if data.present_students %}
                     <div class="p-6">
                         <p class="text-sm font-bold text-green-700 dark:text-green-400 mb-3">
-                            <i class="fas fa-check-circle mr-1"></i>Присутствовали ({{ data.present_count }}):
+                            <i class="fas fa-check-circle mr-1"></i>Были ({{ data.present_count }}):
                         </p>
-                        <div class="flex flex-wrap gap-2 mb-4">
+                        <div class="flex flex-wrap gap-2">
                             {% for name in data.present_students %}
-                            <span class="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-3 py-1.5 rounded-full text-sm font-medium">{{ name }}</span>
+                            <span class="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-3 py-1.5 rounded-full text-sm font-medium notranslate">{{ name }}</span>
                             {% endfor %}
                         </div>
                     </div>
                     {% endif %}
                     {% if data.absent_students %}
-                    <div class="px-6 pb-6">
+                    <div class="px-6 pb-6 {% if not data.present_students %}pt-6{% endif %}">
                         <p class="text-sm font-bold text-red-700 dark:text-red-400 mb-3">
-                            <i class="fas fa-times-circle mr-1"></i>Отсутствовали ({{ data.absent_count }}):
+                            <i class="fas fa-times-circle mr-1"></i>Не были ({{ data.absent_count }}):
                         </p>
                         <div class="flex flex-wrap gap-2">
                             {% for name in data.absent_students %}
-                            <span class="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400 px-3 py-1.5 rounded-full text-sm font-medium">{{ name }}</span>
+                            <span class="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400 px-3 py-1.5 rounded-full text-sm font-medium notranslate">{{ name }}</span>
                             {% endfor %}
                         </div>
                     </div>
                     {% endif %}
                 </div>
-                
+                {% endif %}
             </div>
+            {% endwith %}
             {% empty %}
             <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-12 text-center text-gray-400 shadow-md border border-gray-300 dark:border-gray-600">
                 <i class="fas fa-inbox text-5xl mb-3"></i>
@@ -132,25 +174,127 @@
             </div>
             {% endfor %}
         </div>
-        
+
     </main>
-    
+
+    {% if can_edit %}
+    <!-- Правка урока -->
+    <div id="editorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div class="flex items-start justify-between gap-4 mb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800 dark:text-white"><i class="fas fa-pen text-indigo-400 mr-2"></i>Урок <span id="editorDate"></span></h3>
+                    <p class="text-sm text-gray-400">Отметки сохранятся задним числом, в истории будет видно, кто менял.</p>
+                </div>
+                <button type="button" onclick="closeEditor()" class="text-gray-400 hover:text-white text-xl"><i class="fas fa-xmark"></i></button>
+            </div>
+            <input type="text" id="editorTopic" maxlength="200" placeholder="Тема урока (необязательно)"
+                   class="w-full px-4 py-2.5 mb-4 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
+            <div class="flex items-center gap-2 mb-2 text-xs font-bold text-gray-500">
+                <span class="flex-1">Ученик</span>
+                <span class="w-[204px] text-center hidden sm:block">Посещаемость</span>
+                <span class="w-12 text-center">ДЗ</span>
+                <span class="w-[92px] text-center">Звёзды</span>
+            </div>
+            <div id="editorRows" class="space-y-2 overflow-y-auto pr-1 flex-1"></div>
+            <div class="flex gap-3 mt-5">
+                <button type="button" id="editorSave" onclick="saveEditor()"
+                        class="flex-1 bg-indigo-500 text-white py-3 rounded-lg font-medium">
+                    <i class="fas fa-save mr-1"></i> Сохранить
+                </button>
+                <button type="button" onclick="closeEditor()"
+                        class="px-6 py-3 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-white rounded-lg font-medium">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    {{ editor_data|json_script:"editor-data" }}
+    {% endif %}
+
     <script>
         function toggleTheme() {
             document.documentElement.classList.toggle('dark');
         }
-        
+
         function toggleStudents(id) {
             const div = document.getElementById(`students-${id}`);
-            const arrow = document.getElementById(`arrow-${id}`);
-            if (div.classList.contains('hidden')) {
-                div.classList.remove('hidden');
-                arrow.className = 'fas fa-chevron-up text-gray-400';
-            } else {
-                div.classList.add('hidden');
-                arrow.className = 'fas fa-chevron-down text-gray-400';
-            }
+            if (div) div.classList.toggle('hidden');
         }
+        {% if can_edit %}
+        const LESSONS = JSON.parse(document.getElementById('editor-data').textContent);
+        const STATUS = [['present', 'Был', 'bg-green-500'], ['late', 'Опоздал', 'bg-amber-500'], ['absent', 'Не был', 'bg-red-500']];
+        let editing = null;
+
+        function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+        function openEditor(id) {
+            editing = LESSONS[id];
+            if (!editing) return;
+            document.getElementById('editorDate').textContent = editing.date;
+            document.getElementById('editorTopic').value = editing.topic;
+            document.getElementById('editorRows').innerHTML = editing.rows.map((r, i) => `
+                <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 p-2.5 rounded-lg border border-gray-200 dark:border-gray-600" data-i="${i}">
+                    <span class="flex-1 min-w-[120px] font-medium text-gray-800 dark:text-white notranslate">${esc(r.name)}</span>
+                    <div class="flex gap-1">
+                        ${STATUS.map(([value, label, color]) => `
+                            <button type="button" data-status="${value}" data-color="${color}" onclick="setStatus(${i}, '${value}')"
+                                class="status-btn px-2.5 py-1.5 rounded-md text-xs font-bold transition ${r.status === value ? color + ' text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300'}">${label}</button>`).join('')}
+                    </div>
+                    <label class="w-12 flex justify-center"><input type="checkbox" class="w-5 h-5" ${r.homework ? 'checked' : ''} onchange="editing.rows[${i}].homework = this.checked"></label>
+                    <div class="flex items-center gap-1 w-[92px] justify-center">
+                        <button type="button" onclick="stepStars(${i}, -1)" class="w-7 h-7 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-white">−</button>
+                        <span class="w-6 text-center font-bold text-yellow-400" id="stars-${i}">${r.stars}</span>
+                        <button type="button" onclick="stepStars(${i}, 1)" class="w-7 h-7 rounded-md bg-yellow-500 text-white">+</button>
+                    </div>
+                </div>`).join('');
+            document.getElementById('editorModal').classList.remove('hidden');
+        }
+
+        function setStatus(i, value) {
+            editing.rows[i].status = value;
+            document.querySelectorAll(`#editorRows [data-i="${i}"] .status-btn`).forEach(b => {
+                const on = b.dataset.status === value;
+                b.className = 'status-btn px-2.5 py-1.5 rounded-md text-xs font-bold transition ' +
+                    (on ? b.dataset.color + ' text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300');
+            });
+        }
+
+        function stepStars(i, delta) {
+            const r = editing.rows[i];
+            r.stars = Math.max(0, Math.min(100, r.stars + delta));
+            document.getElementById('stars-' + i).textContent = r.stars;
+        }
+
+        function closeEditor() {
+            document.getElementById('editorModal').classList.add('hidden');
+            editing = null;
+        }
+
+        function saveEditor() {
+            const btn = document.getElementById('editorSave');
+            btn.disabled = true;
+            fetch(editing.save_url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+                body: JSON.stringify({ topic: document.getElementById('editorTopic').value, rows: editing.rows }),
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.href = location.pathname + '#lesson-' + editing.id;
+                    location.reload();
+                } else {
+                    alert(data.error || 'Не удалось сохранить');
+                    btn.disabled = false;
+                }
+            })
+            .catch(() => { alert('Нет связи с сервером'); btn.disabled = false; });
+        }
+
+        // Открыть урок сразу (после «Добавить урок»)
+        const openId = new URLSearchParams(location.search).get('open');
+        if (openId && LESSONS[openId]) openEditor(openId);
+        {% endif %}
     </script>
     <script>
     function googleTranslateElementInit() {

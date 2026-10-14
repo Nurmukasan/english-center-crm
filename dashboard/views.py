@@ -5,13 +5,17 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
+from functools import wraps
 from django.contrib import messages
 from django.utils import timezone
 from django.http import JsonResponse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+import json
 from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book, ScheduleSlot, LevelCalibration
 from users.models import Profile
 from decimal import Decimal
+import re
 
 
 def count_lessons_in_period(group, period_start, period_end):
@@ -47,7 +51,7 @@ LANDING_CONTACTS = {
 def landing_stats():
     """Живые цифры центра для лендинга (нулевые не показываем)"""
     stats = [
-        {'value': Student.objects.count(), 'label': 'учеников'},
+        {'value': Student.objects.filter(is_active=True).count(), 'label': 'учеников'},
         {'value': Group.objects.filter(is_active=True).count(), 'label': 'активных групп'},
         {'value': Profile.objects.filter(role='teacher').count(), 'label': 'учителей'},
         {'value': Attendance.objects.aggregate(total=Sum('stars'))['total'] or 0, 'label': 'звёзд выдано'},
@@ -90,16 +94,74 @@ def login_view(request):
 
 def logout_view(request):
     """Выход"""
+    list(messages.get_messages(request))  # непоказанные сообщения CRM не должны всплыть в окне входа
     logout(request)
     return redirect('login')
 
 
 def get_user_role(user):
-    """Получаем роль пользователя"""
-    try:
-        return user.profile.role
-    except:
-        return 'admin'
+    """Роль пользователя в CRM.
+
+    Без профиля роль есть только у суперпользователя (admin). Остальным доступ закрыт,
+    пока администратор не назначит роль в /admin/ → Профили.
+    """
+    profile = getattr(user, 'profile', None)
+    if profile is not None:
+        return profile.role
+    return 'admin' if user.is_superuser else None
+
+
+def crm_view(view):
+    """Страница CRM: нужен вход и назначенная роль"""
+    @wraps(view)
+    @login_required
+    def wrapper(request, *args, **kwargs):
+        if get_user_role(request.user) is None:
+            if request.method == 'POST' or request.path.startswith('/api/'):
+                return JsonResponse({'success': False, 'error': 'Роль не назначена'}, status=403)
+            return render(request, 'dashboard/no_role.html', status=403)
+        return view(request, *args, **kwargs)
+    return wrapper
+
+
+def can_manage_group(user, role, group):
+    """Вести уроки группы: админ и разработчик — любой, учитель — только своей"""
+    if role in ('admin', 'developer'):
+        return True
+    if role == 'teacher':
+        return group.teacher_id == user.id or group.teachers.filter(id=user.id).exists()
+    return False
+
+
+DAY_KEYWORDS = {
+    0: ['пн', 'понедельник'],
+    1: ['вт', 'вторник'],
+    2: ['ср', 'сред'],
+    3: ['чт', 'четверг'],
+    4: ['пт', 'пятниц'],
+    5: ['сб', 'суббот'],
+    6: ['вс', 'воскрес'],
+}
+
+
+def is_lesson_day(group, day):
+    """Есть ли у группы урок в этот день: по расписанию, у старых групп без слотов — по тексту"""
+    weekdays = {slot.day_of_week for slot in group.schedule_slots.all()}
+    if weekdays:
+        return day.weekday() in weekdays
+    text = (group.schedule or '').lower()
+    return any(keyword in text for keyword in DAY_KEYWORDS[day.weekday()])
+
+
+def fill_attendance(lesson):
+    """Отметки «не был» для всех, кто к дате урока уже был записан в группу"""
+    for enrollment in Enrollment.objects.filter(group=lesson.group):
+        if timezone.localtime(enrollment.enrolled_at).date() <= lesson.date:
+            Attendance.objects.get_or_create(lesson=lesson, student_id=enrollment.student_id, defaults={'status': 'absent'})
+
+
+def group_student_ids(group):
+    return set(Enrollment.objects.filter(group=group).values_list('student_id', flat=True))
 
 
 # Оттенки групп на главной: у каждой группы свой цвет
@@ -156,127 +218,107 @@ def dashboard_extras(base_groups, groups):
     }
 
 
-@login_required
+def search_filter(queryset, query, field='name'):
+    """Поиск без учёта регистра (и для кириллицы в SQLite) без ошибок на ( [ * и т.п."""
+    query = (query or '').strip()[:100]
+    if not query:
+        return queryset
+    return queryset.filter(**{f'{field}__iregex': re.escape(query)})
+
+
+def current_payment_summary(groups):
+    """Оплаты за текущий период каждой группы: (оплатили, всего должны оплатить)"""
+    groups = list(groups.prefetch_related('enrollments'))
+    periods = {g.id: get_current_period(g.cycle_start_day) for g in groups}
+    paid_keys = set(Payment.objects.filter(
+        group__in=groups,
+        is_paid=True,
+        cycle_number__in={y * 100 + m for y, m in periods.values()},
+    ).values_list('student_id', 'group_id', 'cycle_number'))
+
+    paid = total = 0
+    for g in groups:
+        y, m = periods[g.id]
+        period_end = get_period(y, m, g.cycle_start_day)[1]
+        for e in g.enrollments.all():
+            is_paid = (e.student_id, g.id, y * 100 + m) in paid_keys
+            # Пришёл после этого периода — за него не платит (как на странице оплат)
+            if is_paid or is_enrolled_by(e, period_end):
+                total += 1
+                paid += is_paid
+    return paid, total
+
+
+@crm_view
 def dashboard(request):
     """Главный дашборд"""
     role = get_user_role(request.user)
     search_query = request.GET.get('search', '')
+    today = timezone.localdate()
 
     if role == 'teacher':
-        groups = Group.objects.filter(
-            Q(teacher=request.user) | Q(teachers=request.user),
-            is_active=True
-        ).distinct()
-        base_groups = groups
-        total_students = Enrollment.objects.filter(
-            Q(group__teacher=request.user) | Q(group__teachers=request.user)
-        ).distinct().count()
-        today = timezone.localdate()
-        today_lessons = Lesson.objects.filter(
-            Q(group__teacher=request.user) | Q(group__teachers=request.user),
-            date=today
-        ).distinct().count()
-        
-        if search_query:
-            groups = groups.filter(name__iregex=search_query)
-        
+        mine = Q(teacher=request.user) | Q(teachers=request.user)
+        base_groups = Group.objects.filter(mine, is_active=True).distinct()
+        groups = search_filter(base_groups, search_query)
         context = {
             'role': 'teacher',
             'groups': groups,
-            'total_students': total_students,
-            'today_lessons': today_lessons,
+            'total_students': Student.objects.filter(
+                is_active=True, enrollments__group__in=base_groups
+            ).distinct().count(),
             'search_query': search_query,
         }
         context.update(dashboard_extras(base_groups, groups))
     else:
-        groups = Group.objects.filter(is_active=True)
-        base_groups = groups
-        
-        if search_query:
-            groups = groups.filter(name__iregex=search_query)
-        
-        total_students = Student.objects.count()
-        total_groups = groups.count()
+        base_groups = Group.objects.filter(is_active=True)
+        # Архив групп видят админ и разработчик
+        show_archive = request.GET.get('archived') == '1' and role in ['admin', 'developer']
+        groups = search_filter(Group.objects.filter(is_active=not show_archive), search_query)
 
-        # Статистика оплат
-        today = timezone.localdate()
-        current_payments = Payment.objects.filter(start_date__lte=today, end_date__gte=today)
-        paid_count = current_payments.filter(is_paid=True).count()
-        unpaid_count = current_payments.filter(is_paid=False).count()
-        
-        payment_stats = []
-        for cycle in range(1, 13):
-            count = Payment.objects.filter(cycle_number=cycle, is_paid=True).count()
-            payment_stats.append(count)
-        
-        today_attendance = Attendance.objects.filter(lesson__date=today)
-        present_count = today_attendance.filter(status='present').count()
-        total_attendance = today_attendance.count()
-        
+        paid_count, billable_count = current_payment_summary(base_groups)
+        today_attendance = Attendance.objects.filter(lesson__date=today, lesson__is_cancelled=False)
+
         context = {
             'role': role,
             'groups': groups,
-            'total_students': total_students,
-            'total_groups': total_groups,
+            'total_students': Student.objects.filter(is_active=True).count(),
+            'total_groups': base_groups.count(),
             'paid_count': paid_count,
-            'unpaid_count': unpaid_count,
-            'payment_stats': payment_stats,
-            'present_count': present_count,
-            'total_attendance': total_attendance,
+            'unpaid_count': billable_count - paid_count,
+            'present_count': today_attendance.filter(status__in=['present', 'late']).count(),
+            'total_attendance': today_attendance.count(),
             'search_query': search_query,
+            'show_archive': show_archive,
+            'archived_groups_count': Group.objects.filter(is_active=False).count(),
         }
         context.update(dashboard_extras(base_groups, groups))
     
     return render(request, 'dashboard/dashboard.html', context)
 
 
-@login_required
+@crm_view
 def group_detail(request, group_id):
     """Страница группы"""
     group = get_object_or_404(Group, id=group_id)
     role = get_user_role(request.user)
     
-    if role == 'teacher':
-        is_main = group.teacher == request.user
-        is_additional = group.teachers.filter(id=request.user.id).exists()
-        if not (is_main or is_additional):
-            messages.error(request, 'У вас нет доступа к этой группе')
-            return redirect('dashboard')
+    if role == 'teacher' and not can_manage_group(request.user, role, group):
+        messages.error(request, 'У вас нет доступа к этой группе')
+        return redirect('dashboard')
     
     enrollments = Enrollment.objects.filter(group=group).select_related('student')
     students = [enrollment.student for enrollment in enrollments]
     
     today = timezone.localdate()
     
-    day_keywords = {
-        0: ['пн', 'понедельник'],
-        1: ['вт', 'вторник'],
-        2: ['ср', 'сред'],
-        3: ['чт', 'четверг'],
-        4: ['пт', 'пятниц'],
-        5: ['сб', 'суббот'],
-        6: ['вс', 'воскрес'],
-    }
-    
-    schedule_text = group.schedule.lower()
-    today_weekday = today.weekday()
-    
-    is_lesson_day = any(keyword in schedule_text for keyword in day_keywords.get(today_weekday, []))
-    
-    if is_lesson_day:
+    if group.is_active and is_lesson_day(group, today):
         lesson, created = Lesson.objects.get_or_create(
             group=group,
             date=today,
             defaults={'topic': ''}
         )
-        
         if created:
-            for student in students:
-                Attendance.objects.get_or_create(
-                    lesson=lesson,
-                    student=student,
-                    defaults={'status': 'absent'}
-                )
+            fill_attendance(lesson)
     else:
         lesson = None
     
@@ -332,121 +374,55 @@ def group_detail(request, group_id):
         'role': role,
         'lessons_history': lessons_history,
         'lesson': lesson,
-        'can_mark_attendance': role in ['teacher', 'developer', 'admin'],
+        'can_mark_attendance': can_manage_group(request.user, role, group),
+        'lesson_active': bool(lesson and not lesson.is_cancelled),
     }
     
     return render(request, 'dashboard/group_detail.html', context)
 
 
-@login_required
+@crm_view
+@require_POST
 def mark_attendance(request, group_id):
     """Отметка посещаемости (AJAX)"""
-    if request.method == 'POST':
-        group = get_object_or_404(Group, id=group_id)
-        role = get_user_role(request.user)
-        
-        if role not in ['admin', 'teacher', 'developer']:
-            return JsonResponse({'success': False, 'error': 'Нет доступа'})
-        
-        if role == 'teacher':
-            is_main = group.teacher == request.user
-            is_additional = group.teachers.filter(id=request.user.id).exists()
-            if not (is_main or is_additional):
-                return JsonResponse({'success': False, 'error': 'Нет доступа'})
-        
-        today = timezone.localdate()
-        day_keywords = {
-            0: ['пн', 'понедельник'],
-            1: ['вт', 'вторник'],
-            2: ['ср', 'сред'],
-            3: ['чт', 'четверг'],
-            4: ['пт', 'пятниц'],
-            5: ['сб', 'суббот'],
-            6: ['вс', 'воскрес'],
-        }
-        schedule_text = group.schedule.lower()
-        today_weekday = today.weekday()
-        is_lesson_day = any(keyword in schedule_text for keyword in day_keywords.get(today_weekday, []))
-        
-        if not is_lesson_day:
-            return JsonResponse({'success': False, 'error': 'Сегодня нет урока'})
-        
-        student_id = request.POST.get('student_id')
-        status = request.POST.get('status')
-        
-        lesson, _ = Lesson.objects.get_or_create(
-            group=group,
-            date=today
-        )
-        
-        attendance, _ = Attendance.objects.get_or_create(
-            lesson=lesson,
-            student_id=student_id,
-            defaults={'status': status}
-        )
-        attendance.status = status
-        attendance.save()
-        
-        return JsonResponse({'success': True, 'status': status})
-    
-    return JsonResponse({'success': False})
+    group = get_object_or_404(Group, id=group_id)
+    role = get_user_role(request.user)
+    if not can_manage_group(request.user, role, group):
+        return JsonResponse({'success': False, 'error': 'Нет доступа'})
+
+    today = timezone.localdate()
+    if not is_lesson_day(group, today):
+        return JsonResponse({'success': False, 'error': 'Сегодня нет урока'})
+
+    status = request.POST.get('status')
+    if status not in dict(Attendance.STATUS_CHOICES):
+        return JsonResponse({'success': False, 'error': 'Неверный статус'})
+    try:
+        student_id = int(request.POST.get('student_id'))
+    except (TypeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Неверный ученик'})
+    if student_id not in group_student_ids(group):
+        return JsonResponse({'success': False, 'error': 'Ученик не из этой группы'})
+
+    lesson, _ = Lesson.objects.get_or_create(group=group, date=today)
+    if lesson.is_cancelled:
+        return JsonResponse({'success': False, 'error': 'Урок отменён'})
+
+    attendance, _ = Attendance.objects.get_or_create(lesson=lesson, student_id=student_id, defaults={'status': status})
+    attendance.status = status
+    attendance.save()
+
+    return JsonResponse({'success': True, 'status': status})
 
 
-@login_required
-def toggle_payment(request, group_id):
-    """Переключение оплаты (AJAX)"""
-    if request.method == 'POST':
-        group = get_object_or_404(Group, id=group_id)
-        role = get_user_role(request.user)
-        
-        if role == 'teacher':
-            return JsonResponse({'success': False, 'error': 'Нет доступа'})
-        
-        student_id = request.POST.get('student_id')
-        student = get_object_or_404(Student, id=student_id)
-        year, month = get_current_period(group.cycle_start_day)
-        period_start, period_end = get_period(year, month, group.cycle_start_day)
-        amount = calculate_cycle_amount(student, group, period_start, period_end)
-        
-        payment, created = Payment.objects.get_or_create(
-            student=student,
-            group=group,
-            start_date__lte=today,
-            end_date__gte=today,
-            defaults={
-                'amount': amount,
-                'is_paid': True,
-                'paid_amount': amount,
-                'paid_at': timezone.now(),
-                'marked_by': request.user,
-                'cycle_number': 1,
-            }
-        )
-        
-        if not created:
-            payment.is_paid = not payment.is_paid
-            if payment.is_paid:
-                payment.amount = amount
-                payment.paid_amount = amount
-                payment.paid_at = timezone.now()
-            else:
-                payment.paid_amount = 0
-                payment.paid_at = None
-            payment.save()
-        
-        return JsonResponse({'success': True, 'is_paid': payment.is_paid})
-    
-    return JsonResponse({'success': False})
-
-
-@login_required
+@crm_view
 def students_list(request):
     """Список всех учеников с фильтрами"""
     role = get_user_role(request.user)
 
     if role == 'accountant':
         messages.error(request, 'У вас нет доступа')
-        return redirect('payment_management')
+        return redirect('payments_page')
 
     # Базовая выборка по роли
     if role == 'teacher':
@@ -462,10 +438,14 @@ def students_list(request):
         students = Student.objects.all()
         available_groups = Group.objects.filter(is_active=True).order_by('name')
 
+    # Архив видят админ и разработчик, остальные списки — только те, кто учится
+    show_archive = request.GET.get('archived') == '1' and role in ['admin', 'developer']
+    students = students.filter(is_active=not show_archive)
+
     # ===== Поиск =====
     search_query = request.GET.get('search', '').strip()
     if search_query:
-        students = students.filter(name__iregex=search_query)
+        students = search_filter(students, search_query)
 
     # ===== Фильтр: группа =====
     group_filter = request.GET.get('group', '')
@@ -496,7 +476,7 @@ def students_list(request):
     students = students.distinct().order_by('name')
 
     # ===== Опции для фильтров (уникальные) =====
-    base_for_options = Student.objects.all()
+    base_for_options = Student.objects.filter(is_active=True)
     if role == 'teacher':
         base_for_options = base_for_options.filter(
             Q(enrollments__group__teacher=request.user) |
@@ -508,9 +488,8 @@ def students_list(request):
     ages_options = base_for_options.exclude(age__isnull=True).values_list('age', flat=True).distinct().order_by('age')
 
     student_data = []
-    for student in students:
-        enrollments = Enrollment.objects.filter(student=student).select_related('group')
-        groups_list = [e.group.name for e in enrollments]
+    for student in students.prefetch_related('enrollments__group'):
+        groups_list = [e.group.name for e in student.enrollments.all()]
         student_data.append({
             'student': student,
             'groups': groups_list,
@@ -533,12 +512,14 @@ def students_list(request):
         'ages_options': ages_options,
         'has_filters': has_filters,
         'total_found': len(student_data),
+        'show_archive': show_archive,
+        'archived_count': Student.objects.filter(is_active=False).count() if role in ['admin', 'developer'] else 0,
     }
 
     return render(request, 'dashboard/students_list.html', context)
 
 
-@login_required
+@crm_view
 def add_student(request):
     """Добавление ученика"""
     role = get_user_role(request.user)
@@ -581,71 +562,184 @@ def add_student(request):
     return render(request, 'dashboard/add_student.html', context)
 
 
-@login_required
-def payments_list(request):
-    """Все оплаты"""
-    role = get_user_role(request.user)
-    
-    payments = Payment.objects.select_related('student', 'group').order_by('-cycle_number')
-    
-    if role == 'teacher':
-        payments = payments.filter(group__teacher=request.user)
-    
-    context = {
-        'payments': payments,
-        'role': role,
-    }
-    
-    return render(request, 'dashboard/payments_list.html', context)
-
-
-@login_required
+@crm_view
 def lesson_history(request, group_id):
-    """История уроков группы"""
+    """История уроков группы: просмотр и правка задним числом"""
     group = get_object_or_404(Group, id=group_id)
     role = get_user_role(request.user)
     
-    if role == 'teacher':
-        is_main = group.teacher == request.user
-        is_additional = group.teachers.filter(id=request.user.id).exists()
-        if not (is_main or is_additional):
-            messages.error(request, 'У вас нет доступа')
-            return redirect('dashboard')
+    if role == 'teacher' and not can_manage_group(request.user, role, group):
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
     
-    lessons = Lesson.objects.filter(group=group).order_by('-date')
+    enrollments = list(Enrollment.objects.filter(group=group).select_related('student'))
+    lessons = (Lesson.objects.filter(group=group)
+               .select_related('edited_by')
+               .prefetch_related('attendances__student')
+               .order_by('-date'))
     
     lesson_data = []
     for lesson in lessons:
-        attendances = Attendance.objects.filter(lesson=lesson).select_related('student')
-        
-        present_students = []
-        absent_students = []
-        
-        for att in attendances:
-            if att.status == 'present':
-                present_students.append(att.student.name)
-            else:
-                absent_students.append(att.student.name)
-        
+        rows = {}
+        for att in lesson.attendances.all():
+            rows[att.student_id] = {
+                'student_id': att.student_id, 'name': att.student.name,
+                'status': att.status, 'homework': att.homework_done, 'stars': att.stars,
+            }
+        # Кто уже учился в группе к дате урока, но отметки нет — показываем как «не был»
+        for e in enrollments:
+            if e.student_id not in rows and timezone.localtime(e.enrolled_at).date() <= lesson.date:
+                rows[e.student_id] = {
+                    'student_id': e.student_id, 'name': e.student.name,
+                    'status': 'absent', 'homework': False, 'stars': 0,
+                }
+        rows = sorted(rows.values(), key=lambda r: r['name'].lower())
+        came = [r for r in rows if r['status'] in ('present', 'late')]
         lesson_data.append({
             'lesson': lesson,
-            'present_count': len(present_students),
-            'absent_count': len(absent_students),
-            'total_count': len(present_students) + len(absent_students),
-            'present_students': present_students,
-            'absent_students': absent_students,
+            'rows': rows,
+            'present_count': len(came),
+            'late_count': sum(1 for r in rows if r['status'] == 'late'),
+            'absent_count': len(rows) - len(came),
+            'total_count': len(rows),
+            'present_students': [r['name'] + (' (опоздал)' if r['status'] == 'late' else '') for r in came],
+            'absent_students': [r['name'] for r in rows if r['status'] == 'absent'],
+            'homework_count': sum(1 for r in rows if r['homework']),
+            'stars_total': sum(r['stars'] for r in rows),
         })
     
+    can_edit = can_manage_group(request.user, role, group)
     context = {
         'group': group,
         'lesson_data': lesson_data,
         'role': role,
+        'can_edit': can_edit,
+        'today': timezone.localdate(),
+        # Данные для окна правки урока
+        'editor_data': {
+            d['lesson'].id: {
+                'id': d['lesson'].id,
+                'date': d['lesson'].date.strftime('%d.%m.%Y'),
+                'topic': d['lesson'].topic,
+                'rows': d['rows'],
+                'save_url': reverse('save_lesson', args=[d['lesson'].id]),
+            }
+            for d in lesson_data if not d['lesson'].is_cancelled
+        } if can_edit else {},
     }
     
     return render(request, 'dashboard/lesson_history.html', context)
 
 
-@login_required
+def lesson_or_403(request, lesson_id):
+    """Урок и право его править (учитель — только свои группы)"""
+    lesson = get_object_or_404(Lesson.objects.select_related('group'), id=lesson_id)
+    allowed = can_manage_group(request.user, get_user_role(request.user), lesson.group)
+    return lesson, allowed
+
+
+def safe_next(request, fallback):
+    """Куда вернуться после действия (только на свой сайт)"""
+    nxt = request.POST.get('next', '')
+    if nxt and url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()}):
+        return nxt
+    return fallback
+
+
+@crm_view
+@require_POST
+def save_lesson(request, lesson_id):
+    """Правка урока задним числом: посещаемость, ДЗ, звёзды и тема (AJAX, JSON)"""
+    lesson, allowed = lesson_or_403(request, lesson_id)
+    if not allowed:
+        return JsonResponse({'success': False, 'error': 'Нет доступа'}, status=403)
+    if lesson.is_cancelled:
+        return JsonResponse({'success': False, 'error': 'Урок отменён — сначала верните его'})
+    try:
+        data = json.loads(request.body)
+        rows = list(data.get('rows', []))
+    except (ValueError, TypeError, AttributeError):
+        return JsonResponse({'success': False, 'error': 'Неверные данные'}, status=400)
+
+    allowed_ids = group_student_ids(lesson.group) | set(lesson.attendances.values_list('student_id', flat=True))
+    statuses = dict(Attendance.STATUS_CHOICES)
+    for row in rows:
+        try:
+            student_id = int(row.get('student_id'))
+            stars = max(0, min(int(row.get('stars') or 0), 100))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        status = row.get('status')
+        if student_id not in allowed_ids or status not in statuses:
+            continue
+        attendance, _ = Attendance.objects.get_or_create(lesson=lesson, student_id=student_id, defaults={'status': status})
+        attendance.status = status
+        attendance.homework_done = bool(row.get('homework'))
+        attendance.stars = stars
+        attendance.save()
+
+    lesson.topic = str(data.get('topic') or '').strip()[:200]
+    lesson.edited_by = request.user
+    lesson.edited_at = timezone.now()
+    lesson.save()
+    return JsonResponse({'success': True})
+
+
+@crm_view
+@require_POST
+def toggle_lesson_cancel(request, lesson_id):
+    """Отменить урок (отметки удаляются, в статистику не попадает) или вернуть его"""
+    lesson, allowed = lesson_or_403(request, lesson_id)
+    back = safe_next(request, reverse('lesson_history', args=[lesson.group_id]))
+    if not allowed:
+        messages.error(request, 'Нет доступа')
+        return redirect(back)
+
+    if lesson.is_cancelled:
+        lesson.is_cancelled = False
+        fill_attendance(lesson)
+        messages.success(request, f'Урок {lesson.date:%d.%m} вернули — можно отмечать.')
+    else:
+        lesson.is_cancelled = True
+        lesson.attendances.all().delete()
+        messages.success(request, f'Урок {lesson.date:%d.%m} отменён: отметки удалены, в статистику он не попадёт.')
+    lesson.edited_by = request.user
+    lesson.edited_at = timezone.now()
+    lesson.save()
+    return redirect(back)
+
+
+@crm_view
+@require_POST
+def add_past_lesson(request, group_id):
+    """Урок за прошедшую дату — если в тот день страницу группы никто не открыл"""
+    group = get_object_or_404(Group, id=group_id)
+    history = reverse('lesson_history', args=[group.id])
+    if not can_manage_group(request.user, get_user_role(request.user), group):
+        messages.error(request, 'Нет доступа')
+        return redirect(history)
+    try:
+        day = date.fromisoformat(request.POST.get('date', ''))
+    except ValueError:
+        messages.error(request, 'Укажите дату урока')
+        return redirect(history)
+    if day > timezone.localdate():
+        messages.error(request, 'Урок в будущем добавить нельзя')
+        return redirect(history)
+
+    lesson, created = Lesson.objects.get_or_create(group=group, date=day)
+    if created:
+        fill_attendance(lesson)
+        lesson.edited_by = request.user
+        lesson.edited_at = timezone.now()
+        lesson.save()
+        messages.success(request, f'Урок {day:%d.%m.%Y} добавлен — отметьте, кто был.')
+    else:
+        messages.info(request, f'Урок {day:%d.%m.%Y} уже есть — открыли его.')
+    return redirect(f'{history}?open={lesson.id}#lesson-{lesson.id}')
+
+
+@crm_view
 def search_api(request):
     """Поиск для командной палитры (Ctrl+K): группы и ученики"""
     role = get_user_role(request.user)
@@ -681,7 +775,7 @@ def search_api(request):
                     'url': reverse('student_profile', args=[st.id]),
                 })
         if role != 'teacher':
-            for st in Student.objects.filter(enrollments__isnull=True):
+            for st in Student.objects.filter(enrollments__isnull=True, is_active=True):
                 if q in st.name.lower():
                     students.setdefault(st.id, {
                         'name': st.name,
@@ -692,7 +786,7 @@ def search_api(request):
     return JsonResponse({'groups': found_groups, 'students': list(students.values())[:8]})
 
 
-@login_required
+@crm_view
 def weekly_schedule(request):
     """Расписание на неделю"""
     from django.db.models import Count
@@ -782,7 +876,7 @@ def weekly_schedule(request):
     return render(request, 'dashboard/weekly_schedule.html', context)
 
 
-@login_required
+@crm_view
 def profile(request):
     """Личный кабинет пользователя"""
     role = get_user_role(request.user)
@@ -810,7 +904,7 @@ def profile(request):
         
         elif action == 'change_phone':
             phone = request.POST.get('phone')
-            profile_obj, created = Profile.objects.get_or_create(user=request.user)
+            profile_obj, created = Profile.objects.get_or_create(user=request.user, defaults={'role': role})
             profile_obj.phone = phone
             profile_obj.save()
             messages.success(request, 'Телефон обновлён!')
@@ -818,7 +912,7 @@ def profile(request):
         elif action == 'change_photo':
             photo = request.FILES.get('photo')
             if photo:
-                profile_obj, created = Profile.objects.get_or_create(user=request.user)
+                profile_obj, created = Profile.objects.get_or_create(user=request.user, defaults={'role': role})
                 profile_obj.photo = photo
                 profile_obj.save()
                 messages.success(request, 'Фото обновлено!')
@@ -844,7 +938,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from django.http import HttpResponse
 
 
-@login_required
+@crm_view
 def export_excel(request):
     """Экспорт данных в Excel"""
     role = get_user_role(request.user)
@@ -873,7 +967,7 @@ def export_excel(request):
     muted_font = Font(color='9CA3AF')
 
     enrollments = list(Enrollment.objects.select_related('student', 'group').order_by('student__name', 'group__name'))
-    students_without_group = list(Student.objects.filter(enrollments__isnull=True).order_by('name'))
+    students_without_group = list(Student.objects.filter(enrollments__isnull=True, is_active=True).order_by('name'))
 
     # Посещаемость, ДЗ и звёзды — одним запросом по каждой паре «ученик + группа»
     stats = {}
@@ -1068,72 +1162,13 @@ def export_excel(request):
     return response
 
 
-@login_required
+@crm_view
 def payment_management(request):
     """Редирект на новую страницу оплат"""
     return redirect('payments_page')
 
 
-@login_required
-def toggle_payment_management(request, payment_id):
-    """Отметить полную оплату"""
-    if request.method == 'POST':
-        role = get_user_role(request.user)
-        
-        if role not in ['admin', 'accountant', 'developer']:
-            return JsonResponse({'success': False, 'error': 'Нет доступа'})
-        
-        payment = get_object_or_404(Payment, id=payment_id)
-        
-        if payment.is_paid:
-            payment.is_paid = False
-            payment.is_partial = False
-            payment.paid_amount = 0
-            payment.paid_at = None
-            payment.marked_by = None
-        else:
-            payment.is_paid = True
-            payment.is_partial = False
-            payment.paid_amount = payment.amount
-            payment.paid_at = timezone.now()
-            payment.marked_by = request.user
-        
-        payment.save()
-        return JsonResponse({'success': True, 'is_paid': payment.is_paid})
-    
-    return JsonResponse({'success': False})
-
-
-@login_required
-def partial_payment(request, payment_id):
-    """Частичная оплата"""
-    if request.method == 'POST':
-        role = get_user_role(request.user)
-        
-        if role not in ['admin', 'accountant', 'developer']:
-            return JsonResponse({'success': False, 'error': 'Нет доступа'})
-        
-        payment = get_object_or_404(Payment, id=payment_id)
-        amount = float(request.POST.get('amount', 0))
-        
-        if amount > 0:
-            payment.paid_amount = Decimal(str(payment.paid_amount)) + Decimal(str(amount))
-            payment.is_partial = True
-            payment.marked_by = request.user
-            
-            if payment.paid_amount >= payment.amount:
-                payment.is_paid = True
-                payment.is_partial = False
-                payment.paid_amount = payment.amount
-                payment.paid_at = timezone.now()
-            
-            payment.save()
-            return JsonResponse({'success': True})
-    
-    return JsonResponse({'success': False})
-
-
-@login_required
+@crm_view
 def accountant_stats(request):
     """Статистика для бухгалтера"""
     role = get_user_role(request.user)
@@ -1214,7 +1249,7 @@ def accountant_stats(request):
     return render(request, 'dashboard/accountant_stats.html', context)
 
 
-@login_required
+@crm_view
 def export_income_excel(request):
     """Экспорт статистики доходов в Excel"""
     role = get_user_role(request.user)
@@ -1288,7 +1323,7 @@ def export_income_excel(request):
     return response
 
 
-@login_required
+@crm_view
 def add_group(request):
     """Создание группы"""
     role = get_user_role(request.user)
@@ -1361,9 +1396,10 @@ def add_group(request):
     return render(request, 'dashboard/add_group.html', context)
 
 
-@login_required
+@crm_view
+@require_POST
 def remove_student_from_group(request, student_id, group_id):
-    """Удалить ученика из группы"""
+    """Убрать ученика из группы (оплаты и посещаемость остаются в истории)"""
     role = get_user_role(request.user)
     
     if role not in ['admin', 'developer']:
@@ -1374,14 +1410,15 @@ def remove_student_from_group(request, student_id, group_id):
     group = get_object_or_404(Group, id=group_id)
     
     Enrollment.objects.filter(student=student, group=group).delete()
-    messages.success(request, f'{student.name} удалён из группы {group.name}')
+    messages.success(request, f'{student.name} убран(а) из группы {group.name}')
     
     return redirect('group_detail', group_id=group.id)
 
 
-@login_required
-def delete_student(request, student_id):
-    """Удалить ученика из базы"""
+@crm_view
+@require_POST
+def archive_student(request, student_id):
+    """Ученик ушёл: в архив вместо удаления — история оплат и посещаемости сохраняется"""
     role = get_user_role(request.user)
     
     if role not in ['admin', 'developer']:
@@ -1389,16 +1426,38 @@ def delete_student(request, student_id):
         return redirect('dashboard')
     
     student = get_object_or_404(Student, id=student_id)
-    name = student.name
-    student.delete()
-    messages.success(request, f'Ученик {name} удалён из базы')
+    Enrollment.objects.filter(student=student).delete()
+    student.is_active = False
+    student.archived_at = timezone.now()
+    student.save(update_fields=['is_active', 'archived_at'])
+    messages.success(request, f'{student.name} — в архиве. Оплаты и посещаемость сохранены, вернуть можно в «Ученики → Архив».')
     
     return redirect('students_list')
 
 
-@login_required
-def delete_group(request, group_id):
-    """Удалить группу"""
+@crm_view
+@require_POST
+def restore_student(request, student_id):
+    """Вернуть ученика из архива и сразу предложить группы"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    student = get_object_or_404(Student, id=student_id)
+    student.is_active = True
+    student.archived_at = None
+    student.save(update_fields=['is_active', 'archived_at'])
+    messages.success(request, f'{student.name} снова учится — выберите группы.')
+    
+    return redirect('add_existing_student_to_group', student_id=student.id)
+
+
+@crm_view
+@require_POST
+def archive_group(request, group_id):
+    """Группа закрылась: в архив вместо удаления — уроки и оплаты сохраняются"""
     role = get_user_role(request.user)
     
     if role not in ['admin', 'developer']:
@@ -1406,14 +1465,32 @@ def delete_group(request, group_id):
         return redirect('dashboard')
     
     group = get_object_or_404(Group, id=group_id)
-    name = group.name
-    group.delete()
-    messages.success(request, f'Группа "{name}" удалена')
+    group.is_active = False
+    group.save(update_fields=['is_active'])
+    messages.success(request, f'Группа «{group.name}» — в архиве. Уроки и оплаты сохранены.')
     
     return redirect('dashboard')
 
 
-@login_required
+@crm_view
+@require_POST
+def restore_group(request, group_id):
+    """Вернуть группу из архива"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    group = get_object_or_404(Group, id=group_id)
+    group.is_active = True
+    group.save(update_fields=['is_active'])
+    messages.success(request, f'Группа «{group.name}» снова активна.')
+    
+    return redirect('group_detail', group_id=group.id)
+
+
+@crm_view
 def add_existing_student_to_group(request, student_id):
     """Добавить существующего ученика в группу"""
     role = get_user_role(request.user)
@@ -1427,9 +1504,14 @@ def add_existing_student_to_group(request, student_id):
     if request.method == 'POST':
         group_ids = request.POST.getlist('groups')
         
-        for group_id in group_ids:
-            group = Group.objects.get(id=group_id)
+        for group in Group.objects.filter(id__in=group_ids, is_active=True):
             Enrollment.objects.get_or_create(student=student, group=group)
+        
+        # Записали в группу — значит снова учится
+        if group_ids and not student.is_active:
+            student.is_active = True
+            student.archived_at = None
+            student.save(update_fields=['is_active', 'archived_at'])
         
         messages.success(request, f'{student.name} добавлен в выбранные группы')
         return redirect('students_list')
@@ -1446,7 +1528,7 @@ def add_existing_student_to_group(request, student_id):
     return render(request, 'dashboard/add_to_group.html', context)
 
 
-@login_required
+@crm_view
 def toggle_book_status(request, enrollment_id=None):
     """Переключить статус книги у ученика"""
     if request.method == 'POST':
@@ -1463,7 +1545,9 @@ def toggle_book_status(request, enrollment_id=None):
         if enrollment_ids:
             for eid in enrollment_ids.split(','):
                 try:
-                    enrollment = Enrollment.objects.get(id=int(eid))
+                    enrollment = Enrollment.objects.select_related('group').get(id=int(eid))
+                    if not can_manage_group(request.user, role, enrollment.group):
+                        continue
                     if action == 'need_book':
                         enrollment.book_needed = True
                         enrollment.has_book = False
@@ -1479,6 +1563,8 @@ def toggle_book_status(request, enrollment_id=None):
 
         if enrollment_id:
             enrollment = get_object_or_404(Enrollment, id=enrollment_id)
+            if not can_manage_group(request.user, role, enrollment.group):
+                return JsonResponse({'success': False, 'error': 'Нет доступа'})
             if action == 'need_book':
                 enrollment.book_needed = True
                 enrollment.has_book = False
@@ -1493,7 +1579,7 @@ def toggle_book_status(request, enrollment_id=None):
     return JsonResponse({'success': False})
 
 
-@login_required
+@crm_view
 def books_status(request):
     """Сетка всех книг с обложками"""
     role = get_user_role(request.user)
@@ -1531,7 +1617,7 @@ def books_status(request):
     return render(request, 'dashboard/books_status.html', context)
 
 
-@login_required
+@crm_view
 def book_detail(request, book_id):
     """Детали книги: у кого есть, кому нужно"""
     role = get_user_role(request.user)
@@ -1560,7 +1646,7 @@ def book_detail(request, book_id):
     return render(request, 'dashboard/book_detail.html', context)
 
 
-@login_required
+@crm_view
 def edit_student(request, student_id):
     """Редактирование ученика"""
     role = get_user_role(request.user)
@@ -1606,7 +1692,7 @@ def edit_student(request, student_id):
     return render(request, 'dashboard/edit_student.html', context)
 
 
-@login_required
+@crm_view
 def edit_group(request, group_id):
     """Редактирование группы"""
     role = get_user_role(request.user)
@@ -1631,7 +1717,6 @@ def edit_group(request, group_id):
         except (ValueError, TypeError):
             cycle_start_day = group.cycle_start_day
         group.cycle_start_day = cycle_start_day
-        group.is_active = True
         group.save()
         
         group.schedule_slots.all().delete()
@@ -1742,7 +1827,7 @@ def make_calendar(year, month, period_start, period_end, lesson_dates_set):
     }
 
 
-@login_required
+@crm_view
 def payments_page(request):
     """Оплаты: соты месяцев или список групп"""
     role = get_user_role(request.user)
@@ -1817,7 +1902,7 @@ def payments_page(request):
         groups = Group.objects.filter(is_active=True).select_related('teacher').order_by('name')
 
         if search_query:
-            groups = groups.filter(name__iregex=search_query)
+            groups = search_filter(groups, search_query)
 
         for group in groups:
             group_period_end = get_period(year, month, group.cycle_start_day)[1]
@@ -1851,7 +1936,7 @@ def payments_page(request):
     return render(request, 'dashboard/payments.html', context)
 
 
-@login_required
+@crm_view
 def group_payment_detail(request, group_id):
     """AJAX: детали оплаты группы"""
     role = get_user_role(request.user)
@@ -1927,7 +2012,7 @@ def group_payment_detail(request, group_id):
     return render(request, 'dashboard/group_payment_detail.html', context)
 
 
-@login_required
+@crm_view
 def toggle_student_payment(request, group_id):
     """AJAX: отметить/отменить оплату"""
     if request.method != 'POST':
@@ -1979,7 +2064,7 @@ def toggle_student_payment(request, group_id):
     return JsonResponse({'success': True, 'is_paid': payment.is_paid})
 
 
-@login_required
+@crm_view
 def book_reader(request, book_id):
     """Reader — просмотр PDF книги"""
     role = get_user_role(request.user)
@@ -1992,62 +2077,52 @@ def book_reader(request, book_id):
     
     return render(request, 'dashboard/book_reader.html', context)
 
-@login_required
+@crm_view
+@require_POST
 def mark_homework(request, group_id):
     """Отметка домашки (AJAX)"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False})
-    
     group = get_object_or_404(Group, id=group_id)
     role = get_user_role(request.user)
-    
-    if role not in ['admin', 'teacher', 'developer']:
+    if not can_manage_group(request.user, role, group):
         return JsonResponse({'success': False, 'error': 'Нет доступа'})
-    
-    if role == 'teacher':
-        is_main = group.teacher == request.user
-        is_additional = group.teachers.filter(id=request.user.id).exists()
-        if not (is_main or is_additional):
-            return JsonResponse({'success': False, 'error': 'Нет доступа'})
-    
-    today = timezone.localdate()
-    student_id = request.POST.get('student_id')
+
+    try:
+        student_id = int(request.POST.get('student_id'))
+    except (TypeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Неверный ученик'})
+    if student_id not in group_student_ids(group):
+        return JsonResponse({'success': False, 'error': 'Ученик не из этой группы'})
     done = request.POST.get('done') == '1'
-    
-    lesson, _ = Lesson.objects.get_or_create(group=group, date=today)
-    
-    attendance, _ = Attendance.objects.get_or_create(
-        lesson=lesson,
-        student_id=student_id,
-        defaults={'status': 'absent'}
-    )
+
+    lesson, _ = Lesson.objects.get_or_create(group=group, date=timezone.localdate())
+    if lesson.is_cancelled:
+        return JsonResponse({'success': False, 'error': 'Урок отменён'})
+
+    attendance, _ = Attendance.objects.get_or_create(lesson=lesson, student_id=student_id, defaults={'status': 'absent'})
     attendance.homework_done = done
     attendance.save()
-    
+
     return JsonResponse({'success': True, 'homework_done': done})
 
 
-@login_required
+@crm_view
+@require_POST
 def create_calibration(request):
     """Создание калибровки уровня (AJAX)"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False})
-    
     role = get_user_role(request.user)
-    if role not in ['admin', 'teacher', 'developer']:
-        return JsonResponse({'success': False, 'error': 'Нет доступа'})
-    
-    student_id = request.POST.get('student_id')
-    group_id = request.POST.get('group_id')
     direction = request.POST.get('direction')
     comment = request.POST.get('comment', '').strip()
-    
+
     if direction not in ['up', 'down']:
         return JsonResponse({'success': False, 'error': 'Неверное направление'})
-    
-    student = get_object_or_404(Student, id=student_id)
-    group = get_object_or_404(Group, id=group_id)
-    
+
+    student = get_object_or_404(Student, id=request.POST.get('student_id'))
+    group = get_object_or_404(Group, id=request.POST.get('group_id'))
+    if not can_manage_group(request.user, role, group):
+        return JsonResponse({'success': False, 'error': 'Нет доступа'})
+    if student.id not in group_student_ids(group):
+        return JsonResponse({'success': False, 'error': 'Ученик не из этой группы'})
+
     cal = LevelCalibration.objects.create(
         student=student,
         group=group,
@@ -2055,10 +2130,11 @@ def create_calibration(request):
         comment=comment,
         created_by=request.user,
     )
-    
+
     return JsonResponse({'success': True, 'id': cal.id})
 
-@login_required
+
+@crm_view
 def student_profile(request, student_id):
     """Профиль ученика"""
     role = get_user_role(request.user)
@@ -2119,7 +2195,7 @@ def student_profile(request, student_id):
 
     return render(request, 'dashboard/student_profile.html', context)
 
-@login_required
+@crm_view
 def give_stars(request, group_id):
     """Выдача звёзд (AJAX)"""
     if request.method != 'POST':
@@ -2127,19 +2203,14 @@ def give_stars(request, group_id):
     
     group = get_object_or_404(Group, id=group_id)
     role = get_user_role(request.user)
-    
-    if role not in ['admin', 'teacher', 'developer']:
+    if not can_manage_group(request.user, role, group):
         return JsonResponse({'success': False, 'error': 'Нет доступа'})
-    
-    if role == 'teacher':
-        is_main = group.teacher == request.user
-        is_additional = group.teachers.filter(id=request.user.id).exists()
-        if not (is_main or is_additional):
-            return JsonResponse({'success': False, 'error': 'Нет доступа'})
     
     today = timezone.localdate()
     lesson, _ = Lesson.objects.get_or_create(group=group, date=today)
-    enrolled_ids = set(group.enrollments.values_list('student_id', flat=True))
+    if lesson.is_cancelled:
+        return JsonResponse({'success': False, 'error': 'Урок отменён'})
+    enrolled_ids = group_student_ids(group)
 
     # stars = "id:кол-во,id:кол-во" — сколько звёзд у ученика за сегодняшний урок
     count = 0
@@ -2164,7 +2235,7 @@ def give_stars(request, group_id):
 
     return JsonResponse({'success': True, 'count': count})
 
-@login_required
+@crm_view
 def star_rating(request):
     """Рейтинг учеников по звёздам"""
     role = get_user_role(request.user)
@@ -2175,7 +2246,7 @@ def star_rating(request):
 
     from django.db.models import Sum
 
-    students = Student.objects.annotate(
+    students = Student.objects.filter(is_active=True).annotate(
         stars_count=Sum('attendances__stars')
     ).filter(stars_count__gt=0).order_by('-stars_count', 'name')
 

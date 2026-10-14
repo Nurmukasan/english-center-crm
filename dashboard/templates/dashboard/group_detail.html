@@ -73,6 +73,17 @@
     </header>
     
     <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
+        {% if not group.is_active %}
+        <div class="mb-6 rounded-xl border border-amber-400/30 bg-amber-500/10 px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+            <p class="text-amber-200 font-medium"><i class="fas fa-box-archive mr-2"></i>Группа в архиве: новые уроки не создаются, история и оплаты сохранены.</p>
+            {% if role == 'admin' or role == 'developer' %}
+            <form method="POST" action="{% url 'restore_group' group.id %}">
+                {% csrf_token %}
+                <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium"><i class="fas fa-rotate-left mr-1"></i> Вернуть из архива</button>
+            </form>
+            {% endif %}
+        </div>
+        {% endif %}
         
         <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6 border border-gray-300 dark:border-gray-600 hover-scale transition-colors">
             <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
@@ -126,7 +137,11 @@
         <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
             <div class="px-6 py-4 border-b border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700/50 flex justify-between items-center flex-wrap gap-3">
                 <div>
-                    {% if lesson %}
+                    {% if lesson and lesson.is_cancelled %}
+                    <h2 class="font-bold text-amber-300">
+                        <i class="fas fa-ban mr-1"></i>Урок {{ today|date:"d.m.Y" }} отменён
+                    </h2>
+                    {% elif lesson %}
                     <h2 class="font-bold text-gray-800 dark:text-white">
                         <i class="fas fa-clipboard-list text-indigo-500 mr-1"></i>Урок: {{ today|date:"d.m.Y" }}
                     </h2>
@@ -136,8 +151,18 @@
                     </h2>
                     {% endif %}
                 </div>
-                <div class="flex gap-2">
-                    {% if role == 'teacher' or role == 'developer' or role == 'admin' %}
+                <div class="flex flex-wrap gap-2 items-center">
+                    {% if lesson and can_mark_attendance %}
+                    <form method="POST" action="{% url 'toggle_lesson_cancel' lesson.id %}"
+                          {% if lesson_active %}data-confirm="Отменить сегодняшний урок? Отметки удалятся, в статистику он не попадёт." onsubmit="return confirm(this.dataset.confirm)"{% endif %}>
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button type="submit" class="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition">
+                            {% if lesson_active %}<i class="fas fa-ban mr-1"></i> Отменить урок{% else %}<i class="fas fa-rotate-left mr-1"></i> Вернуть урок{% endif %}
+                        </button>
+                    </form>
+                    {% endif %}
+                    {% if can_mark_attendance and group.is_active and not lesson.is_cancelled %}
                     <button onclick="toggleStarModal()"
                         class="bg-yellow-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-600 transition">
                         <i class="fas fa-star mr-1"></i> Выдача звёзд
@@ -195,7 +220,7 @@
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4 text-center">
-                                {% if lesson and can_mark_attendance %}
+                                {% if lesson_active and can_mark_attendance %}
                                 <button onclick="toggleHomework({{ data.student.id }}, this)"
                                         class="w-10 h-10 rounded-lg text-lg font-bold transition-all
                                         {% if data.homework_done %}bg-green-500 text-white shadow{% else %}bg-gray-200 dark:bg-gray-600 text-gray-400 hover:bg-gray-300{% endif %}">
@@ -206,11 +231,15 @@
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4">
-                                {% if lesson and can_mark_attendance %}
-                                <div class="flex gap-2">
+                                {% if lesson_active and can_mark_attendance %}
+                                <div class="flex flex-wrap gap-2">
                                     <button onclick="toggleAttendance({{ data.student.id }}, 'present')" class="px-4 py-2 rounded-lg text-sm font-medium transition-all
                                             {% if data.attendance_status == 'present' %}bg-green-500 text-white shadow{% else %}bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 hover:bg-gray-300{% endif %}">
                                         <i class="fas fa-check mr-1"></i> Был
+                                    </button>
+                                    <button onclick="toggleAttendance({{ data.student.id }}, 'late')" class="px-4 py-2 rounded-lg text-sm font-medium transition-all
+                                            {% if data.attendance_status == 'late' %}bg-amber-500 text-white shadow{% else %}bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 hover:bg-gray-300{% endif %}">
+                                        <i class="fas fa-clock mr-1"></i> Опоздал
                                     </button>
                                     <button onclick="toggleAttendance({{ data.student.id }}, 'absent')" class="px-4 py-2 rounded-lg text-sm font-medium transition-all
                                             {% if data.attendance_status == 'absent' %}bg-red-500 text-white shadow{% else %}bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 hover:bg-gray-300{% endif %}">
@@ -218,7 +247,7 @@
                                     </button>
                                 </div>
                                 {% else %}
-                                <span class="text-gray-400 text-sm">{% if not lesson %}—{% else %}Нет доступа{% endif %}</span>
+                                <span class="text-gray-400 text-sm">{% if not lesson or lesson.is_cancelled %}—{% else %}Нет доступа{% endif %}</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -326,13 +355,15 @@
             </div>
 
             {% if role == 'admin' or role == 'developer' %}
-            <a id="deleteFromGroupBtn"
-               href="#"
-               data-url-template="{% url 'remove_student_from_group' 999999999 group.id %}"
-               onclick="return deleteFromGroupConfirm();"
-               class="block text-center w-full mt-2 bg-red-500 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-red-600 transition">
-                <i class="fas fa-trash mr-1"></i>Удалить из группы
-            </a>
+            <form id="deleteFromGroupForm" method="POST"
+                  data-url-template="{% url 'remove_student_from_group' 999999999 group.id %}"
+                  onsubmit="return deleteFromGroupConfirm();">
+                {% csrf_token %}
+                <button type="submit"
+                    class="block text-center w-full mt-2 bg-red-500 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-red-600 transition">
+                    <i class="fas fa-user-minus mr-1"></i>Убрать из группы
+                </button>
+            </form>
             {% endif %}
         </div>
     </div>
@@ -500,9 +531,9 @@
             document.getElementById('infoParent').textContent =
                 (btn.dataset.parentName || '—') +
                 (btn.dataset.parentPhone ? ' • ' + btn.dataset.parentPhone : '');
-            const deleteBtn = document.getElementById('deleteFromGroupBtn');
-            if (deleteBtn) {
-                deleteBtn.href = deleteBtn.dataset.urlTemplate.replace('999999999', btn.dataset.studentId);
+            const deleteForm = document.getElementById('deleteFromGroupForm');
+            if (deleteForm) {
+                deleteForm.action = deleteForm.dataset.urlTemplate.replace('999999999', btn.dataset.studentId);
             }
             document.getElementById('studentInfoModal').classList.remove('hidden');
         }
@@ -585,7 +616,7 @@
             });
         }
         function deleteFromGroupConfirm() {
-            return confirm('Удалить ' + (currentStudent ? currentStudent.name : 'ученика') + ' из группы?');
+            return confirm('Убрать ' + (currentStudent ? currentStudent.name : 'ученика') + ' из группы? Оплаты и посещаемость останутся в истории.');
         }
         let audioCtx = null;
 

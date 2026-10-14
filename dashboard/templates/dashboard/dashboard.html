@@ -103,9 +103,9 @@
         .face { width: 30px; height: 30px; border-radius: 9999px; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #fff;
             background: linear-gradient(135deg, hsl(var(--h) 80% 60%), hsl(calc(var(--h) + 40) 80% 50%)); box-shadow: 0 0 0 2px #120f20; }
         .face + .face { margin-left: -8px; }
-        .gcard-tools a { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: rgba(0,0,0,.35); color: rgba(233,231,245,.7);
+        .gcard-tools a, .gcard-tools button { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: rgba(0,0,0,.35); color: rgba(233,231,245,.7);
             transition: transform var(--spring-dur) var(--spring), color .2s ease, background .2s ease; }
-        .gcard-tools a:hover { transform: scale(1.12); color: #fff; background: rgba(0,0,0,.55); }
+        .gcard-tools a:hover, .gcard-tools button:hover { transform: scale(1.12); color: #fff; background: rgba(0,0,0,.55); }
     </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
@@ -254,9 +254,18 @@
             <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-5">
                 <div>
                     <p class="eyebrow mb-2">{{ group_cards|length }} {% if group_cards|length == 1 %}группа{% elif group_cards|length < 5 %}группы{% else %}групп{% endif %}</p>
-                    <h3 class="text-xl sm:text-2xl font-bold text-white">{% if role == 'teacher' %}Мои группы{% else %}Все группы{% endif %}</h3>
+                    <h3 class="text-xl sm:text-2xl font-bold text-white">{% if role == 'teacher' %}Мои группы{% elif show_archive %}Архив групп{% else %}Все группы{% endif %}</h3>
+                    {% if role == 'admin' or role == 'developer' %}
+                    <div class="flex gap-2 mt-3">
+                        <a href="{% url 'dashboard' %}" class="chip-btn !py-1.5 !px-3 !text-xs {% if not show_archive %}!bg-violet-500/30 !border-violet-400/50{% endif %}">Активные</a>
+                        <a href="{% url 'dashboard' %}?archived=1" class="chip-btn !py-1.5 !px-3 !text-xs {% if show_archive %}!bg-violet-500/30 !border-violet-400/50{% endif %}">
+                            <i class="fas fa-box-archive"></i> Архив{% if archived_groups_count %} · {{ archived_groups_count }}{% endif %}
+                        </a>
+                    </div>
+                    {% endif %}
                 </div>
                 <form method="GET" class="flex gap-2 w-full sm:w-auto">
+                    {% if show_archive %}<input type="hidden" name="archived" value="1">{% endif %}
                     <input type="text" name="search" value="{{ search_query }}"
                            class="flex-1 sm:w-64 px-4 py-2.5 border rounded-full dark:bg-gray-800 dark:text-white"
                            placeholder="Фильтр по названию…">
@@ -297,8 +306,20 @@
                     </a>
                     {% if role == 'admin' or role == 'developer' %}
                     <div class="gcard-tools absolute top-5 right-5 flex gap-2">
+                        {% if group.is_active %}
                         <a href="{% url 'edit_group' group.id %}" title="Изменить"><i class="fas fa-pen text-xs"></i></a>
-                        <a href="{% url 'delete_group' group.id %}" onclick="return confirm('Удалить группу {{ group.name }}?')" title="Удалить"><i class="fas fa-trash text-xs"></i></a>
+                        <form method="POST" action="{% url 'archive_group' group.id %}"
+                              data-confirm="Перенести группу «{{ group.name }}» в архив? Уроки и оплаты сохранятся, вернуть можно в любой момент."
+                              onsubmit="return confirm(this.dataset.confirm)">
+                            {% csrf_token %}
+                            <button type="submit" title="В архив"><i class="fas fa-box-archive text-xs"></i></button>
+                        </form>
+                        {% else %}
+                        <form method="POST" action="{% url 'restore_group' group.id %}">
+                            {% csrf_token %}
+                            <button type="submit" title="Вернуть из архива"><i class="fas fa-rotate-left text-xs"></i></button>
+                        </form>
+                        {% endif %}
                     </div>
                     {% endif %}
                 </div>

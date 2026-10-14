@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Нет доступа — Enjoy English CRM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    {% include 'dashboard/partials/theme.html' %}
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <main class="max-w-md w-full">
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-2xl shadow-md border border-gray-300 dark:border-gray-600 p-8 text-center">
+            <div class="w-16 h-16 rounded-2xl bg-amber-500/15 text-amber-300 grid place-items-center text-2xl mx-auto mb-5">
+                <i class="fas fa-user-lock"></i>
+            </div>
+            <h2 class="text-xl font-bold text-white mb-3">Роль ещё не назначена</h2>
+            <p class="text-gray-400 mb-6">
+                Учётная запись <b class="text-white notranslate">{{ request.user.username }}</b> есть, но доступа к CRM пока нет.
+                Попросите администратора назначить роль: <span class="text-gray-300">/admin/ → Профили</span>.
+            </p>
+            <a href="{% url 'logout' %}" class="inline-flex items-center gap-2 bg-indigo-500 text-white px-6 py-3 rounded-lg font-medium">
+                <i class="fas fa-arrow-right-from-bracket"></i> Выйти
+            </a>
+        </div>
+    </main>
+</body>
+</html>

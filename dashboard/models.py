@@ -16,6 +16,8 @@ class Student(models.Model):
         verbose_name="Цена за 1 урок"
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True, verbose_name="Учится (не в архиве)")
+    archived_at = models.DateTimeField(null=True, blank=True, verbose_name="В архиве с")
 
     def __str__(self):
         return self.name
@@ -128,6 +130,9 @@ class Lesson(models.Model):
     date = models.DateField(verbose_name="Дата")
     topic = models.CharField(max_length=200, blank=True, verbose_name="Тема урока")
     created_at = models.DateTimeField(auto_now_add=True)
+    is_cancelled = models.BooleanField(default=False, verbose_name="Урок отменён")
+    edited_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='edited_lessons', verbose_name="Кто правил задним числом")
+    edited_at = models.DateTimeField(null=True, blank=True, verbose_name="Когда правили")
 
     def __str__(self):
         return f"{self.group.name} — {self.date}"

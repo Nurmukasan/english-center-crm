@@ -33,7 +33,7 @@
         {% endif %}
         {% if role == 'admin' or role == 'accountant' or role == 'developer' %}
         <a href="{% url 'payments_page' %}" data-label="Оплаты"
-           class="ee-rail-item {% if url_name in 'payments_page payments_list payment_management' %}is-active{% endif %}">
+           class="ee-rail-item {% if url_name in 'payments_page payment_management' %}is-active{% endif %}">
             <i class="fas fa-wallet"></i><span>Оплаты</span>
         </a>
         {% endif %}
@@ -76,6 +76,31 @@
         </a>
     </div>
 </nav>
+
+{% if messages %}
+<!-- Уведомления (сообщения Django) -->
+<div class="ee-toasts" id="eeToasts" aria-live="polite">
+    {% for message in messages %}
+    <div class="ee-toast ee-toast-{{ message.tags|default:'info' }}" role="status">
+        <i class="fas {% if message.tags == 'success' %}fa-circle-check{% elif message.tags == 'error' %}fa-circle-exclamation{% elif message.tags == 'warning' %}fa-triangle-exclamation{% else %}fa-circle-info{% endif %}"></i>
+        <p>{{ message }}</p>
+        <button type="button" aria-label="Закрыть" onclick="this.parentElement.remove()"><i class="fas fa-xmark"></i></button>
+        <span class="ee-toast-timer"></span>
+    </div>
+    {% endfor %}
+</div>
+<script>
+    // Уведомления сами исчезают через 6 секунд (если навести курсор — ждут)
+    document.querySelectorAll('#eeToasts .ee-toast').forEach(function (t, i) {
+        let left = 6000 + i * 400, started = Date.now(), timer;
+        const go = () => { started = Date.now(); timer = setTimeout(() => { t.classList.add('is-leaving'); setTimeout(() => t.remove(), 400); }, left); };
+        t.addEventListener('pointerenter', () => { clearTimeout(timer); left -= Date.now() - started; t.classList.add('is-paused'); });
+        t.addEventListener('pointerleave', () => { t.classList.remove('is-paused'); go(); });
+        t.style.setProperty('--life', left + 'ms');
+        go();
+    });
+</script>
+{% endif %}
 
 <!-- Командная палитра -->
 <div class="ee-palette" id="eePalette" role="dialog" aria-modal="true" aria-label="Поиск">
