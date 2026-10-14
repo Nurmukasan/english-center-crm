@@ -116,6 +116,22 @@ class ArchiveTests(CRMTestCase):
         self.assertNotIn('Алия', names('/students/'))
         self.assertIn('Алия', names('/students/?archived=1'))
 
+    def test_bulk_archive_students(self):
+        self.assertEqual(self.client.get('/students/archive/').status_code, 405)
+        self.client.post('/students/archive/', {'student_ids': [self.student.id, self.other_student.id]})
+        for student in (self.student, self.other_student):
+            student.refresh_from_db()
+            self.assertFalse(student.is_active)
+            self.assertIsNotNone(student.archived_at)
+        self.assertFalse(Enrollment.objects.filter(student__in=[self.student, self.other_student]).exists())
+        self.assertTrue(Payment.objects.filter(student=self.student).exists())
+
+    def test_teacher_cannot_bulk_archive(self):
+        self.login(self.teacher)
+        self.client.post('/students/archive/', {'student_ids': [self.student.id]})
+        self.student.refresh_from_db()
+        self.assertTrue(self.student.is_active)
+
     def test_restore_student(self):
         self.client.post(f'/student/{self.student.id}/archive/')
         response = self.client.post(f'/student/{self.student.id}/restore/')

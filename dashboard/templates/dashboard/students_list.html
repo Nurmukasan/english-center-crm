@@ -149,11 +149,33 @@
             </form>
         </div>
         
+        {% if role == 'admin' or role == 'developer' %}{% if not show_archive %}
+        <form method="POST" action="{% url 'bulk_archive_students' %}" id="bulkForm"
+              data-confirm="Перенести выбранных учеников в архив? Они уйдут из всех групп, история оплат и посещаемости сохранится."
+              onsubmit="return confirm(this.dataset.confirm)">
+            {% csrf_token %}
+        </form>
+        <div id="bulkBar" class="hidden sticky top-20 z-30 mb-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl px-5 py-3 flex items-center gap-3 flex-wrap shadow-md">
+            <span class="text-sm text-gray-700 dark:text-gray-200">Выбрано: <b id="bulkCount">0</b></span>
+            <button type="button" onclick="clearSelection()" class="text-sm text-gray-500 dark:text-gray-400 hover:underline">Снять выбор</button>
+            <button type="submit" form="bulkForm"
+                class="ml-auto bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-600 transition">
+                <i class="fas fa-box-archive mr-1"></i> В архив
+            </button>
+        </div>
+        {% endif %}{% endif %}
+
         <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead>
                         <tr class="bg-gray-100 dark:bg-gray-700/50 text-left border-b border-gray-300 dark:border-gray-600">
+                            {% if role == 'admin' or role == 'developer' %}{% if not show_archive %}
+                            <th class="pl-6 py-3 w-8">
+                                <input type="checkbox" id="selectAll" title="Выбрать всех" onchange="toggleAll(this.checked)"
+                                       class="w-4 h-4 accent-indigo-500 cursor-pointer">
+                            </th>
+                            {% endif %}{% endif %}
                             <th class="px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Имя</th>
                             <th class="px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Телефон</th>
                             <th class="px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Группы</th>
@@ -165,6 +187,12 @@
                     <tbody>
                         {% for data in student_data %}
                         <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition">
+                            {% if role == 'admin' or role == 'developer' %}{% if not show_archive %}
+                            <td class="pl-6 py-4 w-8">
+                                <input type="checkbox" name="student_ids" value="{{ data.student.id }}" form="bulkForm"
+                                       onchange="updateBulk()" class="student-check w-4 h-4 accent-indigo-500 cursor-pointer">
+                            </td>
+                            {% endif %}{% endif %}
                             <td class="px-6 py-4">
                                 <p class="font-medium text-gray-800 dark:text-white">{{ data.student.name }}</p>
                                 {% if data.student.school or data.student.grade or data.student.age %}
@@ -224,7 +252,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="4" class="px-6 py-12 text-center text-gray-400">
+                            <td colspan="5" class="px-6 py-12 text-center text-gray-400">
                                 <i class="fas fa-inbox text-5xl mb-3"></i>
                                 <p>Нет учеников</p>
                             </td>
@@ -241,6 +269,23 @@
         function toggleTheme() {
             document.documentElement.classList.toggle('dark');
         }
+
+        // Массовый перенос в архив: галочки у учеников
+        function checks() { return document.querySelectorAll('.student-check'); }
+        function updateBulk() {
+            const all = checks();
+            const n = [...all].filter(c => c.checked).length;
+            const bar = document.getElementById('bulkBar');
+            if (!bar) return;
+            document.getElementById('bulkCount').textContent = n;
+            bar.classList.toggle('hidden', n === 0);
+            const selectAll = document.getElementById('selectAll');
+            selectAll.checked = n > 0 && n === all.length;
+            selectAll.indeterminate = n > 0 && n < all.length;
+        }
+        function toggleAll(on) { checks().forEach(c => c.checked = on); updateBulk(); }
+        function clearSelection() { toggleAll(false); }
+        updateBulk();
         
         
     </script>
