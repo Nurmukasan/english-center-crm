@@ -266,6 +266,32 @@
         .ee-rail-item > span:last-child { display: none; }
     }
 
+    /* ---------- Уведомления ---------- */
+    .ee-toasts { position: fixed; z-index: 80; top: 18px; right: 18px; display: flex; flex-direction: column; gap: 10px; width: min(380px, calc(100vw - 36px)); }
+    .ee-toast {
+        --tone: #a78bfa;
+        position: relative; overflow: hidden; display: flex; align-items: flex-start; gap: 12px; padding: 14px 14px 16px;
+        border-radius: 16px; color: #fff; font-size: 14px; font-weight: 600; line-height: 1.4;
+        background: linear-gradient(160deg, rgba(38, 31, 62, .95), rgba(16, 13, 28, .96));
+        border: 1px solid rgba(255,255,255,.1); box-shadow: inset 3px 0 0 var(--tone), 0 24px 60px -24px rgba(0,0,0,.9), 0 0 40px -18px var(--tone);
+        backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+        animation: ee-toast-in var(--spring-dur) var(--spring) both;
+    }
+    .ee-toast > i { color: var(--tone); font-size: 18px; margin-top: 1px; }
+    .ee-toast p { flex: 1; }
+    .ee-toast button { color: rgba(233,231,245,.5); padding: 0 4px; }
+    .ee-toast button:hover { color: #fff; }
+    .ee-toast-success { --tone: #34d399; }
+    .ee-toast-error { --tone: #f87171; }
+    .ee-toast-warning { --tone: #fbbf24; }
+    .ee-toast-timer { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--tone); opacity: .6; transform-origin: left; animation: ee-toast-timer var(--life, 6s) linear forwards; }
+    .ee-toast.is-paused .ee-toast-timer { animation-play-state: paused; }
+    .ee-toast.is-leaving { animation: ee-toast-out .35s ease-in forwards; }
+    @keyframes ee-toast-in { from { opacity: 0; transform: translateX(40px) scale(.95); } }
+    @keyframes ee-toast-out { to { opacity: 0; transform: translateX(40px) scale(.95); } }
+    @keyframes ee-toast-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+    @media (max-width: 767px) { .ee-toasts { top: 12px; right: 12px; } }
+
     /* ---------- Командная палитра ---------- */
     .ee-palette { position: fixed; inset: 0; z-index: 70; display: flex; justify-content: center; align-items: flex-start; padding: 12vh 16px 16px; visibility: hidden; transition: visibility 0s linear .3s; }
     .ee-palette.open { visibility: visible; transition-delay: 0s; }

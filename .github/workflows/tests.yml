@@ -1,0 +1,23 @@
+name: Тесты
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'  # как на сервере
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Проверка проекта
+        run: python manage.py check
+      - name: Нет забытых миграций
+        run: python manage.py makemigrations --check --dry-run
+      - name: Автотесты
+        run: python manage.py test
