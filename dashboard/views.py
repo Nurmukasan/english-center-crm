@@ -1729,6 +1729,31 @@ def archive_student(request, student_id):
 
 @crm_view
 @require_POST
+def bulk_archive_students(request):
+    """Несколько учеников сразу в архив (отмечены галочками в списке учеников)"""
+    role = get_user_role(request.user)
+    
+    if role not in ['admin', 'developer']:
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    
+    ids = [int(i) for i in request.POST.getlist('student_ids') if i.isdigit()]
+    students = Student.objects.filter(id__in=ids, is_active=True)
+    count = students.count()
+    if not count:
+        messages.error(request, 'Не выбрано ни одного ученика')
+        return redirect('students_list')
+    
+    with transaction.atomic():
+        Enrollment.objects.filter(student__in=students).delete()
+        students.update(is_active=False, archived_at=timezone.now())
+    messages.success(request, f'В архив перенесено учеников: {count}. Оплаты и посещаемость сохранены.')
+    
+    return redirect('students_list')
+
+
+@crm_view
+@require_POST
 def restore_student(request, student_id):
     """Вернуть ученика из архива и сразу предложить группы"""
     role = get_user_role(request.user)

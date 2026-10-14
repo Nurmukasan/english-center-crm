@@ -29,6 +29,7 @@ urlpatterns = [
     path('groups/add/', views.add_group, name='add_group'),
     path('student/<int:student_id>/remove-from-group/<int:group_id>/', views.remove_student_from_group, name='remove_student_from_group'),
     path('student/<int:student_id>/archive/', views.archive_student, name='archive_student'),
+    path('students/archive/', views.bulk_archive_students, name='bulk_archive_students'),
     path('student/<int:student_id>/restore/', views.restore_student, name='restore_student'),
     path('group/<int:group_id>/archive/', views.archive_group, name='archive_group'),
     path('group/<int:group_id>/restore/', views.restore_group, name='restore_group'),
