@@ -64,6 +64,8 @@ class Group(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     books = models.ManyToManyField(Book, related_name='groups', blank=True, verbose_name="Книги")
     photo = models.ImageField(upload_to='group_photos/', blank=True, null=True, verbose_name="Фото группы")
+    whatsapp_chat_id = models.CharField(max_length=60, blank=True, verbose_name="Чат WhatsApp",
+                                        help_text="ID группы в WhatsApp (…@g.us) — для рассылок в групповой чат")
 
     def __str__(self):
         return self.name
@@ -213,3 +215,99 @@ class LevelCalibration(models.Model):
         verbose_name = "Калибровка уровня"
         verbose_name_plural = "Калибровки уровня"
         ordering = ['-created_at']
+
+
+class WhatsAppSettings(models.Model):
+    """Подключение к WhatsApp через Green API (одна запись на весь центр)"""
+    api_url = models.CharField(max_length=200, default='https://api.green-api.com', verbose_name="apiUrl")
+    instance_id = models.CharField(max_length=50, blank=True, verbose_name="idInstance")
+    token = models.CharField(max_length=200, blank=True, verbose_name="apiTokenInstance")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @property
+    def is_configured(self):
+        return bool(self.instance_id and self.token)
+
+    def __str__(self):
+        return f"Green API {self.instance_id or '— не подключено'}"
+
+    class Meta:
+        verbose_name = "Подключение WhatsApp"
+        verbose_name_plural = "Подключение WhatsApp"
+
+
+class Broadcast(models.Model):
+    """Рассылка в WhatsApp: что, кому и когда отправили"""
+    KIND_CHOICES = [
+        ('payment', 'Напоминание об оплате'),
+        ('news', 'Новость'),
+    ]
+    AUDIENCE_CHOICES = [
+        ('group', 'Группы WhatsApp'),
+        ('parent', 'Родители'),
+        ('student', 'Ученики'),
+        ('teacher', 'Учителя'),
+    ]
+    MODE_CHOICES = [
+        ('api', 'Автоматически (Green API)'),
+        ('manual', 'Вручную по ссылкам'),
+    ]
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, verbose_name="Тип")
+    audience = models.CharField(max_length=20, choices=AUDIENCE_CHOICES, verbose_name="Кому")
+    mode = models.CharField(max_length=10, choices=MODE_CHOICES, default='manual', verbose_name="Как отправляем")
+    title = models.CharField(max_length=200, verbose_name="Название")
+    text = models.TextField(verbose_name="Шаблон текста")
+    year = models.IntegerField(null=True, blank=True)
+    month = models.IntegerField(null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='broadcasts')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
+              'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь']
+
+    @property
+    def month_label(self):
+        return self.MONTHS[self.month - 1] if self.month else ''
+
+    def __str__(self):
+        return f"{self.title} — {self.created_at:%d.%m.%Y}"
+
+    class Meta:
+        verbose_name = "Рассылка"
+        verbose_name_plural = "Рассылки"
+        ordering = ['-created_at']
+
+
+class BroadcastMessage(models.Model):
+    """Одно сообщение рассылки — одному человеку или в один групповой чат"""
+    STATUS_CHOICES = [
+        ('pending', 'Ждёт отправки'),
+        ('sent', 'Отправлено'),
+        ('failed', 'Ошибка'),
+        ('skipped', 'Пропущено'),
+    ]
+    broadcast = models.ForeignKey(Broadcast, on_delete=models.CASCADE, related_name='messages')
+    recipient = models.CharField(max_length=200, verbose_name="Получатель")
+    note = models.CharField(max_length=200, blank=True, verbose_name="Пояснение")
+    phone = models.CharField(max_length=20, blank=True, verbose_name="Телефон")
+    chat_id = models.CharField(max_length=60, blank=True, verbose_name="Чат WhatsApp")
+    text = models.TextField(verbose_name="Текст")
+    amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Сумма")
+    student = models.ForeignKey(Student, on_delete=models.SET_NULL, null=True, blank=True, related_name='broadcast_messages')
+    group = models.ForeignKey(Group, on_delete=models.SET_NULL, null=True, blank=True, related_name='broadcast_messages')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending', verbose_name="Статус")
+    error = models.CharField(max_length=300, blank=True, verbose_name="Ошибка")
+    sent_at = models.DateTimeField(null=True, blank=True, verbose_name="Отправлено")
+
+    def __str__(self):
+        return f"{self.recipient} — {self.get_status_display()}"
+
+    class Meta:
+        verbose_name = "Сообщение рассылки"
+        verbose_name_plural = "Сообщения рассылки"
+        ordering = ['id']

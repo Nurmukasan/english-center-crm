@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Рассылка — Enjoy English CRM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        :root { --wa: #25d366; --wa-ink: #128c4a; --wa-soft: #e9f9ef; }
+        .back { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; color: var(--muted);
+            background: var(--surface); border: 1px solid var(--line); }
+        .back:hover { background: var(--surface-2); color: var(--ink); }
+
+        .progress { height: 10px; border-radius: 9999px; background: var(--surface-3); overflow: hidden; display: flex; }
+        .progress i { display: block; height: 100%; transition: width .5s var(--spring-soft); }
+        .stat { padding: 12px 14px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line); }
+        .stat b { display: block; font-size: 22px; font-weight: 800; color: var(--ink); line-height: 1.1; }
+        .stat span { font-size: 12px; font-weight: 600; color: var(--muted); }
+
+        .go { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 20px; border-radius: 14px; font-weight: 800; font-size: 15px;
+            color: #fff; background: var(--wa); box-shadow: 0 10px 22px -12px rgba(37, 211, 102, .9); transition: background .2s ease, transform var(--spring-dur) var(--spring); }
+        .go:hover { background: #1fb457; transform: translateY(-1px); }
+        .go:disabled { background: var(--line-strong); box-shadow: none; cursor: default; transform: none; }
+        .go.is-pause { background: var(--ink); box-shadow: none; }
+
+        .mrow { display: flex; align-items: center; gap: 12px; padding: 12px 16px; transition: background .3s ease; }
+        .mrow + .mrow { border-top: 1px solid var(--line); }
+        .mrow.flash { animation: flash 1s ease; }
+        @keyframes flash { from { background: var(--ok-soft); } to { background: transparent; } }
+        .mic { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; flex-shrink: 0; font-size: 15px; background: var(--surface-3); color: var(--muted); transition: all .3s ease; }
+        .mrow[data-status="sent"] .mic { background: var(--ok-soft); color: var(--ok-ink); }
+        .mrow[data-status="failed"] .mic { background: var(--bad-soft); color: var(--bad-ink); }
+        .mrow[data-status="skipped"] .mic { background: var(--surface-2); color: var(--faint); }
+        .mrow[data-status="sending"] .mic { background: var(--wa-soft); color: var(--wa-ink); }
+        .mname { font-weight: 700; font-size: 14px; color: var(--ink); }
+        .msub { font-size: 12px; color: var(--muted); }
+        .merr { font-size: 12px; color: var(--bad-ink); }
+        .mamount { font-weight: 800; font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+        .badge { font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 9999px; white-space: nowrap; }
+        .badge.pending { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
+        .badge.sent { background: var(--ok-soft); color: var(--ok-ink); }
+        .badge.failed { background: var(--bad-soft); color: var(--bad-ink); }
+        .badge.skipped { background: var(--surface-2); color: var(--faint); }
+        .badge.sending { background: var(--wa-soft); color: var(--wa-ink); }
+        .act { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 10px; font-size: 12.5px; font-weight: 800; white-space: nowrap;
+            border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); transition: background .15s ease, border-color .15s ease; }
+        .act:hover { background: var(--surface-2); border-color: var(--line-strong); }
+        .act.wa { color: #fff; background: var(--wa); border-color: var(--wa); }
+        .act.wa:hover { background: #1fb457; }
+        .icon-btn { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: var(--faint); }
+        .icon-btn:hover { background: var(--surface-2); color: var(--ink); }
+        .mtext { display: none; margin: 0 16px 12px 66px; padding: 10px 12px; border-radius: 10px; background: #efeae2; font-size: 13px; line-height: 1.45; color: #111b21; }
+        .mbody { white-space: pre-wrap; }
+        .mrow.is-open + .mtext { display: block; }
+        @media (max-width: 640px) {
+            .mrow { flex-wrap: wrap; }
+            .mrow .actions { width: 100%; justify-content: flex-end; }
+            .mtext { margin-left: 16px; }
+        }
+    </style>
+    {% include 'dashboard/partials/theme.html' %}
+</head>
+<body class="min-h-screen">
+    {% include 'dashboard/partials/shell.html' %}
+
+    <header class="shadow-lg sticky top-0 z-40">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
+            <a href="{% url 'broadcast_page' %}" class="back" aria-label="Назад"><i class="fas fa-arrow-left"></i></a>
+            <h1 class="text-xl font-bold truncate">Рассылка</h1>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        <section class="panel p-6 sm:p-7 mb-6">
+            <div class="flex flex-col md:flex-row md:items-start gap-5 md:gap-8">
+                <div class="flex-1 min-w-0">
+                    <p class="eyebrow"><span>{{ broadcast.get_kind_display }}</span> · <span>{{ broadcast.get_audience_display }}</span></p>
+                    <h2 class="text-2xl font-bold mt-1">{% if broadcast.kind == 'payment' %}Оплата за {{ broadcast.month_label }} {{ broadcast.year }}{% else %}<span class="notranslate">{{ broadcast.title }}</span>{% endif %}</h2>
+                    <p class="text-sm text-gray-500 mt-1">{{ broadcast.created_at|date:"d.m.Y H:i" }}{% if broadcast.created_by %} · <span class="notranslate">{{ broadcast.created_by.username }}</span>{% endif %}</p>
+                    <div class="progress mt-5" aria-hidden="true">
+                        <i id="barSent" style="width: {% widthratio counts.sent total 100 %}%; background: var(--ok)"></i>
+                        <i id="barFailed" style="width: {% widthratio counts.failed total 100 %}%; background: var(--bad)"></i>
+                        <i id="barSkipped" style="width: {% widthratio counts.skipped total 100 %}%; background: var(--line-strong)"></i>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 mt-4">
+                        <div class="stat"><b id="cSent">{{ counts.sent }}</b><span>отправлено</span></div>
+                        <div class="stat"><b id="cPending">{{ counts.pending }}</b><span>осталось</span></div>
+                        <div class="stat"><b id="cFailed">{{ counts.failed }}</b><span>с ошибкой</span></div>
+                    </div>
+                    {% if broadcast.kind == 'payment' and broadcast.audience != 'group' %}
+                    <p class="text-sm text-gray-500 mt-3">Сумма в напоминаниях: <b class="text-gray-800">{{ amount_total }} ₸</b></p>
+                    {% endif %}
+                </div>
+
+                <div class="md:w-72 flex-shrink-0">
+                    {% if auto_left %}
+                    <button type="button" class="go w-full" id="goBtn" onclick="toggleAuto()"><i class="fab fa-whatsapp text-lg"></i><span id="goLabel">Отправить автоматически · {{ auto_left }}</span></button>
+                    <p class="text-xs text-gray-500 mt-2">Сообщения уходят по одному с паузой, чтобы WhatsApp не принял рассылку за спам. Не закрывайте страницу, пока идёт отправка.</p>
+                    {% endif %}
+                    {% if counts.pending %}
+                    <button type="button" class="go w-full {% if auto_left %}mt-4 !bg-white !text-gray-800 border border-gray-200 !shadow-none{% endif %}" id="nextBtn" onclick="openNext()">
+                        <i class="fas fa-arrow-up-right-from-square"></i>Открыть следующего
+                    </button>
+                    <p class="text-xs text-gray-500 mt-2">Откроется WhatsApp с готовым текстом — нажмите там «Отправить» и вернитесь сюда. Для групповых чатов текст скопируется.</p>
+                    {% elif not counts.failed %}
+                    <div class="rounded-2xl p-4 bg-green-50 text-center">
+                        <i class="fas fa-circle-check text-2xl" style="color: var(--ok)"></i>
+                        <p class="font-bold mt-2">Рассылка завершена</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+
+        <section class="panel overflow-hidden" id="list">
+            {% for m in items %}
+            <div class="mrow" data-id="{{ m.id }}" data-status="{{ m.status }}" data-auto="{{ m.auto|yesno:'1,' }}" data-link="{{ m.link }}">
+                <span class="mic"><i class="fas {% if broadcast.audience == 'group' %}fa-users{% elif m.status == 'sent' %}fa-check{% else %}fa-user{% endif %}"></i></span>
+                <div class="min-w-0 flex-1">
+                    <p class="mname truncate notranslate">{{ m.recipient }}</p>
+                    <p class="msub truncate"><span class="notranslate">{% if m.phone_display %}{{ m.phone_display }} · {% endif %}{{ m.note }}</span></p>
+                    <p class="merr" data-role="error">{{ m.error }}</p>
+                </div>
+                {% if m.amount_str %}<span class="mamount hidden sm:inline">{{ m.amount_str }} ₸</span>{% endif %}
+                <div class="actions flex items-center gap-2">
+                    <span class="badge {{ m.status }}" data-role="badge">{{ m.get_status_display }}</span>
+                    {% if m.link %}
+                    <a href="{{ m.link }}" target="_blank" rel="noopener" class="act {% if not m.auto %}wa{% endif %}" data-role="open" onclick="opened(this)" title="Открыть чат в WhatsApp с готовым текстом"><i class="fab fa-whatsapp"></i>Открыть</a>
+                    {% else %}
+                    <button type="button" class="act" data-role="copy" onclick="copyText(this)"><i class="far fa-copy"></i>Скопировать</button>
+                    {% endif %}
+                    <button type="button" class="icon-btn" data-role="more" onclick="toggleText(this)" title="Текст сообщения"><i class="fas fa-chevron-down"></i></button>
+                </div>
+            </div>
+            <div class="mtext"><p class="mbody notranslate">{{ m.text }}</p>
+                <div class="flex flex-wrap gap-2 mt-3">
+                    <button type="button" class="act" onclick="mark(this, 'sent')"><i class="fas fa-check"></i>Отметить отправленным</button>
+                    <button type="button" class="act" onclick="mark(this, 'skipped')"><i class="fas fa-forward"></i>Пропустить</button>
+                    <button type="button" class="act" onclick="mark(this, 'pending')"><i class="fas fa-rotate-left"></i>Вернуть в очередь</button>
+                </div>
+            </div>
+            {% endfor %}
+        </section>
+    </main>
+
+    <script>
+        const CSRF = '{{ csrf_token }}';
+        const TOTAL = {{ total }};
+        const LABELS = { pending: 'Ждёт отправки', sent: 'Отправлено', failed: 'Ошибка', skipped: 'Пропущено', sending: 'Отправляется…' };
+        const rows = () => [...document.querySelectorAll('.mrow')];
+        const post = (url, body) => fetch(url, {
+            method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': CSRF }, body: new URLSearchParams(body || {}),
+        }).then(r => r.json());
+
+        function setStatus(row, status, error) {
+            row.dataset.status = status;
+            const badge = row.querySelector('[data-role="badge"]');
+            badge.className = 'badge ' + status;
+            badge.textContent = LABELS[status];
+            row.querySelector('[data-role="error"]').textContent = error || '';
+            if (status === 'sent') { row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash'); }
+            recount();
+        }
+        function recount() {
+            const all = rows(), c = s => all.filter(r => r.dataset.status === s).length;
+            const sent = c('sent'), failed = c('failed'), skipped = c('skipped');
+            document.getElementById('cSent').textContent = sent;
+            document.getElementById('cFailed').textContent = failed;
+            document.getElementById('cPending').textContent = c('pending') + c('sending');
+            document.getElementById('barSent').style.width = (sent / TOTAL * 100) + '%';
+            document.getElementById('barFailed').style.width = (failed / TOTAL * 100) + '%';
+            document.getElementById('barSkipped').style.width = (skipped / TOTAL * 100) + '%';
+        }
+
+        /* ---------- Вручную: открыть WhatsApp и отметить ---------- */
+        async function markRow(row, status) {
+            const data = await post(`/broadcast/message/${row.dataset.id}/mark/`, { status });
+            if (data.success) setStatus(row, status);
+        }
+        function opened(link) { markRow(link.closest('.mrow'), 'sent'); }
+        function mark(btn, status) { markRow(btn.closest('.mtext').previousElementSibling, status); }
+        async function copyText(btn) {
+            const row = btn.closest('.mrow');
+            const text = row.nextElementSibling.querySelector('.mbody').textContent.trim();
+            try { await navigator.clipboard.writeText(text); } catch (e) {
+                const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove();
+            }
+            btn.innerHTML = '<i class="fas fa-check"></i>Скопировано';
+            setTimeout(() => btn.innerHTML = '<i class="far fa-copy"></i>Скопировать', 1800);
+            markRow(row, 'sent');
+        }
+        function openNext() {
+            const row = rows().find(r => r.dataset.status === 'pending' && !r.dataset.auto);
+            if (!row) { alert('Все сообщения уже отправлены или отмечены.'); return; }
+            row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            const link = row.querySelector('[data-role="open"]');
+            if (link) { window.open(link.href, '_blank', 'noopener'); opened(link); }
+            else copyText(row.querySelector('[data-role="copy"]'));
+        }
+        function toggleText(btn) {
+            const row = btn.closest('.mrow');
+            row.classList.toggle('is-open');
+            btn.querySelector('i').className = 'fas ' + (row.classList.contains('is-open') ? 'fa-chevron-up' : 'fa-chevron-down');
+        }
+
+        /* ---------- Автоматически через Green API: по одному с паузой ---------- */
+        let running = false;
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        function autoLeft() { return rows().filter(r => r.dataset.auto && ['pending', 'failed'].includes(r.dataset.status)); }
+        function paintGo() {
+            const btn = document.getElementById('goBtn'); if (!btn) return;
+            const left = autoLeft().length;
+            btn.classList.toggle('is-pause', running);
+            btn.disabled = !running && !left;
+            document.getElementById('goLabel').textContent = running ? 'Пауза' : left ? `Отправить автоматически · ${left}` : 'Всё отправлено';
+        }
+        async function toggleAuto() {
+            running = !running; paintGo();
+            // Очередь на этот проход: ошибки повторяем один раз, а не по кругу
+            const queue = autoLeft();
+            while (running && queue.length) {
+                const row = queue.shift();
+                row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                setStatus(row, 'sending');
+                try {
+                    const data = await post(`/broadcast/message/${row.dataset.id}/send/`);
+                    setStatus(row, data.success ? 'sent' : 'failed', data.success ? '' : data.error);
+                    // Подряд упали два сообщения — проблема с подключением, останавливаемся
+                    if (!data.success && /подключ|связи|Неверный|Лимит/.test(data.error || '')) {
+                        running = false; alert('Отправка остановлена: ' + data.error);
+                    }
+                } catch (e) {
+                    setStatus(row, 'failed', 'Нет связи с сервером'); running = false;
+                }
+                paintGo();
+                if (running) await sleep(1500 + Math.random() * 1500);
+            }
+            running = false; paintGo();
+        }
+        window.addEventListener('beforeunload', e => { if (running) { e.preventDefault(); e.returnValue = ''; } });
+        paintGo();
+    </script>
+</body>
+</html>

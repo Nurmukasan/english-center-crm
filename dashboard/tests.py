@@ -596,6 +596,7 @@ class EnglishTests(CRMTestCase):
                 self.login(user)
                 for url in ['/dashboard/', '/students/', '/students/add/', '/schedule/', '/individual/', '/payments/',
                             '/accountant-stats/', '/groups/add/', '/books-status/', '/star-rating/', '/profile/',
+                            '/broadcast/', '/broadcast/?kind=news', '/broadcast/?kind=payment&audience=teacher',
                             f'/group/{self.group.id}/', f'/group/{self.group.id}/history/', f'/group/{self.group.id}/edit/',
                             f'/students/{self.student.id}/', f'/student/{self.student.id}/edit/']:
                     self.client.get(url)
@@ -604,3 +605,191 @@ class EnglishTests(CRMTestCase):
         finally:
             i18n.missing = None
         self.assertFalse(missing, f'Нет английского перевода (добавьте в dashboard/locale_en.py): {sorted(missing)}')
+
+
+class BroadcastTests(CRMTestCase):
+    """Рассылки в WhatsApp: суммы, получатели, отправка"""
+
+    def setUp(self):
+        super().setUp()
+        Enrollment.objects.update(enrolled_at=timezone.now() - timedelta(days=90))
+        for g in (self.group, self.other_group):
+            ScheduleSlot.objects.create(group=g, day_of_week=0, start_time=time(10), end_time=time(11))
+        self.student.parent_name = 'Айгуль Маратовна'
+        self.student.parent_phone = '8 (700) 111-22-33'
+        self.student.save()
+        self.other_student.phone = '+7 701 444 55 66'
+        self.other_student.price_per_lesson = Decimal('3000')
+        self.other_student.save()
+        from .broadcasts import default_month
+        self.year, self.month = default_month()
+
+    def recipients(self, kind='payment', audience='parent', **kw):
+        from .broadcasts import build_recipients
+        return build_recipients(kind, audience, kw.get('groups'), kw.get('type', 'all'), kw.get('unpaid', True),
+                                self.year, self.month, kw.get('mode', 'manual'))
+
+    def lessons(self, group):
+        from .views import count_lessons_in_period, get_period
+        return count_lessons_in_period(group, *get_period(self.year, self.month, group.cycle_start_day))
+
+    def test_normalize_phone(self):
+        from .whatsapp import normalize_phone
+        self.assertEqual(normalize_phone('8 (700) 111-22-33'), '77001112233')
+        self.assertEqual(normalize_phone('+7 700 111 22 33'), '77001112233')
+        self.assertEqual(normalize_phone('7001112233'), '77001112233')
+        self.assertIsNone(normalize_phone('12-34'))
+        self.assertIsNone(normalize_phone(''))
+
+    def test_payment_amounts_for_parents(self):
+        rows = {r['name']: r for r in self.recipients()}
+        aliya = rows['Айгуль Маратовна']
+        expected = Decimal('4000') * self.lessons(self.group)
+        self.assertEqual(aliya['phone'], '77001112233')
+        self.assertEqual(Decimal(str(aliya['amount'])), expected)
+        self.assertIn('Здравствуйте, Айгуль!', aliya['vars']['приветствие'])
+        self.assertIn('Алия — Beginner', aliya['vars']['детали'])
+        # У Тимура нет номера родителя — отправим на номер ученика
+        timur = rows['Родитель: Тимур']
+        self.assertTrue(timur['ok'])
+        self.assertIn('номер ученика', timur['warn'])
+
+    def test_paid_students_are_skipped(self):
+        cycle = self.year * 100 + self.month
+        Payment.objects.create(student=self.student, group=self.group, cycle_number=cycle, amount=1, is_paid=True)
+        names = [r['name'] for r in self.recipients()]
+        self.assertNotIn('Айгуль Маратовна', names)
+        names = [r['name'] for r in self.recipients(unpaid=False)]
+        self.assertIn('Айгуль Маратовна', names)
+
+    def test_siblings_share_one_message(self):
+        sister = Student.objects.create(name='Дана', parent_phone='+77001112233', price_per_lesson=Decimal('2000'))
+        Enrollment.objects.create(student=sister, group=self.other_group, enrolled_at=timezone.now() - timedelta(days=90))
+        rows = [r for r in self.recipients() if r['phone'] == '77001112233']
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['vars']['имя'], 'Алия и Дана')
+        total = Decimal('4000') * self.lessons(self.group) + Decimal('2000') * self.lessons(self.other_group)
+        self.assertEqual(Decimal(str(rows[0]['amount'])), total)
+
+    def test_no_phone_or_price_cannot_be_sent(self):
+        self.other_student.phone = ''
+        self.other_student.save()
+        timur = next(r for r in self.recipients() if 'Тимур' in r['name'])
+        self.assertFalse(timur['ok'])
+        self.student.price_per_lesson = 0
+        self.student.save()
+        aliya = next(r for r in self.recipients() if r['name'] == 'Айгуль Маратовна')
+        self.assertFalse(aliya['ok'])
+
+    def test_teacher_gets_list_of_unpaid(self):
+        Profile.objects.filter(user=self.teacher).update(phone='+7 702 000 00 01')
+        rows = {r['name']: r for r in self.recipients(audience='teacher')}
+        self.assertEqual(rows['teacher']['phone'], '77020000001')
+        self.assertIn('Алия', rows['teacher']['vars']['детали'])
+        self.assertNotIn('Тимур', rows['teacher']['vars']['детали'])
+        # У второго учителя нет телефона — сообщение ему не уйдёт
+        self.assertFalse(rows['other']['ok'])
+
+    def test_group_chats(self):
+        self.group.whatsapp_chat_id = '120363000000000001@g.us'
+        self.group.save()
+        solo = Group.objects.create(name='Индивид. Алия', group_type='individual', teacher=self.teacher)
+        rows = {r['name']: r for r in self.recipients(kind='news', audience='group')}
+        self.assertEqual(rows['Beginner']['chat_id'], '120363000000000001@g.us')
+        self.assertIn('скопировать', rows['Альфа']['warn'])
+        self.assertNotIn(solo.name, rows)
+
+    def test_render_text(self):
+        from .broadcasts import render_text
+        self.assertEqual(render_text('{приветствие}\n\n\n{сумма} {неизвестно}', {'приветствие': 'Привет!', 'сумма': '5 ₸'}),
+                         'Привет!\n\n5 ₸ {неизвестно}')
+
+    def create(self, user, **data):
+        self.login(user)
+        body = {'kind': 'payment', 'audience': 'parent', 'year': self.year, 'month': self.month,
+                'text': '{приветствие} К оплате {сумма} за {месяц}.'}
+        body.update(data)
+        return self.client.post('/broadcast/create/', json.dumps(body), content_type='application/json')
+
+    def test_create_broadcast(self):
+        from .models import Broadcast
+        response = self.create(self.accountant, excluded=['p77014445566'])
+        self.assertTrue(response.json()['success'])
+        broadcast = Broadcast.objects.get()
+        self.assertEqual(broadcast.mode, 'manual')
+        message = broadcast.messages.get()
+        self.assertEqual(message.phone, '77001112233')
+        self.assertTrue(message.text.startswith('Здравствуйте, Айгуль! К оплате '))
+        self.assertEqual(self.client.get(f'/broadcast/{broadcast.id}/').status_code, 200)
+
+    def test_news_needs_text_and_teacher_has_no_access(self):
+        from .broadcasts import TEMPLATES
+        response = self.create(self.admin, kind='news', audience='group', text=TEMPLATES[('news', 'group')])
+        self.assertFalse(response.json()['success'])
+        self.assertEqual(self.create(self.teacher).status_code, 403)
+        self.login(self.teacher)
+        self.assertRedirects(self.client.get('/broadcast/'), '/dashboard/', fetch_redirect_response=False)
+
+    def test_send_through_green_api(self):
+        from unittest import mock
+        from .models import BroadcastMessage, WhatsAppSettings
+        from .whatsapp import WhatsAppError
+        WhatsAppSettings.objects.create(pk=1, instance_id='1101', token='secret')
+        self.create(self.admin, excluded=['p77014445566'])
+        message = BroadcastMessage.objects.get()
+        with mock.patch('dashboard.broadcasts.GreenAPI.send', return_value='BAE5') as send:
+            data = self.client.post(f'/broadcast/message/{message.id}/send/').json()
+            self.assertEqual(data['status'], 'sent')
+            send.assert_called_once_with('77001112233@c.us', message.text)
+            # Повторно не отправляется
+            self.client.post(f'/broadcast/message/{message.id}/send/')
+            self.assertEqual(send.call_count, 1)
+        message.status = 'pending'
+        message.save()
+        with mock.patch('dashboard.broadcasts.GreenAPI.send', side_effect=WhatsAppError('Нет связи с Green API')):
+            data = self.client.post(f'/broadcast/message/{message.id}/send/').json()
+        self.assertEqual(data['status'], 'failed')
+        message.refresh_from_db()
+        self.assertEqual(message.error, 'Нет связи с Green API')
+
+    def test_manual_mark(self):
+        from .models import BroadcastMessage
+        self.create(self.admin)
+        message = BroadcastMessage.objects.first()
+        self.assertEqual(self.client.post(f'/broadcast/message/{message.id}/mark/', {'status': 'sent'}).json()['status'], 'sent')
+        message.refresh_from_db()
+        self.assertEqual(message.status, 'sent')
+        self.assertEqual(self.client.post(f'/broadcast/message/{message.id}/mark/', {'status': 'hack'}).status_code, 400)
+
+    def test_bind_group_chat(self):
+        self.login(self.admin)
+        url = '/broadcast/whatsapp/bind/'
+        self.assertEqual(self.client.post(url, {'group_id': self.group.id, 'chat_id': '77001112233@c.us'}).status_code, 400)
+        self.assertTrue(self.client.post(url, {'group_id': self.group.id, 'chat_id': '120363000000000001@g.us'}).json()['success'])
+        self.group.refresh_from_db()
+        self.assertEqual(self.group.whatsapp_chat_id, '120363000000000001@g.us')
+        self.login(self.accountant)
+        self.assertEqual(self.client.post(url, {'group_id': self.group.id, 'chat_id': ''}).status_code, 403)
+
+    def test_green_api_client(self):
+        import io
+        from unittest import mock
+        from .models import WhatsAppSettings
+        from .whatsapp import GreenAPI
+
+        class Response(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        settings = WhatsAppSettings(api_url='https://7103.api.greenapi.com/', instance_id='1101', token='tok')
+        with mock.patch('urllib.request.urlopen', return_value=Response(b'{"idMessage": "BAE5"}')) as urlopen:
+            self.assertEqual(GreenAPI(settings).send('77001112233@c.us', 'Привет'), 'BAE5')
+        request = urlopen.call_args[0][0]
+        self.assertEqual(request.full_url, 'https://7103.api.greenapi.com/waInstance1101/sendMessage/tok')
+        self.assertEqual(json.loads(request.data), {'chatId': '77001112233@c.us', 'message': 'Привет'})
+        contacts = b'[{"id": "1@g.us", "name": "B", "type": "group"}, {"id": "2@c.us", "name": "A", "type": "user"}]'
+        with mock.patch('urllib.request.urlopen', return_value=Response(contacts)):
+            self.assertEqual(GreenAPI(settings).groups(), [('1@g.us', 'B')])
