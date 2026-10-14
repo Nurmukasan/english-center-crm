@@ -39,7 +39,6 @@ urlpatterns = [
     path('student/<int:student_id>/edit/', views.edit_student, name='edit_student'),
     path('group/<int:group_id>/edit/', views.edit_group, name='edit_group'),
     path('payments/', views.payments_page, name='payments_page'),
-    path('payments/group/<int:group_id>/', views.group_payment_detail, name='group_payment_detail'),
     path('payments/group/<int:group_id>/toggle/', views.toggle_student_payment, name='toggle_student_payment'),
     path('book/<int:book_id>/read/', views.book_reader, name='book_reader'),
     path('books/<int:book_id>/', views.book_detail, name='book_detail'),

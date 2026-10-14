@@ -819,7 +819,7 @@ def search_api(request):
 
 def money(value):
     """36000 → «36 000»"""
-    return f'{int(value or 0):,}'.replace(',', '\u202f')
+    return f'{int(value or 0):,}'.replace(',', '\u00a0')
 
 
 def next_lesson_label(slots, now):
@@ -1981,7 +1981,6 @@ def edit_group(request, group_id):
     return render(request, 'dashboard/edit_group.html', context)
 
 
-from calendar import monthrange
 from datetime import date
 
 MONTHS_RU = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -2020,236 +2019,202 @@ def is_enrolled_by(enrollment, period_end):
     return timezone.localtime(enrollment.enrolled_at).date() <= period_end
 
 
-def make_calendar(year, month, period_start, period_end, lesson_dates_set):
-    """Структура для календаря"""
-    days_in_month = monthrange(year, month)[1]
-    first_weekday = date(year, month, 1).weekday()
-    
-    days = []
-    for d in range(1, days_in_month + 1):
-        current = date(year, month, d)
-        days.append({
-            'day': d,
-            'is_in_period': period_start <= current <= period_end,
-            'has_lesson': current in lesson_dates_set,
-            'is_today': current == timezone.localdate(),
-        })
-    
-    return {
-        'name': MONTHS_RU[month - 1],
-        'year': year,
-        'month': month,
-        'first_weekday': first_weekday,
-        'days': days,
-    }
+MONTHS_SHORT = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
+
+
+def compact_money(value):
+    """2300000 → «2,3 млн», 850000 → «850 тыс» — для подписей графика"""
+    value = int(value)
+    if value >= 1_000_000:
+        return f'{value / 1_000_000:.1f}'.rstrip('0').rstrip('.').replace('.', ',') + ' млн'
+    if value >= 1000:
+        return f'{round(value / 1000)} тыс'
+    return str(value)
+
+
+def paid_label(payment):
+    """«12.10 · admin» — когда и кто отметил оплату"""
+    if not payment or not payment.is_paid or not payment.paid_at:
+        return ''
+    who = f' · {payment.marked_by.username}' if payment.marked_by else ''
+    return f'{timezone.localtime(payment.paid_at):%d.%m}{who}'
+
+
+def month_rows(group, year, month, cycle_payments):
+    """Кто платит группе за месяц: записанные к концу периода и все, у кого оплата уже есть (даже если ушли).
+    cycle_payments — {student_id: Payment} этой группы за этот месяц."""
+    start, end = get_period(year, month, group.cycle_start_day)
+    lessons = count_lessons_in_period(group, start, end)
+    rows, seen = [], set()
+
+    def add(student, payment, left):
+        price = student.price_per_lesson or Decimal('0')
+        is_paid = bool(payment and payment.is_paid)
+        amount = (payment.paid_amount or payment.amount) if is_paid else price * lessons
+        rows.append({'student': student, 'payment': payment, 'is_paid': is_paid, 'amount': amount,
+                     'price': price, 'left': left, 'paid_label': paid_label(payment),
+                     'amount_int': int(amount), 'amount_str': money(amount), 'price_str': money(price),
+                     # Цена могла поменяться после оплаты — тогда формулу «цена × уроки» не показываем
+                     'formula_ok': bool(price) and amount == price * lessons})
+        seen.add(student.id)
+
+    for e in group.enrollments.all():
+        payment = cycle_payments.get(e.student_id)
+        if payment or is_enrolled_by(e, end):
+            add(e.student, payment, left=False)
+    for student_id, payment in cycle_payments.items():
+        if student_id not in seen and payment.is_paid:
+            add(payment.student, payment, left=True)
+    rows.sort(key=lambda r: r['student'].name.lower())
+    return rows, lessons, start, end
 
 
 @crm_view
 def payments_page(request):
-    """Оплаты: соты месяцев или список групп"""
+    """Касса: один месяц целиком — сумма, график года, все группы и ученики с отметкой оплаты"""
     role = get_user_role(request.user)
-
     if role not in ['admin', 'accountant', 'developer']:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
 
     today = timezone.localdate()
-    default_year, default_month = get_current_period()
+    current_year, current_month = get_current_period()
+    try:
+        year = int(request.GET.get('year', current_year))
+        month = int(request.GET.get('month', current_month if year == current_year else 1))
+        if not (2000 <= year <= 2100 and 1 <= month <= 12):
+            raise ValueError
+    except (TypeError, ValueError):
+        year, month = current_year, current_month
 
-    year_param = request.GET.get('year')
-    month_param = request.GET.get('month')
+    # Все оплаты за год одним запросом: {(цикл, группа): {ученик: Payment}}
+    payments = {}
+    for p in Payment.objects.filter(cycle_number__gte=year * 100 + 1, cycle_number__lte=year * 100 + 12) \
+            .select_related('student', 'marked_by'):
+        payments.setdefault((p.cycle_number, p.group_id), {})[p.student_id] = p
+    groups_with_payments = {gid for (_, gid) in payments}
+    groups = list(Group.objects.filter(Q(is_active=True) | Q(id__in=groups_with_payments))
+                  .select_related('teacher')
+                  .prefetch_related('schedule_slots', 'enrollments__student'))
+    groups.sort(key=lambda g: (g.group_type == 'individual', g.name.lower()))
 
-    show_details = bool(year_param and month_param)
-    display_year = int(year_param) if year_param else today.year
-
-    active_enrollments = list(Enrollment.objects.filter(group__is_active=True).select_related('group'))
-    # Платежи за год: {цикл: {(ученик, группа): оплачено}}
-    payments_by_cycle = {}
-    for cycle_num, student_id, group_id, is_paid in Payment.objects.filter(
-        cycle_number__gte=display_year * 100 + 1,
-        cycle_number__lte=display_year * 100 + 12,
-    ).values_list('cycle_number', 'student_id', 'group_id', 'is_paid'):
-        payments_by_cycle.setdefault(cycle_num, {})[(student_id, group_id)] = is_paid
-
-    months_grid = []
+    # График года: сколько ждали и сколько собрали в каждом месяце
+    year_bars = []
     for m in range(1, 13):
-        cycle_num = display_year * 100 + m
-        cycle_payments = payments_by_cycle.get(cycle_num, {})
-        paid_count = sum(1 for is_paid in cycle_payments.values() if is_paid)
-        total_students_all = sum(
-            1 for e in active_enrollments
-            if (e.student_id, e.group_id) in cycle_payments
-            or is_enrolled_by(e, get_period(display_year, m, e.group.cycle_start_day)[1])
-        )
-
-        is_current = (display_year == default_year and m == default_month)
-        is_past = (display_year < today.year) or (display_year == today.year and m < today.month)
-
-        months_grid.append({
-            'num': m,
-            'name': MONTHS_RU[m - 1],
-            'year': display_year,
-            'is_current': is_current,
-            'is_past': is_past,
-            'paid_count': paid_count,
-            'total_students': total_students_all,
+        cycle = year * 100 + m
+        expected = collected = paid = total = 0
+        for g in groups:
+            if not g.is_active and (cycle, g.id) not in payments:
+                continue
+            rows = month_rows(g, year, m, payments.get((cycle, g.id), {}))[0]
+            expected += sum(r['amount'] for r in rows)
+            collected += sum(r['amount'] for r in rows if r['is_paid'])
+            paid += sum(1 for r in rows if r['is_paid'])
+            total += len(rows)
+        year_bars.append({
+            'num': m, 'short': MONTHS_SHORT[m - 1], 'name': MONTHS_RU[m - 1],
+            'expected': int(expected), 'collected': int(collected), 'paid': paid, 'total': total,
+            'is_selected': m == month,
+            'is_future': (year, m) > (current_year, current_month),
         })
+    max_expected = max([b['expected'] for b in year_bars] + [1])
+    for b in year_bars:
+        # Целые проценты: дробь с запятой (ru-локаль) сломала бы CSS
+        b['track'] = max(round(b['expected'] / max_expected * 100), 1 if b['expected'] else 0)
+        b['fill'] = max(round(b['collected'] / max_expected * 100), 1 if b['collected'] else 0)
+
+    # Выбранный месяц по группам
+    cycle = year * 100 + month
+    cards = []
+    for g in groups:
+        if not g.is_active and (cycle, g.id) not in payments:
+            continue
+        rows, lessons, start, end = month_rows(g, year, month, payments.get((cycle, g.id), {}))
+        if not rows:
+            continue
+        lesson_days = {s.day_of_week for s in g.schedule_slots.all()}
+        strip = []
+        d = start
+        while d <= end:
+            strip.append({'date': d, 'lesson': d.weekday() in lesson_days, 'today': d == today, 'first': d.day == 1})
+            d += timedelta(days=1)
+        paid_rows = [r for r in rows if r['is_paid']]
+        cards.append({
+            'group': g,
+            'hue': GROUP_HUES[g.id % len(GROUP_HUES)],
+            'rows': rows,
+            'lessons': lessons,
+            'start': start,
+            'end': end,
+            'strip': strip,
+            'paid_count': len(paid_rows),
+            'collected': money(sum(r['amount'] for r in paid_rows)),
+            'expected': money(sum(r['amount'] for r in rows)),
+            'all_paid': len(paid_rows) == len(rows),
+        })
+
+    all_rows = [r for c in cards for r in c['rows']]
+    expected = sum(r['amount'] for r in all_rows)
+    collected = sum(r['amount'] for r in all_rows if r['is_paid'])
+    prev_year, prev_month = (year - 1, 12) if month == 1 else (year, month - 1)
+    next_year, next_month = (year + 1, 1) if month == 12 else (year, month + 1)
+    period_start, period_end = get_period(year, month)
 
     context = {
         'role': role,
-        'display_year': display_year,
-        'prev_year': display_year - 1,
-        'next_year': display_year + 1,
-        'months_grid': months_grid,
-        'show_details': show_details,
+        'year': year,
+        'month': month,
+        'month_name': MONTHS_RU[month - 1],
+        'month_lower': MONTHS_RU[month - 1].lower(),
+        'period_start': period_start,
+        'period_end': period_end,
+        'is_current': (year, month) == (current_year, current_month),
+        'current_year': current_year,
+        'current_month': current_month,
+        'prev_year': prev_year, 'prev_month': prev_month,
+        'next_year': next_year, 'next_month': next_month,
+        'cards': cards,
+        'year_bars': year_bars,
+        'expected': int(expected),
+        'collected': int(collected),
+        'expected_str': money(expected),
+        'collected_str': money(collected),
+        'left_str': money(expected - collected),
+        'share': round(collected / expected * 100) if expected else 0,
+        'students_total': len(all_rows),
+        'paid_total': sum(1 for r in all_rows if r['is_paid']),
+        'wait_total': sum(1 for r in all_rows if not r['is_paid']),
+        'max_expected': max_expected,
+        'axis_max': compact_money(max_expected),
+        'axis_mid': compact_money(max_expected / 2),
+        'no_price': sum(1 for r in all_rows if not r['price'] and not r['is_paid']),
+        'search_query': request.GET.get('search', '')[:100],
     }
-
-    if show_details:
-        year = int(year_param)
-        month = int(month_param)
-
-        if not (1 <= month <= 12):
-            year, month = default_year, default_month
-
-        period_start, period_end = get_period(year, month)
-        cycle_num = year * 100 + month
-        search_query = request.GET.get('search', '')
-
-        groups_data = []
-        groups = Group.objects.filter(is_active=True).select_related('teacher').order_by('name')
-
-        if search_query:
-            groups = search_filter(groups, search_query)
-
-        for group in groups:
-            group_period_end = get_period(year, month, group.cycle_start_day)[1]
-            payments = dict(Payment.objects.filter(
-                group=group,
-                cycle_number=cycle_num,
-            ).values_list('student_id', 'is_paid'))
-            students_count = sum(
-                1 for e in Enrollment.objects.filter(group=group)
-                if e.student_id in payments or is_enrolled_by(e, group_period_end)
-            )
-            paid_count = sum(1 for is_paid in payments.values() if is_paid)
-
-            groups_data.append({
-                'group': group,
-                'total_students': students_count,
-                'paid_count': paid_count,
-                'unpaid_count': students_count - paid_count,
-            })
-
-        context.update({
-            'year': year,
-            'month': month,
-            'month_name': MONTHS_RU[month - 1],
-            'period_start': period_start,
-            'period_end': period_end,
-            'groups_data': groups_data,
-            'search_query': search_query,
-        })
-
     return render(request, 'dashboard/payments.html', context)
 
 
 @crm_view
-def group_payment_detail(request, group_id):
-    """AJAX: детали оплаты группы"""
-    role = get_user_role(request.user)
-    
-    if role not in ['admin', 'accountant', 'developer']:
-        return JsonResponse({'error': 'Нет доступа'}, status=403)
-    
-    group = get_object_or_404(Group, id=group_id)
-    
-    year = int(request.GET.get('year'))
-    month = int(request.GET.get('month'))
-    
-    period_start, period_end = get_period(year, month, group.cycle_start_day)
-    
-    lesson_dates_set = set()
-    schedule_slots = list(group.schedule_slots.all())
-    lesson_day_of_weeks = set(s.day_of_week for s in schedule_slots)
-    
-    current = period_start
-    while current <= period_end:
-        if current.weekday() in lesson_day_of_weeks:
-            lesson_dates_set.add(current)
-        current += timedelta(days=1)
-    
-    cal1 = make_calendar(year, month, period_start, period_end, lesson_dates_set)
-    
-    if month == 12:
-        y2, m2 = year + 1, 1
-    else:
-        y2, m2 = year, month + 1
-    cal2 = make_calendar(y2, m2, period_start, period_end, lesson_dates_set)
-    
-    cycle_num = year * 100 + month
-    enrollments = Enrollment.objects.filter(group=group).select_related('student').order_by('student__name')
-    
-    lesson_count = len(lesson_dates_set)
-    
-    students_data = []
-    for enrollment in enrollments:
-        student = enrollment.student
-        payment = Payment.objects.filter(
-            student=student,
-            group=group,
-            cycle_number=cycle_num
-        ).first()
-        
-        # Пришёл в группу после этого периода — оплата за него не нужна
-        if not payment and not is_enrolled_by(enrollment, period_end):
-            continue
-        
-        amount = calculate_cycle_amount(student, group, period_start, period_end)
-        
-        students_data.append({
-            'student': student,
-            'is_paid': payment.is_paid if payment else False,
-            'amount': amount,
-            'price_per_lesson': student.price_per_lesson,
-        })
-    
-    context = {
-        'group': group,
-        'year': year,
-        'month': month,
-        'month_name': MONTHS_RU[month - 1],
-        'period_start': period_start,
-        'period_end': period_end,
-        'calendar1': cal1,
-        'calendar2': cal2,
-        'lesson_count': lesson_count,
-        'students_data': students_data,
-    }
-    
-    return render(request, 'dashboard/group_payment_detail.html', context)
-
-
-@crm_view
+@require_POST
 def toggle_student_payment(request, group_id):
     """AJAX: отметить/отменить оплату"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False})
-    
     role = get_user_role(request.user)
     if role not in ['admin', 'accountant', 'developer']:
         return JsonResponse({'success': False, 'error': 'Нет доступа'})
-    
+
     group = get_object_or_404(Group, id=group_id)
-    
-    student_id = request.POST.get('student_id')
-    student = get_object_or_404(Student, id=student_id)
-    year = int(request.POST.get('year'))
-    month = int(request.POST.get('month'))
+    student = get_object_or_404(Student, id=request.POST.get('student_id') or 0)
+    try:
+        year = int(request.POST.get('year'))
+        month = int(request.POST.get('month'))
+        if not 1 <= month <= 12:
+            raise ValueError
+    except (TypeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Неверный месяц'}, status=400)
     cycle_num = year * 100 + month
-    
+
     period_start, period_end = get_period(year, month, group.cycle_start_day)
     amount = calculate_cycle_amount(student, group, period_start, period_end)
-    
+
     payment, created = Payment.objects.get_or_create(
         student=student,
         group=group,
@@ -2264,7 +2229,7 @@ def toggle_student_payment(request, group_id):
             'marked_by': request.user,
         }
     )
-    
+
     if not created:
         payment.is_paid = not payment.is_paid
         if payment.is_paid:
@@ -2277,8 +2242,13 @@ def toggle_student_payment(request, group_id):
             payment.paid_at = None
             payment.marked_by = None
         payment.save()
-    
-    return JsonResponse({'success': True, 'is_paid': payment.is_paid})
+
+    return JsonResponse({
+        'success': True,
+        'is_paid': payment.is_paid,
+        'amount': int(payment.paid_amount if payment.is_paid else amount),
+        'paid_label': paid_label(payment),
+    })
 
 
 @crm_view
