@@ -168,6 +168,7 @@ def group_student_ids(group):
 # Оттенки групп на главной: у каждой группы свой цвет
 GROUP_HUES = [262, 316, 38, 190, 290, 336, 160, 20]
 DAYS_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+WEEKDAYS_RU = ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье']
 
 
 def dashboard_extras(base_groups, groups):
@@ -327,88 +328,137 @@ def dashboard(request):
     return render(request, 'dashboard/dashboard.html', context)
 
 
+def rate(part, total):
+    return round(part / total * 100) if total else None
+
+
 @crm_view
 def group_detail(request, group_id):
-    """Страница группы"""
-    group = get_object_or_404(Group, id=group_id)
+    """Страница группы: сегодняшний урок, статистика группы и каждого ученика"""
+    group = get_object_or_404(Group.objects.select_related('teacher'), id=group_id)
     role = get_user_role(request.user)
-    
+
     if role == 'teacher' and not can_manage_group(request.user, role, group):
         messages.error(request, 'У вас нет доступа к этой группе')
         return redirect('dashboard')
-    
-    enrollments = Enrollment.objects.filter(group=group).select_related('student')
-    students = [enrollment.student for enrollment in enrollments]
-    
+
+    enrollments = list(Enrollment.objects.filter(group=group).select_related('student').order_by('student__name'))
     today = timezone.localdate()
-    
+    now = timezone.localtime()
+    slots = list(group.schedule_slots.order_by('day_of_week', 'start_time'))
+
     if group.is_active and is_lesson_day(group, today):
-        lesson, created = Lesson.objects.get_or_create(
-            group=group,
-            date=today,
-            defaults={'topic': ''}
-        )
+        lesson, created = Lesson.objects.get_or_create(group=group, date=today, defaults={'topic': ''})
         if created:
             fill_attendance(lesson)
     else:
         lesson = None
-    
-    attendance_dict = {}
-    homework_dict = {}
-    if lesson:
-        attendances = Attendance.objects.filter(lesson=lesson)
-        attendance_dict = {att.student_id: att.status for att in attendances}
-        homework_dict = {att.student_id: att.homework_done for att in attendances}
-    
-    payments = Payment.objects.filter(
-        group=group,
-        start_date__lte=today,
-        end_date__gte=today
-    )
-    payment_dict = {pay.student_id: pay.is_paid for pay in payments}
-    
-    # Звёзды по всей группе (за всё время)
-    from django.db.models import Sum
-    stars_qs = Attendance.objects.filter(
-        lesson__group=group,
-        stars__gt=0,
-    ).values('student_id').annotate(c=Sum('stars'))
-    stars_dict = {s['student_id']: s['c'] for s in stars_qs}
-    
-    # Сколько звёзд получил сегодня
-    # (урок мог быть создан выдачей звёзд и в день вне расписания)
-    today_star_dict = dict(Attendance.objects.filter(
-        lesson__group=group,
-        lesson__date=today,
-        stars__gt=0
-    ).values_list('student_id', 'stars'))
-    
+    today_att = {a.student_id: a for a in Attendance.objects.filter(lesson=lesson)} if lesson else {}
+
+    # Последние проведённые уроки (без сегодняшнего — он ещё отмечается)
+    recent = list(Lesson.objects.filter(group=group, is_cancelled=False, date__lt=today).order_by('-date')[:10])
+    recent.reverse()
+    by_lesson, by_student = {}, {}
+    for a in Attendance.objects.filter(lesson__in=recent).values('lesson_id', 'student_id', 'status', 'homework_done'):
+        by_lesson.setdefault(a['lesson_id'], []).append(a)
+        by_student.setdefault(a['student_id'], {})[a['lesson_id']] = a
+    rhythm = []
+    for l in recent:
+        rows = by_lesson.get(l.id, [])
+        came = sum(1 for r in rows if r['status'] != 'absent')
+        rhythm.append({'date': l.date, 'came': came, 'total': len(rows), 'rate': rate(came, len(rows)) or 0})
+
+    # Группа за 30 дней и 30 дней до этого — для сравнения
+    def window(days_from, days_to):
+        return Attendance.objects.filter(
+            lesson__group=group, lesson__is_cancelled=False,
+            lesson__date__gte=today - timedelta(days=days_from), lesson__date__lt=today - timedelta(days=days_to),
+        ).aggregate(total=Count('id'), came=Count('id', filter=~Q(status='absent')),
+                    homework=Count('id', filter=Q(homework_done=True)))
+    cur, prev = window(30, 0), window(60, 30)
+    attendance_rate, homework_rate = rate(cur['came'], cur['total']), rate(cur['homework'], cur['total'])
+    prev_attendance, prev_homework = rate(prev['came'], prev['total']), rate(prev['homework'], prev['total'])
+
+    stars_total = dict(Attendance.objects.filter(lesson__group=group, stars__gt=0)
+                       .values('student_id').annotate(c=Sum('stars')).values_list('student_id', 'c'))
+    stars_month = Attendance.objects.filter(lesson__group=group, lesson__date__gte=today.replace(day=1)) \
+        .aggregate(s=Sum('stars'))['s'] or 0
+
+    # Текущий период оплаты: сколько уроков проведено из запланированных
+    py, pm = get_current_period(group.cycle_start_day)
+    period_start, period_end = get_period(py, pm, group.cycle_start_day)
+    planned = count_lessons_in_period(group, period_start, period_end)
+    held = Lesson.objects.filter(group=group, is_cancelled=False, date__gte=period_start,
+                                 date__lte=min(period_end, today)).count()
+    can_money = role in ['admin', 'accountant', 'developer']
+    paid_ids = set(Payment.objects.filter(group=group, cycle_number=py * 100 + pm, is_paid=True)
+                   .values_list('student_id', flat=True)) if can_money else set()
+
+    hue = GROUP_HUES[group.id % len(GROUP_HUES)]
     student_data = []
-    for student in students:
-        enrollment = Enrollment.objects.filter(student=student, group=group).first()
+    for e in enrollments:
+        s = e.student
+        att = today_att.get(s.id)
+        mine = by_student.get(s.id, {})
+        came = sum(1 for a in mine.values() if a['status'] != 'absent')
         student_data.append({
-            'student': student,
-            'attendance_status': attendance_dict.get(student.id, 'absent'),
-            'homework_done': homework_dict.get(student.id, False),
-            'is_paid': payment_dict.get(student.id, False),
-            'enrollment': enrollment,
-            'stars': stars_dict.get(student.id, 0),
-            'stars_today': today_star_dict.get(student.id, 0),
+            'student': s,
+            'enrollment': e,
+            'hue': GROUP_HUES[s.id % len(GROUP_HUES)],
+            'attendance_status': att.status if att else 'absent',
+            'homework_done': bool(att and att.homework_done),
+            'stars': stars_total.get(s.id, 0),
+            'stars_today': att.stars if att else 0,
+            'rate': rate(came, len(mine)),
+            # Последние 6 уроков: точка на каждый (None — ещё не учился в группе)
+            'dots': [mine[l.id]['status'] if l.id in mine else None for l in recent[-6:]],
+            'is_paid': s.id in paid_ids,
+            'billable': is_enrolled_by(e, period_end),
         })
-    
-    lessons_history = Lesson.objects.filter(group=group).order_by('-date')[:10]
-    
+    leaders = sorted((d for d in student_data if d['stars']), key=lambda d: -d['stars'])[:3]
+    billable = [d for d in student_data if d['billable'] or d['is_paid']]
+
+    next_label, live = next_lesson_label(slots, now)
+    today_slot = next((sl for sl in slots if sl.day_of_week == today.weekday()), None)
+    present_today = sum(1 for d in student_data if d['attendance_status'] != 'absent')
+
     context = {
         'group': group,
+        'hue': hue,
         'student_data': student_data,
         'today': today,
         'role': role,
-        'lessons_history': lessons_history,
+        'lessons_history': [{'lesson': l, 'day': l.date.day, 'month': MONTHS_SHORT[l.date.month - 1].lower(),
+                             'weekday': WEEKDAYS_RU[l.date.weekday()]}
+                            for l in Lesson.objects.filter(group=group).order_by('-date')[:6]],
         'lesson': lesson,
+        'today_slot': today_slot,
         'can_mark_attendance': can_manage_group(request.user, role, group),
+        'can_manage': role in ['admin', 'developer'],
+        'can_money': can_money,
         'lesson_active': bool(lesson and not lesson.is_cancelled),
+        'week': [{'short': d, 'times': [f'{sl.start_time:%H:%M}' for sl in slots if sl.day_of_week == i],
+                  'today': i == today.weekday()} for i, d in enumerate(DAYS_SHORT)],
+        'next_label': next_label,
+        'live': live,
+        'rhythm': rhythm,
+        'attendance_rate': attendance_rate,
+        'homework_rate': homework_rate,
+        'attendance_delta': attendance_rate - prev_attendance if attendance_rate is not None and prev_attendance is not None else None,
+        'homework_delta': homework_rate - prev_homework if homework_rate is not None and prev_homework is not None else None,
+        'stars_month': stars_month,
+        'leaders': leaders,
+        'planned': planned,
+        'held': held,
+        'held_share': min(100, rate(held, planned) or 0),
+        'period_start': period_start,
+        'period_end': period_end,
+        'paid_count': sum(1 for d in billable if d['is_paid']),
+        'billable_count': len(billable),
+        'present_today': present_today,
+        'homework_today': sum(1 for d in student_data if d['homework_done']),
+        'back_url': reverse('individual_lessons') if group.group_type == 'individual' else reverse('dashboard'),
     }
-    
     return render(request, 'dashboard/group_detail.html', context)
 
 
