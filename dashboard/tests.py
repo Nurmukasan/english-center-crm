@@ -175,6 +175,82 @@ class PaymentSummaryTests(CRMTestCase):
         self.assertEqual(response.context['unpaid_count'], 2)
 
 
+class PaymentsPageTests(CRMTestCase):
+    def setUp(self):
+        super().setUp()
+        Enrollment.objects.update(enrolled_at=timezone.now() - timedelta(days=400))
+        ScheduleSlot.objects.create(group=self.group, day_of_week=0, start_time=time(10), end_time=time(11))
+        self.year, self.month = get_current_period()
+        self.cycle = self.year * 100 + self.month
+
+    def page(self, **params):
+        self.login(self.accountant)
+        return self.client.get('/payments/', params)
+
+    def row(self, response, name):
+        return next(r for c in response.context['cards'] for r in c['rows'] if r['student'].name == name)
+
+    def test_current_month_by_default(self):
+        response = self.page()
+        self.assertEqual((response.context['year'], response.context['month']), (self.year, self.month))
+        self.assertEqual(len(response.context['year_bars']), 12)
+        aliya = self.row(response, 'Алия')
+        self.assertFalse(aliya['is_paid'])
+        lessons = next(c['lessons'] for c in response.context['cards'] if c['group'] == self.group)
+        self.assertEqual(aliya['amount'], Decimal('4000') * lessons)
+        self.assertEqual(response.context['expected'], int(aliya['amount']))
+
+    def test_paid_totals(self):
+        Payment.objects.create(student=self.student, group=self.group, cycle_number=self.cycle,
+                               amount=Decimal('16000'), paid_amount=Decimal('16000'), is_paid=True)
+        response = self.page()
+        self.assertEqual(response.context['collected'], 16000)
+        self.assertEqual(response.context['paid_total'], 1)
+        self.assertEqual(response.context['wait_total'], 1)
+        selected = next(b for b in response.context['year_bars'] if b['is_selected'])
+        self.assertEqual(selected['collected'], 16000)
+
+    def test_student_who_left_keeps_paid_row(self):
+        Payment.objects.create(student=self.student, group=self.group, cycle_number=self.cycle,
+                               amount=Decimal('16000'), paid_amount=Decimal('16000'), is_paid=True)
+        self.login(self.admin)
+        self.client.post(f'/student/{self.student.id}/archive/')
+        response = self.page()
+        aliya = self.row(response, 'Алия')
+        self.assertTrue(aliya['left'])
+        self.assertEqual(response.context['collected'], 16000)
+
+    def test_new_student_not_in_past_months(self):
+        newbie = Student.objects.create(name='Дана', price_per_lesson=Decimal('3000'))
+        Enrollment.objects.create(student=newbie, group=self.group)
+        y, m = (self.year - 1, self.month)
+        names = [r['student'].name for c in self.page(year=y, month=m).context['cards'] for r in c['rows']]
+        self.assertIn('Алия', names)
+        self.assertNotIn('Дана', names)
+
+    def test_bad_params_fall_back_to_current_month(self):
+        response = self.page(year='abc', month='13')
+        self.assertEqual((response.context['year'], response.context['month']), (self.year, self.month))
+
+    def test_teacher_has_no_access(self):
+        self.login(self.teacher)
+        self.assertRedirects(self.client.get('/payments/'), '/dashboard/', fetch_redirect_response=False)
+
+    def test_toggle(self):
+        self.login(self.accountant)
+        url = f'/payments/group/{self.group.id}/toggle/'
+        self.assertEqual(self.client.get(url).status_code, 405)
+        self.assertEqual(self.client.post(url, {'student_id': self.student.id, 'year': 'x', 'month': 1}).status_code, 400)
+        data = self.client.post(url, {'student_id': self.student.id, 'year': self.year, 'month': self.month}).json()
+        self.assertTrue(data['is_paid'])
+        self.assertIn('acc', data['paid_label'])
+        payment = Payment.objects.get(student=self.student, group=self.group, cycle_number=self.cycle)
+        self.assertEqual(data['amount'], int(payment.paid_amount))
+        data = self.client.post(url, {'student_id': self.student.id, 'year': self.year, 'month': self.month}).json()
+        self.assertFalse(data['is_paid'])
+        self.assertEqual(data['paid_label'], '')
+
+
 class LessonTests(CRMTestCase):
     def setUp(self):
         super().setUp()

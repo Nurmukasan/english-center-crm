@@ -38,7 +38,7 @@
         {% if role == 'admin' or role == 'accountant' or role == 'developer' %}
         <a href="{% url 'payments_page' %}" data-label="Оплаты"
            class="ee-rail-item {% if url_name in 'payments_page payment_management' %}is-active{% endif %}">
-            <i class="fas fa-wallet"></i><span>Оплаты</span>
+            <i class="fas fa-coins"></i><span>Оплаты</span>
         </a>
         {% endif %}
         {% if role == 'admin' or role == 'developer' %}

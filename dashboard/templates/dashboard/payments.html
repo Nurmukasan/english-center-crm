@@ -1,328 +1,628 @@
-{% load custom_filters %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Оплаты — Enjoy English</title>
+    <title>Оплаты — Enjoy English CRM</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
-        * { font-family: 'Inter', sans-serif; }
-        .fade-in { animation: fadeIn 0.4s ease; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
         .goog-te-banner-frame { display: none !important; }
         body { top: 0 !important; }
         .skiptranslate { display: none !important; }
         #google_translate_element { display: none !important; }
 
-                /* ===== СОТЫ ===== */
-        .hex-grid {
-            display: flex;
-            align-items: flex-start;
-            justify-content: center;
-            padding: 30px 20px;
-            overflow-x: auto;
-            scrollbar-width: thin;
-        }
-        .hex-grid::-webkit-scrollbar {
-            height: 6px;
-        }
-        .hex-grid::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,0.15);
-            border-radius: 3px;
+        :root {
+            --money: #34d399;          /* собрано */
+            --money-track: rgba(52, 211, 153, .13);
+            --wait: #fbbf24;           /* ждём оплату */
+            --bad: #fb7185;            /* нет цены */
         }
 
-        .hex {
-            flex-shrink: 0;
-            width: 130px;
-            height: 112px;
-            clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-decoration: none;
-            color: #fff;
-            font-weight: 600;
-            transition: filter 0.3s ease, transform var(--spring-dur, .5s) var(--spring, ease), opacity 0.3s ease;
-            cursor: pointer;
-            text-align: center;
-            padding: 0 22px;
-            box-sizing: border-box;
-            margin-left: calc(130px / -4);
-        }
-        .hex:first-child {
-            margin-left: 0;
-        }
-        .hex:nth-child(even) {
-            margin-top: calc(112px / 2);
-        }
-        .hex:hover {
-            filter: drop-shadow(0 0 14px rgba(167, 139, 250, 0.7)) brightness(1.15);
-            transform: scale(1.07);
-            z-index: 5;
-        }
-        .hex-past {
-            background: linear-gradient(135deg, rgba(139, 92, 246, 0.55), rgba(76, 29, 149, 0.6));
-        }
-        .hex-current {
-            background: linear-gradient(135deg, #7c3aed, #c026d3 55%, #f59e0b);
-            filter: drop-shadow(0 0 14px rgba(217, 70, 239, 0.6));
-        }
-        .hex-current:hover {
-            filter: drop-shadow(0 0 22px rgba(217, 70, 239, 0.95)) brightness(1.1);
-        }
-        .hex-future {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
-            opacity: 0.8;
-        }
-        .hex-future:hover {
-            opacity: 1;
-        }
-        .hex-title {
-            font-size: 13px;
-            line-height: 1.1;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        }
-        .hex-count {
-            font-size: 10px;
-            opacity: 0.9;
-            margin-top: 3px;
-        }
+        /* ---------- Шапка: переключатель месяца ---------- */
+        .head-icon { width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center; color: #fff; font-size: 17px;
+            background: linear-gradient(135deg, #10b981, #84cc16); box-shadow: 0 10px 24px -10px rgba(16, 185, 129, .9); }
+        .month-nav { display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 9999px;
+            background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.09); }
+        .month-nav a { width: 34px; height: 34px; border-radius: 9999px; display: grid; place-items: center; color: rgba(233,231,245,.7);
+            transition: background .2s ease, color .2s ease, transform var(--spring-dur) var(--spring); }
+        .month-nav a:hover { background: rgba(255,255,255,.1); color: #fff; transform: scale(1.1); }
+        .month-nav span { min-width: 132px; text-align: center; font-weight: 800; color: #fff; font-size: 15px; }
+        .month-nav span b { color: rgba(233,231,245,.45); font-weight: 700; }
+        .now-link { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 9999px; font-size: 13px; font-weight: 800;
+            color: #6ee7b7; background: rgba(16, 185, 129, .14); border: 1px solid rgba(52, 211, 153, .3); white-space: nowrap; }
 
-        @media (max-width: 500px) {
-            .hex {
-                width: 100px;
-                height: 86px;
-                margin-left: calc(100px / -4);
-                padding: 0 16px;
-            }
-            .hex:nth-child(even) {
-                margin-top: calc(86px / 2);
-            }
-            .hex-title { font-size: 11px; }
-            .hex-count { font-size: 9px; }
+        /* ---------- Касса: итог месяца ---------- */
+        .kassa { position: relative; overflow: hidden; isolation: isolate; }
+        .kassa::before { content: ''; position: absolute; z-index: -1; width: 520px; height: 520px; left: -180px; top: -260px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(16, 185, 129, .22), transparent 65%); }
+        .hero-sum { font-weight: 800; font-size: clamp(42px, 8vw, 68px); line-height: 1; color: #fff; letter-spacing: -.03em; margin-top: 14px; white-space: nowrap; }
+        .hero-sum small { font-size: .45em; color: rgba(233,231,245,.45); font-weight: 700; letter-spacing: 0; }
+        .big-meter { height: 12px; border-radius: 9999px; background: var(--money-track); overflow: hidden; }
+        .big-meter i { display: block; height: 100%; width: 0; border-radius: inherit;
+            background: linear-gradient(90deg, #10b981, var(--money) 60%, #a3e635); box-shadow: 0 0 18px rgba(52, 211, 153, .55);
+            transition: width 1.4s var(--spring-soft); }
+        .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+        .stat { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); }
+        .stat > i { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; font-size: 15px; flex-shrink: 0; }
+        .stat b { display: block; color: #fff; font-size: 20px; font-weight: 800; line-height: 1.1; }
+        .stat span { display: block; color: rgba(233,231,245,.55); font-size: 12px; font-weight: 600; }
+        .stat.is-good > i { color: var(--money); background: rgba(52, 211, 153, .14); }
+        .stat.is-wait > i { color: var(--wait); background: rgba(251, 191, 36, .14); }
+        .stat.is-bad > i { color: var(--bad); background: rgba(251, 113, 133, .14); }
+        a.stat:hover { border-color: rgba(251, 113, 133, .4); }
+
+        /* ---------- График года ---------- */
+        .ychart { position: relative; display: grid; grid-template-columns: 44px 1fr; }
+        .yaxis { position: relative; height: 170px; font-size: 10px; font-weight: 700; color: rgba(233,231,245,.35); font-variant-numeric: tabular-nums; }
+        .yaxis span { position: absolute; right: 8px; transform: translateY(-50%); white-space: nowrap; }
+        .yplot { position: relative; }
+        .ygrid { position: absolute; left: 0; right: 0; height: 170px; pointer-events: none; }
+        .ygrid i { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,.07); }
+        .ybars { position: relative; display: grid; grid-template-columns: repeat(12, 1fr); }
+        .ybar { display: flex; flex-direction: column; align-items: center; gap: 8px; outline: none; border-radius: 10px; }
+        .ybar-plot { position: relative; width: 100%; height: 170px; display: flex; justify-content: center; border-radius: 10px; transition: background .2s ease; }
+        .ybar:hover .ybar-plot, .ybar:focus-visible .ybar-plot { background: rgba(255,255,255,.04); }
+        .ybar-track, .ybar-fill { position: absolute; bottom: 0; width: min(24px, 64%); border-radius: 4px 4px 0 0;
+            transform-origin: bottom; animation: ygrow .9s var(--spring-soft) both; animation-delay: calc(var(--i) * 45ms + .15s); }
+        .ybar-track { height: var(--t); background: var(--money-track); }
+        .ybar-fill { height: var(--f); background: rgba(52, 211, 153, .5); transition: height .8s var(--spring-soft); }
+        .ybar.is-sel .ybar-fill { background: linear-gradient(180deg, #a3e635, var(--money)); box-shadow: 0 0 22px -2px rgba(52, 211, 153, .7); }
+        .ybar.is-sel .ybar-track { background: rgba(52, 211, 153, .2); }
+        .ybar.is-future .ybar-track { background: rgba(255,255,255,.12); }
+        .ybar-label { position: absolute; bottom: calc(var(--t) + 6px); font-style: normal; font-size: 11px; font-weight: 800; color: #fff; white-space: nowrap;
+            animation: yfade .5s ease both; animation-delay: .9s; }
+        .ybar-name { font-size: 11px; font-weight: 700; color: rgba(233,231,245,.45); }
+        .ybar.is-sel .ybar-name { color: #fff; font-weight: 800; }
+        .ybar.is-sel .ybar-name::after { content: ''; display: block; height: 3px; width: 16px; margin: 4px auto 0; border-radius: 9999px; background: var(--money); }
+        @keyframes ygrow { from { transform: scaleY(0); } }
+        @keyframes yfade { from { opacity: 0; transform: translateY(6px); } }
+        .ytip { position: absolute; z-index: 5; top: 0; min-width: 170px; padding: 10px 12px; border-radius: 14px; pointer-events: none;
+            background: rgba(20, 16, 34, .96); border: 1px solid rgba(255,255,255,.12); box-shadow: 0 20px 50px -20px #000;
+            transform: translateX(-50%); font-size: 12px; color: rgba(233,231,245,.6); }
+        .ytip b { display: block; color: #fff; font-size: 16px; font-weight: 800; }
+        .ylegend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 14px; font-size: 12px; font-weight: 600; color: rgba(233,231,245,.55); }
+        .ylegend span { display: inline-flex; align-items: center; gap: 7px; }
+        .ylegend i { width: 10px; height: 10px; border-radius: 3px; }
+        .ytip .key { display: inline-block; width: 12px; height: 2px; border-radius: 2px; background: var(--money); vertical-align: middle; margin-right: 6px; }
+
+        /* ---------- Фильтры ---------- */
+        .search { display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 46px; border-radius: 14px; flex: 1 1 260px; max-width: 380px;
+            background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); transition: border-color .2s ease, box-shadow .2s ease; }
+        .search:focus-within { border-color: rgba(167, 139, 250, .6); box-shadow: 0 0 0 4px rgba(139, 92, 246, .18); }
+        .search i { color: rgba(233,231,245,.4); }
+        html.ee .search input#q { flex: 1; min-width: 0; height: 100%; padding: 0; background: transparent !important; border: 0 !important;
+            box-shadow: none !important; outline: 0; color: #fff !important; font-weight: 600; }
+        .search input::-webkit-search-cancel-button { filter: invert(1) opacity(.5); cursor: pointer; }
+        .search input::placeholder { color: rgba(233,231,245,.35); }
+        .search kbd { font-size: 11px; font-weight: 800; color: rgba(233,231,245,.4); border: 1px solid rgba(255,255,255,.15); border-radius: 6px; padding: 1px 7px; }
+        .seg { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); overflow-x: auto; scrollbar-width: none; }
+        .seg::-webkit-scrollbar { display: none; }
+        .seg button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 13px; border-radius: 10px; font-size: 13px; font-weight: 700; white-space: nowrap;
+            color: rgba(233,231,245,.6); transition: background .2s ease, color .2s ease; }
+        .seg button:hover { color: #fff; }
+        .seg button.is-on { background: rgba(139, 92, 246, .3); color: #fff; box-shadow: inset 0 0 0 1px rgba(167, 139, 250, .5); }
+        .seg button b { font-size: 11px; padding: 1px 7px; border-radius: 9999px; background: rgba(255,255,255,.08); }
+        .seg .dot { width: 8px; height: 8px; border-radius: 9999px; }
+
+        /* ---------- Карточка группы ---------- */
+        .gcard { --c: hsl(var(--h) 85% 66%); position: relative; overflow: hidden; isolation: isolate; padding: 0 !important; }
+        .gcard::before { content: ''; position: absolute; z-index: -1; width: 260px; height: 260px; right: -110px; top: -140px; border-radius: 50%;
+            background: radial-gradient(circle, hsl(var(--h) 90% 60% / .3), transparent 65%); transition: background .6s ease; }
+        .gcard.is-done::before { background: radial-gradient(circle, rgba(52, 211, 153, .32), transparent 65%); }
+        .gcard.is-hidden { display: none; }
+        .gcard-head { width: 100%; display: flex; align-items: center; gap: 14px; padding: 20px 20px 14px; text-align: left; }
+        .gicon { width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; flex-shrink: 0; color: #fff; font-size: 17px;
+            background: linear-gradient(135deg, hsl(var(--h) 85% 62%), hsl(calc(var(--h) + 40) 80% 46%));
+            box-shadow: 0 12px 24px -12px hsl(var(--h) 85% 55%); transition: transform var(--spring-dur) var(--spring); }
+        .gcard-head:hover .gicon { transform: rotate(-8deg) scale(1.06); }
+        .gname { display: block; color: #fff; font-weight: 800; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .gmeta { display: block; color: rgba(233,231,245,.5); font-size: 12px; font-weight: 600; margin-top: 2px; }
+        .gtag { display: inline-block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: 2px 7px; border-radius: 6px;
+            background: rgba(255,255,255,.08); color: rgba(233,231,245,.7); margin-left: 6px; vertical-align: 2px; }
+        .gsum { text-align: right; flex-shrink: 0; }
+        .gsum b { display: block; color: #fff; font-weight: 800; font-size: 16px; }
+        .gsum small { display: block; color: rgba(233,231,245,.45); font-size: 12px; font-weight: 600; }
+        .chev { color: rgba(233,231,245,.4); transition: transform .4s var(--spring-soft); }
+        .gcard.is-collapsed:not(.is-forced) .chev { transform: rotate(-90deg); }
+
+        /* Полоса учеников: каждый сегмент — один ученик */
+        .segbar { display: flex; gap: 2px; height: 6px; margin: 0 20px; }
+        .segbar i { flex: 1; border-radius: 2px; background: var(--money-track); transition: background .4s ease; }
+        .segbar i:first-child { border-radius: 9999px 2px 2px 9999px; }
+        .segbar i:last-child { border-radius: 2px 9999px 9999px 2px; }
+        .segbar i:only-child { border-radius: 9999px; }
+        .segbar i.on { background: var(--money); }
+        .gcount { display: flex; align-items: center; gap: 8px; padding: 8px 20px 16px; font-size: 12px; font-weight: 700; color: rgba(233,231,245,.55); }
+        .done-badge { display: none; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 9999px; font-size: 11px; font-weight: 800;
+            color: #6ee7b7; background: rgba(16, 185, 129, .16); }
+        .gcard.is-done .done-badge { display: inline-flex; animation: pop .6s var(--spring) both; }
+        @keyframes pop { from { transform: scale(.4); opacity: 0; } }
+
+        .gbody { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .5s var(--spring-soft); }
+        .gcard.is-collapsed:not(.is-forced) .gbody { grid-template-rows: 0fr; }
+        .gbody-inner { min-height: 0; overflow: hidden; }
+
+        /* Лента дней периода: высокие штрихи — дни уроков */
+        .strip { display: flex; align-items: flex-end; gap: 3px; height: 22px; margin: 0 20px; }
+        .strip i { flex: 1; height: 5px; border-radius: 2px; background: rgba(255,255,255,.08); position: relative; }
+        .strip i.l { height: 18px; background: hsl(var(--h) 80% 65% / .75); }
+        .strip i.t::after { content: ''; position: absolute; left: 50%; bottom: -7px; width: 4px; height: 4px; margin-left: -2px; border-radius: 9999px; background: #fff; }
+        .strip-legend { display: flex; justify-content: space-between; margin: 10px 20px 0; font-size: 11px; font-weight: 700; color: rgba(233,231,245,.4); }
+
+        /* Строка ученика */
+        .rows { margin-top: 12px; padding: 0 8px 10px; }
+        .prow { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; transition: background .3s ease; }
+        .prow + .prow { border-top: 1px solid rgba(255,255,255,.05); }
+        .prow:hover { background: rgba(255,255,255,.035); }
+        .prow.is-hidden { display: none; }
+        .prow.flash { animation: flash 1.1s ease; }
+        @keyframes flash { 0% { background: rgba(52, 211, 153, .22); } 100% { background: transparent; } }
+        .pav { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; font-weight: 800; font-size: 14px;
+            color: rgba(233,231,245,.8); background: rgba(255,255,255,.07); transition: background .3s ease, color .3s ease; }
+        .prow.is-paid .pav { background: rgba(16, 185, 129, .2); color: #6ee7b7; }
+        .pname { color: #fff; font-weight: 700; font-size: 14px; }
+        .pname:hover { text-decoration: underline; text-underline-offset: 3px; }
+        .tag-left { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; padding: 1px 6px; border-radius: 6px; margin-left: 6px;
+            color: rgba(233,231,245,.6); background: rgba(255,255,255,.08); }
+        .pformula { font-size: 12px; font-weight: 600; color: rgba(233,231,245,.5); margin-top: 1px; font-variant-numeric: tabular-nums; }
+        .pformula b { color: #fff; }
+        .pwhen { font-size: 11px; font-weight: 700; color: #6ee7b7; margin-top: 2px; }
+        .pwhen:empty { display: none; }
+        .noprice { color: var(--bad); font-weight: 700; }
+        .noprice:hover { text-decoration: underline; }
+
+        /* Кнопка-штамп */
+        .stamp { position: relative; flex-shrink: 0; min-width: 120px; height: 40px; padding: 0 14px; border-radius: 12px; font-size: 13px; font-weight: 800;
+            display: inline-flex; align-items: center; justify-content: center;
+            transition: transform var(--spring-dur) var(--spring), background .25s ease, border-color .25s ease, color .25s ease; }
+        .stamp[aria-pressed="false"] { color: #fde68a; background: rgba(251, 191, 36, .08); border: 1.5px dashed rgba(251, 191, 36, .45); }
+        .stamp[aria-pressed="false"]:hover { background: rgba(251, 191, 36, .18); border-style: solid; transform: translateY(-1px) scale(1.04); }
+        .stamp[aria-pressed="true"] { color: #6ee7b7; background: rgba(16, 185, 129, .08); border: 1.5px solid rgba(52, 211, 153, .6);
+            box-shadow: inset 0 0 0 2px #0c0a16, inset 0 0 0 3px rgba(52, 211, 153, .28);
+            text-transform: uppercase; letter-spacing: .08em; font-size: 12px; transform: rotate(-3deg); }
+        .stamp[aria-pressed="true"]:hover { transform: rotate(-1deg) scale(1.04); }
+        .stamp[aria-pressed="true"] .stamp-off, .stamp[aria-pressed="false"] .stamp-on { display: none; }
+        .stamp i { margin-right: 6px; }
+        .stamp:disabled { opacity: .6; cursor: progress; }
+        .stamp.slam { animation: slam .55s cubic-bezier(.2, .9, .3, 1.25) both; }
+        @keyframes slam {
+            0% { transform: scale(2) rotate(-18deg); opacity: 0; }
+            55% { transform: scale(.9) rotate(-2deg); opacity: 1; }
+            100% { transform: scale(1) rotate(-3deg); }
+        }
+        .fly { position: fixed; z-index: 90; pointer-events: none; font-weight: 800; font-size: 15px; color: #6ee7b7; text-shadow: 0 4px 16px rgba(16, 185, 129, .8);
+            animation: fly 1.2s cubic-bezier(.2, .8, .2, 1) forwards; }
+        @keyframes fly { 0% { opacity: 0; transform: translate(-50%, 0) scale(.7); } 15% { opacity: 1; transform: translate(-50%, -10px) scale(1.1); }
+            100% { opacity: 0; transform: translate(-50%, -70px) scale(1); } }
+
+        /* Тост с отменой */
+        .undo-btn { padding: 4px 10px !important; border-radius: 9999px; font-size: 12px; font-weight: 800; color: #fff !important; background: rgba(255,255,255,.12); white-space: nowrap; }
+        .undo-btn:hover { background: rgba(255,255,255,.22); }
+
+        @media (max-width: 640px) {
+            .gcard-head { padding: 16px 16px 12px; gap: 12px; }
+            .segbar, .strip, .strip-legend { margin-left: 16px; margin-right: 16px; }
+            .gcount { padding-left: 16px; padding-right: 16px; }
+            .rows { padding: 0 4px 8px; }
+            .prow { gap: 10px; padding: 10px; }
+            .stamp { min-width: 104px; padding: 0 10px; }
+            .gsum b { font-size: 14px; }
+            .month-nav span { min-width: 104px; font-size: 14px; }
+            .yaxis { display: none; }
+            .ygrid { height: 140px; }
+            .ybar-plot { height: 140px; }
+            .ychart { grid-template-columns: 1fr; }
+            .ybar-name { font-size: 10px; letter-spacing: -.02em; }
+            .stat-row { grid-auto-flow: column; grid-auto-columns: 1fr; grid-template-columns: none; }
+            .stat { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; }
+            .stat b { font-size: 18px; }
+            .stat span { font-size: 11px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .ybar-track, .ybar-fill, .ybar-label, .stamp.slam, .fly { animation: none !important; }
         }
     </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
-<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+<body class="min-h-screen">
     {% include 'dashboard/partials/shell.html' %}
-
-    <div class="fixed bottom-4 right-4 z-50 flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-1 border border-gray-200 dark:border-gray-700">
-        <button onclick="changeLang('ru')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇷🇺 RU</button>
-        <button onclick="changeLang('en')" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition">🇬🇧 EN</button>
-    </div>
     <div id="google_translate_element" style="display:none !important;"></div>
 
     <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <div class="flex items-center gap-4">
-                {% if show_details %}
-                <a href="?year={{ year }}" class="text-gray-300 hover:text-white">
-                    <i class="fas fa-arrow-left"></i> К месяцам
-                </a>
-                {% else %}
-                <a href="{% url 'dashboard' %}" class="text-gray-300 hover:text-white">
-                    <i class="fas fa-arrow-left"></i> Назад
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+                <span class="head-icon"><i class="fas fa-coins"></i></span>
+                <h1 class="text-xl font-bold text-white hidden sm:block">Оплаты</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                {% if not is_current %}
+                <a href="?year={{ current_year }}&month={{ current_month }}" class="now-link" title="Текущий месяц">
+                    <i class="fas fa-calendar-day"></i><span class="hidden md:inline">Текущий месяц</span>
                 </a>
                 {% endif %}
-                <div class="flex items-center gap-2">
-                    <i class="fas fa-money-bill text-2xl text-emerald-400"></i>
-                    <h1 class="text-xl font-bold text-white">Оплаты</h1>
-                </div>
-            </div>
-            <div class="flex items-center gap-2 md:gap-4">
-                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
-                    <i class="fas fa-moon dark:hidden text-gray-300"></i>
-                    <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
-                </button>
-                <a href="{% url 'logout' %}" class="text-red-400 text-sm">
-                    <i class="fas fa-sign-out-alt"></i> Выйти
-                </a>
+                <nav class="month-nav" aria-label="Месяц">
+                    <a href="?year={{ prev_year }}&month={{ prev_month }}" aria-label="Предыдущий месяц"><i class="fas fa-chevron-left"></i></a>
+                    <span class="notranslate">{{ month_name }} <b>{{ year }}</b></span>
+                    <a href="?year={{ next_year }}&month={{ next_month }}" aria-label="Следующий месяц"><i class="fas fa-chevron-right"></i></a>
+                </nav>
             </div>
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
 
-        {% if show_details %}
-        <!-- ===================== ДЕТАЛИ МЕСЯЦА ===================== -->
+        <!-- Касса: итог месяца и год по месяцам -->
+        <section class="panel kassa p-6 sm:p-8 mb-6">
+            <div class="flex flex-col lg:flex-row gap-8 lg:gap-12">
+                <div class="lg:w-5/12">
+                    <p class="eyebrow">Собрано за {{ month_lower }}</p>
+                    <p class="hero-sum notranslate"><span id="heroCollected" data-value="{{ collected }}">{{ collected_str }}</span> <small>₸</small></p>
+                    <p class="text-gray-400 mt-3 text-sm sm:text-base">
+                        из <b class="text-white notranslate" id="heroExpected">{{ expected_str }}</b> ₸
+                        · период {{ period_start|date:"d.m" }} — {{ period_end|date:"d.m" }}
+                    </p>
+                    <div class="big-meter mt-5" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ share }}" aria-label="Собрано">
+                        <i id="heroMeter" data-width="{{ share }}"></i>
+                    </div>
+                    <p class="flex justify-between mt-2 text-sm text-gray-400">
+                        <span><b class="text-white" id="heroShare">{{ share }}%</b> собрано</span>
+                        <span>осталось <b class="text-white notranslate" id="heroLeft">{{ left_str }}</b> ₸</span>
+                    </p>
+                    <div class="stat-row mt-6">
+                        <div class="stat is-good">
+                            <i class="fas fa-circle-check"></i>
+                            <div><b id="statPaid">{{ paid_total }}</b><span>из {{ students_total }} оплатили</span></div>
+                        </div>
+                        <div class="stat is-wait">
+                            <i class="fas fa-hourglass-half"></i>
+                            <div><b id="statWait">{{ wait_total }}</b><span>ждём оплату</span></div>
+                        </div>
+                        {% if no_price %}
+                        <button type="button" class="stat is-bad text-left" onclick="setStatus('noprice')">
+                            <i class="fas fa-triangle-exclamation"></i>
+                            <div><b>{{ no_price }}</b><span>без цены за урок</span></div>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
 
-        <div class="mb-6">
-            <form method="GET" class="flex gap-3">
-                <input type="hidden" name="year" value="{{ year }}">
-                <input type="hidden" name="month" value="{{ month }}">
-                <input type="text" name="search" value="{{ search_query }}"
-                       class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                       placeholder="🔍 Поиск группы...">
-                <button type="submit" class="bg-indigo-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-600 transition">
-                    Найти
-                </button>
-                {% if search_query %}
-                <a href="?year={{ year }}&month={{ month }}" class="bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-6 py-3 rounded-lg font-medium hover:bg-gray-400 dark:hover:bg-gray-600 transition">
-                    Сброс
-                </a>
+                <div class="lg:w-7/12 min-w-0">
+                    <div class="flex items-center justify-between mb-4">
+                        <p class="eyebrow">{{ year }} по месяцам</p>
+                        <div class="flex gap-1 text-xs font-bold">
+                            <a href="?year={{ year|add:'-1' }}&month={{ month }}" class="chip-btn" aria-label="Предыдущий год"><i class="fas fa-chevron-left"></i>{{ year|add:'-1' }}</a>
+                            <a href="?year={{ year|add:'1' }}&month={{ month }}" class="chip-btn" aria-label="Следующий год">{{ year|add:'1' }}<i class="fas fa-chevron-right ml-1"></i></a>
+                        </div>
+                    </div>
+                    <div class="ychart" id="yearChart" data-max="{{ max_expected }}">
+                        <div class="yaxis" aria-hidden="true">
+                            <span style="top: 0">{{ axis_max }}</span>
+                            <span style="top: 50%">{{ axis_mid }}</span>
+                            <span style="top: 100%">0</span>
+                        </div>
+                        <div class="yplot">
+                            <div class="ygrid" aria-hidden="true"><i style="top: 0"></i><i style="top: 50%"></i><i style="top: 100%"></i></div>
+                            <div class="ybars">
+                                {% for b in year_bars %}
+                                <a href="?year={{ year }}&month={{ b.num }}" class="ybar{% if b.is_selected %} is-sel{% endif %}{% if b.is_future %} is-future{% endif %}"
+                                   style="--i: {{ forloop.counter0 }}"
+                                   data-name="{{ b.name }} {{ year }}" data-expected="{{ b.expected }}" data-collected="{{ b.collected }}"
+                                   data-paid="{{ b.paid }}" data-total="{{ b.total }}"
+                                   aria-label="{{ b.name }}: собрано {{ b.collected }} ₸ из {{ b.expected }} ₸, оплатили {{ b.paid }} из {{ b.total }}">
+                                    <span class="ybar-plot">
+                                        <span class="ybar-track" style="--t: {{ b.track }}%"></span>
+                                        <span class="ybar-fill" style="--f: {{ b.fill }}%"></span>
+                                        {% if b.is_selected %}<em class="ybar-label" style="--t: {{ b.track }}%" id="selShare">{{ share }}%</em>{% endif %}
+                                    </span>
+                                    <span class="ybar-name notranslate">{{ b.short }}</span>
+                                </a>
+                                {% endfor %}
+                            </div>
+                            <div class="ytip" id="yTip" hidden></div>
+                        </div>
+                    </div>
+                    <div class="ylegend">
+                        <span><i style="background: var(--money)"></i>Собрано</span>
+                        <span><i style="background: rgba(52, 211, 153, .25)"></i>Ожидалось</span>
+                        <span><i style="background: rgba(255,255,255,.18)"></i>Впереди — прогноз</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Поиск и фильтры -->
+        <section class="flex flex-wrap items-center gap-3 mb-6">
+            <label class="search">
+                <i class="fas fa-magnifying-glass"></i>
+                <input type="search" id="q" placeholder="Ученик или группа…" value="{{ search_query }}" autocomplete="off">
+                <kbd class="hidden sm:inline">/</kbd>
+            </label>
+            <div class="seg" id="statusSeg">
+                <button type="button" data-status="all" class="is-on">Все <b id="cAll">{{ students_total }}</b></button>
+                <button type="button" data-status="wait"><span class="dot" style="background: var(--wait)"></span>Ждём <b id="cWait">{{ wait_total }}</b></button>
+                <button type="button" data-status="paid"><span class="dot" style="background: var(--money)"></span>Оплатили <b id="cPaid">{{ paid_total }}</b></button>
+                {% if no_price %}
+                <button type="button" data-status="noprice"><span class="dot" style="background: var(--bad)"></span>Без цены <b id="cNoPrice">{{ no_price }}</b></button>
                 {% endif %}
-            </form>
-        </div>
+            </div>
+            <div class="seg" id="typeSeg">
+                <button type="button" data-type="all" class="is-on">Все</button>
+                <button type="button" data-type="group"><i class="fas fa-users"></i>Группы</button>
+                <button type="button" data-type="individual"><i class="fas fa-user"></i>Индивидуальные</button>
+            </div>
+            <span class="ml-auto text-sm text-gray-500" id="shownInfo"></span>
+        </section>
 
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 mb-6 border border-gray-300 dark:border-gray-600">
-            <h2 class="text-2xl font-bold text-gray-800 dark:text-white">{{ month_name }} {{ year }}</h2>
-            <p class="text-gray-500 dark:text-gray-400 mt-1">
-                Период оплаты: {{ period_start|date:"d.m.Y" }} — {{ period_end|date:"d.m.Y" }}
-            </p>
-        </div>
-
-        <div class="space-y-4">
-            {% for data in groups_data %}
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden">
-                <button onclick="toggleGroup({{ data.group.id }})"
-                        class="w-full p-5 flex justify-between items-center text-left hover:bg-gray-100 dark:hover:bg-gray-700/50 transition">
-                    <div>
-                        <h3 class="font-bold text-lg text-gray-800 dark:text-white">
-                            <span class="notranslate">{{ data.group.name }}</span>
-                        </h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                            👨‍🏫 <span class="notranslate">{{ data.group.teacher.username }}</span>
-                        </p>
-                    </div>
-                    <div class="text-right flex-shrink-0 flex gap-4">
-                        <p class="text-green-600 font-bold text-lg">✅ {{ data.paid_count }}</p>
-                        <p class="text-red-600 font-bold text-lg">❌ {{ data.unpaid_count }}</p>
-                    </div>
+        <!-- Группы -->
+        <section class="grid lg:grid-cols-2 gap-5 items-start" id="cards">
+            {% for c in cards %}
+            <article class="gcard panel{% if c.all_paid %} is-done is-collapsed{% endif %}" style="--h: {{ c.hue }}"
+                     data-type="{{ c.group.group_type }}" data-search="{{ c.group.name|lower }} {{ c.group.teacher.username|lower }}">
+                <button type="button" class="gcard-head" onclick="toggleCard(this)" aria-expanded="{% if c.all_paid %}false{% else %}true{% endif %}">
+                    <span class="gicon"><i class="fas {% if c.group.group_type == 'individual' %}fa-user{% else %}fa-users{% endif %}"></i></span>
+                    <span class="min-w-0 flex-1">
+                        <span class="gname notranslate">{{ c.group.name }}{% if not c.group.is_active %}<span class="gtag">архив</span>{% endif %}</span>
+                        <span class="gmeta"><span class="notranslate">{{ c.group.teacher.username|default:"без учителя" }}</span> · {{ c.lessons }} ур. в периоде</span>
+                    </span>
+                    <span class="gsum notranslate"><b data-role="collected">{{ c.collected }}</b><small>из {{ c.expected }} ₸</small></span>
+                    <i class="fas fa-chevron-down chev"></i>
                 </button>
+                <div class="segbar" aria-hidden="true">{% for r in c.rows %}<i{% if r.is_paid %} class="on"{% endif %}></i>{% endfor %}</div>
+                <p class="gcount"><span><b class="text-white" data-role="paid">{{ c.paid_count }}</b> из {{ c.rows|length }} оплатили</span>
+                    <span class="done-badge"><i class="fas fa-check"></i> Все оплатили</span></p>
 
-                <div id="group-detail-{{ data.group.id }}" class="hidden border-t border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900"></div>
-            </div>
-            {% empty %}
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-12 text-center text-gray-400">
-                <i class="fas fa-inbox text-5xl mb-3"></i>
-                <p>{% if search_query %}Ничего не найдено{% else %}Нет групп{% endif %}</p>
-            </div>
+                <div class="gbody"><div class="gbody-inner">
+                    <div class="strip" aria-hidden="true">{% for d in c.strip %}<i class="{% if d.lesson %}l{% endif %}{% if d.today %} t{% endif %}" title="{{ d.date|date:'d.m' }}{% if d.lesson %} — урок{% endif %}"></i>{% endfor %}</div>
+                    <p class="strip-legend"><span>{{ c.start|date:"d.m" }}</span><span>{{ c.lessons }} уроков по расписанию</span><span>{{ c.end|date:"d.m" }}</span></p>
+
+                    <ul class="rows">
+                        {% for r in c.rows %}
+                        <li class="prow{% if r.is_paid %} is-paid{% endif %}" data-name="{{ r.student.name|lower }}" data-amount="{{ r.amount_int }}"
+                            data-noprice="{% if not r.price %}1{% endif %}">
+                            <span class="pav notranslate">{{ r.student.name|slice:":1"|upper }}</span>
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate">
+                                    <a href="{% url 'student_profile' r.student.id %}" class="pname notranslate">{{ r.student.name }}</a>{% if r.left %}<span class="tag-left">выбыл</span>{% endif %}
+                                </p>
+                                <p class="pformula notranslate">
+                                    {% if r.formula_ok %}{{ r.price_str }} ₸ × {{ c.lessons }} = <b>{{ r.amount_str }} ₸</b>
+                                    {% elif r.amount_int %}<b>{{ r.amount_str }} ₸</b>
+                                    {% else %}<a href="{% url 'edit_student' r.student.id %}" class="noprice"><i class="fas fa-triangle-exclamation"></i> Задать цену за урок</a>{% endif %}
+                                </p>
+                                <p class="pwhen" data-role="when">{% if r.paid_label %}<i class="fas fa-check"></i> {{ r.paid_label }}{% endif %}</p>
+                            </div>
+                            <button type="button" class="stamp" aria-pressed="{{ r.is_paid|yesno:'true,false' }}" onclick="togglePay(this)"
+                                    data-url="{% url 'toggle_student_payment' c.group.id %}" data-student="{{ r.student.id }}"
+                                    aria-label="Оплата: {{ r.student.name }}">
+                                <span class="stamp-off"><i class="fas fa-hand-holding-dollar"></i>Принять</span>
+                                <span class="stamp-on"><i class="fas fa-check"></i>Оплачено</span>
+                            </button>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div></div>
+            </article>
             {% endfor %}
+        </section>
+
+        <div id="emptyState" class="panel p-12 text-center {% if cards %}hidden{% endif %}">
+            <div class="w-16 h-16 rounded-2xl bg-white/5 text-gray-400 grid place-items-center text-2xl mx-auto mb-4"><i class="fas fa-receipt"></i></div>
+            <p class="text-white text-lg font-bold" id="emptyTitle">{% if cards %}Никого не нашли{% else %}В этом месяце платить некому{% endif %}</p>
+            <p class="text-gray-400 mt-2" id="emptyText">{% if cards %}Попробуйте другое имя или снимите фильтр.{% else %}Нет активных групп с учениками за {{ month_lower }} {{ year }}.{% endif %}</p>
         </div>
-
-        {% else %}
-        <!-- ===================== СЕТКА СОТ ===================== -->
-
-        <div class="text-center mb-4">
-            <div class="flex items-center justify-center gap-6">
-                <a href="?year={{ prev_year }}" class="text-gray-400 hover:text-indigo-500 transition text-3xl leading-none">
-                    <i class="fas fa-chevron-left"></i>
-                </a>
-                <h2 class="text-3xl font-bold text-gray-800 dark:text-white">{{ display_year }}</h2>
-                <a href="?year={{ next_year }}" class="text-gray-400 hover:text-indigo-500 transition text-3xl leading-none">
-                    <i class="fas fa-chevron-right"></i>
-                </a>
-            </div>
-            <p class="text-gray-500 dark:text-gray-400 mt-3">Выберите месяц для просмотра оплат</p>
-        </div>
-
-        <div class="hex-grid">
-            {% for m in months_grid %}
-            <a href="?year={{ m.year }}&month={{ m.num }}"
-               class="hex {% if m.is_current %}hex-current{% elif m.is_past %}hex-past{% else %}hex-future{% endif %}">
-                <span class="hex-title notranslate">{{ m.name }}</span>
-                <span class="hex-count">{{ m.paid_count }}/{{ m.total_students }}</span>
-            </a>
-            {% endfor %}
-        </div>
-        {% endif %}
-
     </main>
 
     <script>
-        const loadedGroups = {};
+        const YEAR = {{ year }}, MONTH = {{ month }}, MONTH_LOWER = '{{ month_lower }}';
+        const CSRF = '{{ csrf_token }}';
+        const fmt = n => Math.round(n).toLocaleString('ru-RU').replace(/\s/g, '\u00a0');
+        const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-        function toggleTheme() {
-            document.documentElement.classList.toggle('dark');
+        /* ---------- Счётчики: плавно докручиваются до нового значения ---------- */
+        function countTo(el, to) {
+            const from = Number(el.dataset.value || 0);
+            el.dataset.value = to;
+            if (reduceMotion || from === to) { el.textContent = fmt(to); return; }
+            const start = performance.now(), dur = 700;
+            (function step(now) {
+                const t = Math.min(1, (now - start) / dur), e = 1 - Math.pow(1 - t, 3);
+                el.textContent = fmt(from + (to - from) * e);
+                if (t < 1) requestAnimationFrame(step);
+            })(start);
         }
 
-        function changeLang(lang) {
-            document.cookie = `googtrans=/ru/${lang}; path=/`;
-            document.cookie = `googtrans=/ru/${lang}; domain=.${location.hostname}; path=/`;
-            location.reload();
-        }
-
-        function toggleGroup(groupId) {
-            const detail = document.getElementById(`group-detail-${groupId}`);
-            if (!detail.classList.contains('hidden')) {
-                detail.classList.add('hidden');
-                return;
-            }
-            detail.classList.remove('hidden');
-            if (loadedGroups[groupId]) return;
-
-            detail.innerHTML = '<div class="text-center py-8 text-gray-400">Загрузка...</div>';
-
-            fetch(`/payments/group/${groupId}/?year={{ year }}&month={{ month }}`)
-                .then(r => r.text())
-                .then(html => {
-                    detail.innerHTML = html;
-                    loadedGroups[groupId] = true;
+        /* ---------- Пересчёт всех итогов по строкам на странице ---------- */
+        function recalc() {
+            let expected = 0, collected = 0, paid = 0, wait = 0, noprice = 0;
+            document.querySelectorAll('.gcard').forEach(card => {
+                const rows = card.querySelectorAll('.prow');
+                let cPaid = 0, cCollected = 0;
+                rows.forEach((row, i) => {
+                    const amount = Number(row.dataset.amount), isPaid = row.classList.contains('is-paid');
+                    expected += amount;
+                    if (isPaid) { collected += amount; paid++; cPaid++; cCollected += amount; }
+                    else { wait++; if (row.dataset.noprice) noprice++; }
+                    card.querySelectorAll('.segbar i')[i].classList.toggle('on', isPaid);
                 });
-        }
-
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
+                card.querySelector('[data-role="paid"]').textContent = cPaid;
+                card.querySelector('[data-role="collected"]').textContent = fmt(cCollected);
+                card.classList.toggle('is-done', cPaid === rows.length);
+            });
+            const share = expected ? Math.round(collected / expected * 100) : 0;
+            countTo(document.getElementById('heroCollected'), collected);
+            document.getElementById('heroLeft').textContent = fmt(expected - collected);
+            document.getElementById('heroShare').textContent = share + '%';
+            document.getElementById('heroMeter').style.width = share + '%';
+            document.getElementById('heroMeter').parentElement.setAttribute('aria-valuenow', share);
+            document.getElementById('statPaid').textContent = paid;
+            document.getElementById('statWait').textContent = wait;
+            document.getElementById('cPaid').textContent = paid;
+            document.getElementById('cWait').textContent = wait;
+            const np = document.getElementById('cNoPrice'); if (np) np.textContent = noprice;
+            // Столбик выбранного месяца на графике
+            const sel = document.querySelector('.ybar.is-sel'), max = Number(document.getElementById('yearChart').dataset.max) || 1;
+            if (sel) {
+                sel.dataset.collected = collected;
+                sel.dataset.paid = paid;
+                sel.querySelector('.ybar-fill').style.setProperty('--f', (collected ? Math.max(1, collected / max * 100) : 0) + '%');
+                const lbl = document.getElementById('selShare'); if (lbl) lbl.textContent = share + '%';
             }
-            return cookieValue;
         }
 
-        function togglePayment(groupId, studentId, btn) {
-            const formData = new FormData();
-            formData.append('student_id', studentId);
-            formData.append('year', btn.dataset.year);
-            formData.append('month', btn.dataset.month);
-
-            fetch(`/payments/group/${groupId}/toggle/`, {
-                method: 'POST',
-                headers: {'X-CSRFToken': getCookie('csrftoken')},
-                body: formData
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    if (data.is_paid) {
-                        btn.classList.remove('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-200', 'hover:bg-gray-300', 'dark:hover:bg-gray-600');
-                        btn.classList.add('bg-green-500', 'text-white', 'hover:bg-green-600');
-                        btn.textContent = '✅ Оплачено — отменить';
-                    } else {
-                        btn.classList.add('bg-gray-200', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-200', 'hover:bg-gray-300', 'dark:hover:bg-gray-600');
-                        btn.classList.remove('bg-green-500', 'text-white', 'hover:bg-green-600');
-                        btn.textContent = 'Отметить оплату';
-                    }
-                } else {
-                    alert('Ошибка: ' + (data.error || 'неизвестно'));
+        /* ---------- Принять / снять оплату ---------- */
+        async function togglePay(btn, silent) {
+            const row = btn.closest('.prow');
+            const name = row.querySelector('.pname').textContent.trim();
+            const wasPaid = btn.getAttribute('aria-pressed') === 'true';
+            if (wasPaid && !silent && !confirm(`Снять оплату ${name} за ${MONTH_LOWER}?`)) return;
+            btn.disabled = true;
+            try {
+                const response = await fetch(btn.dataset.url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': CSRF },
+                    body: new URLSearchParams({ student_id: btn.dataset.student, year: YEAR, month: MONTH }),
+                });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'Не удалось сохранить');
+                row.classList.toggle('is-paid', data.is_paid);
+                row.dataset.amount = data.amount;
+                btn.setAttribute('aria-pressed', data.is_paid ? 'true' : 'false');
+                const when = row.querySelector('[data-role="when"]');
+                when.textContent = '';
+                if (data.paid_label) {
+                    const icon = document.createElement('i'); icon.className = 'fas fa-check';
+                    when.append(icon, ' ' + data.paid_label);
                 }
-            })
-            .catch(err => alert('Ошибка сети: ' + err));
+                if (data.is_paid) {
+                    btn.classList.remove('slam'); void btn.offsetWidth; btn.classList.add('slam');
+                    row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash');
+                    if (!reduceMotion) flyAmount(btn, '+' + fmt(data.amount) + ' ₸');
+                }
+                recalc();
+                applyFilters();
+                if (!silent) undoToast(btn, data.is_paid ? `${name} — оплата ${fmt(data.amount)} ₸ принята` : `${name} — оплата снята`);
+            } catch (e) {
+                alert(e.message === 'Failed to fetch' ? 'Нет связи с сервером' : e.message);
+            } finally {
+                btn.disabled = false;
+            }
         }
 
-        function googleTranslateElementInit() {
-            new google.translate.TranslateElement({
-                pageLanguage: 'ru',
-                includedLanguages: 'ru,en',
-                autoDisplay: false
-            }, 'google_translate_element');
+        function flyAmount(btn, text) {
+            const r = btn.getBoundingClientRect(), el = document.createElement('div');
+            el.className = 'fly'; el.textContent = text;
+            el.style.left = (r.left + r.width / 2) + 'px'; el.style.top = (r.top - 6) + 'px';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 1300);
         }
+
+        /* Тост «Отменить» — ошибся кнопкой, вернул одним нажатием */
+        function undoToast(btn, text) {
+            let box = document.getElementById('eeToasts');
+            if (!box) { box = document.createElement('div'); box.id = 'eeToasts'; box.className = 'ee-toasts'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); }
+            box.querySelectorAll('.ee-toast.is-undo').forEach(t => t.remove());
+            const t = document.createElement('div');
+            t.className = 'ee-toast ee-toast-success is-undo'; t.setAttribute('role', 'status');
+            const icon = document.createElement('i'); icon.className = 'fas fa-circle-check';
+            const p = document.createElement('p'); p.textContent = text;
+            const undo = document.createElement('button'); undo.type = 'button'; undo.className = 'undo-btn'; undo.textContent = 'Отменить';
+            const timer = document.createElement('span'); timer.className = 'ee-toast-timer'; t.style.setProperty('--life', '6000ms');
+            t.append(icon, p, undo, timer);
+            box.appendChild(t);
+            const close = () => { t.classList.add('is-leaving'); setTimeout(() => t.remove(), 400); };
+            let hide = setTimeout(close, 6000);
+            undo.onclick = () => { clearTimeout(hide); close(); togglePay(btn, true); };
+        }
+
+        /* ---------- Свернуть / развернуть группу ---------- */
+        function toggleCard(head) {
+            const card = head.closest('.gcard');
+            if (card.classList.contains('is-forced')) return;
+            card.classList.toggle('is-collapsed');
+            head.setAttribute('aria-expanded', card.classList.contains('is-collapsed') ? 'false' : 'true');
+        }
+
+        /* ---------- Поиск и фильтры ---------- */
+        let status = 'all', type = 'all';
+        const q = document.getElementById('q');
+        function setStatus(value) {
+            status = value;
+            document.querySelectorAll('#statusSeg button').forEach(b => b.classList.toggle('is-on', b.dataset.status === value));
+            applyFilters();
+            document.getElementById('statusSeg').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+        }
+        function applyFilters() {
+            const term = q.value.trim().toLowerCase();
+            const narrowed = term !== '' || status !== 'all';
+            let shown = 0, cardsShown = 0;
+            document.querySelectorAll('.gcard').forEach(card => {
+                const typeOk = type === 'all' || card.dataset.type === type;
+                const cardHit = term && card.dataset.search.includes(term);
+                let visible = 0;
+                card.querySelectorAll('.prow').forEach(row => {
+                    const paid = row.classList.contains('is-paid');
+                    const statusOk = status === 'all' || (status === 'paid' ? paid : !paid && (status === 'wait' || row.dataset.noprice));
+                    const ok = typeOk && statusOk && (!term || cardHit || row.dataset.name.includes(term));
+                    row.classList.toggle('is-hidden', !ok);
+                    if (ok) visible++;
+                });
+                card.classList.toggle('is-hidden', !visible);
+                card.classList.toggle('is-forced', narrowed && visible > 0);
+                shown += visible; if (visible) cardsShown++;
+            });
+            const total = document.querySelectorAll('.prow').length;
+            document.getElementById('shownInfo').textContent = narrowed || type !== 'all' ? `Показано ${shown} из ${total}` : '';
+            const empty = document.getElementById('emptyState');
+            if (total) empty.classList.toggle('hidden', cardsShown > 0);
+        }
+        document.querySelectorAll('#statusSeg button').forEach(b => b.addEventListener('click', () => setStatus(b.dataset.status)));
+        document.querySelectorAll('#typeSeg button').forEach(b => b.addEventListener('click', () => {
+            type = b.dataset.type;
+            document.querySelectorAll('#typeSeg button').forEach(x => x.classList.toggle('is-on', x === b));
+            applyFilters();
+        }));
+        q.addEventListener('input', applyFilters);
+        document.addEventListener('keydown', e => {
+            if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); q.focus(); }
+            if (e.key === 'Escape' && document.activeElement === q) { q.value = ''; applyFilters(); q.blur(); }
+        });
+
+        /* ---------- Подсказка у столбиков графика ---------- */
+        const tip = document.getElementById('yTip');
+        function showTip(bar) {
+            const d = bar.dataset, plot = bar.closest('.yplot'), r = bar.getBoundingClientRect(), pr = plot.getBoundingClientRect();
+            tip.textContent = '';
+            const title = document.createElement('div'); title.textContent = d.name; title.style.fontWeight = '700';
+            const sum = document.createElement('b'); sum.textContent = fmt(d.collected) + ' ₸';
+            const line1 = document.createElement('div'); line1.textContent = 'из ' + fmt(d.expected) + ' ₸ ожидаемых';
+            const line2 = document.createElement('div');
+            const key = document.createElement('span'); key.className = 'key';
+            line2.append(key, `оплатили ${d.paid} из ${d.total}`);
+            tip.append(title, sum, line1, line2);
+            tip.hidden = false;
+            const half = tip.offsetWidth / 2, track = bar.querySelector('.ybar-track').getBoundingClientRect();
+            tip.style.left = Math.min(Math.max(r.left - pr.left + r.width / 2, half), pr.width - half) + 'px';
+            // Над столбиком; у самых высоких — чуть выше графика
+            tip.style.top = Math.max(-60, track.top - pr.top - tip.offsetHeight - 10) + 'px';
+        }
+        document.querySelectorAll('.ybar').forEach(bar => {
+            bar.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') showTip(bar); });
+            bar.addEventListener('focus', () => showTip(bar));
+            bar.addEventListener('pointerleave', () => tip.hidden = true);
+            bar.addEventListener('blur', () => tip.hidden = true);
+        });
+
+        /* ---------- Старт ---------- */
+        requestAnimationFrame(() => setTimeout(() => {
+            const m = document.getElementById('heroMeter'); m.style.width = m.dataset.width + '%';
+        }, 250));
+        (function heroCount() {
+            const el = document.getElementById('heroCollected'), to = Number(el.dataset.value);
+            el.dataset.value = 0; countTo(el, to);
+        })();
+        applyFilters();
     </script>
-    <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 </body>
 </html>
