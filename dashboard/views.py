@@ -198,21 +198,6 @@ def dashboard(request):
         total_students = Student.objects.count()
         total_groups = groups.count()
 
-        # Топ должников
-        top_debtors = []
-        students_with_debt = Student.objects.all()
-        for student in students_with_debt:
-            unpaid = Payment.objects.filter(student=student, is_paid=False)
-            total_debt = sum([float(p.amount) - float(p.paid_amount) for p in unpaid])
-            if total_debt > 0:
-                top_debtors.append({
-                    'student': student,
-                    'debt': total_debt,
-                    'phone': student.phone,
-                })
-        top_debtors.sort(key=lambda x: x['debt'], reverse=True)
-        top_debtors = top_debtors[:5]
-        
         # Статистика оплат
         today = timezone.localdate()
         current_payments = Payment.objects.filter(start_date__lte=today, end_date__gte=today)
@@ -238,7 +223,6 @@ def dashboard(request):
             'payment_stats': payment_stats,
             'present_count': present_count,
             'total_attendance': total_attendance,
-            'top_debtors': top_debtors,
             'search_query': search_query,
         }
         context.update(dashboard_extras(base_groups, groups))

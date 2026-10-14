@@ -249,28 +249,6 @@
             {% endif %}
         </section>
 
-        {% if top_debtors %}
-        <!-- Должники -->
-        <section class="panel p-6 sm:p-8 mb-6">
-            <div class="flex items-center justify-between mb-5">
-                <div>
-                    <p class="eyebrow mb-2">Внимание</p>
-                    <h3 class="text-xl sm:text-2xl font-bold text-white">Самые большие долги</h3>
-                </div>
-                <a href="{% url 'payments_page' %}" class="chip-btn"><i class="fas fa-wallet"></i> Оплаты</a>
-            </div>
-            <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                {% for d in top_debtors %}
-                <a href="{% url 'student_profile' d.student.id %}" class="rounded-2xl p-4 bg-rose-500/10 border border-rose-400/20 hover-scale block">
-                    <p class="font-bold text-white truncate notranslate">{{ d.student.name }}</p>
-                    <p class="text-2xl font-bold text-rose-300 mt-2">{{ d.debt|floatformat:0 }} ₸</p>
-                    {% if d.phone %}<p class="text-xs text-gray-400 mt-1 notranslate"><i class="fas fa-phone mr-1"></i>{{ d.phone }}</p>{% endif %}
-                </a>
-                {% endfor %}
-            </div>
-        </section>
-        {% endif %}
-
         <!-- Группы -->
         <section>
             <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-5">
