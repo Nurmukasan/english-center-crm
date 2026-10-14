@@ -251,6 +251,64 @@ class PaymentsPageTests(CRMTestCase):
         self.assertEqual(data['paid_label'], '')
 
 
+class GroupPageTests(CRMTestCase):
+    def setUp(self):
+        super().setUp()
+        Enrollment.objects.update(enrolled_at=timezone.now() - timedelta(days=90))
+        self.second = Student.objects.create(name='Бек')
+        Enrollment.objects.filter(student=self.second).delete()
+        Enrollment.objects.create(student=self.second, group=self.group, enrolled_at=timezone.now() - timedelta(days=90))
+        today = timezone.localdate()
+        # Три прошлых урока: Алия был, опоздал, не был; Бек — всегда был
+        for days, status in [(9, 'present'), (6, 'late'), (3, 'absent')]:
+            lesson = Lesson.objects.create(group=self.group, date=today - timedelta(days=days))
+            Attendance.objects.create(lesson=lesson, student=self.student, status=status, homework_done=True, stars=2)
+            Attendance.objects.create(lesson=lesson, student=self.second, status='present', stars=1)
+        Lesson.objects.create(group=self.group, date=today - timedelta(days=2), is_cancelled=True)
+
+    def data(self, response, name):
+        return next(d for d in response.context['student_data'] if d['student'].name == name)
+
+    def test_group_stats(self):
+        self.login(self.teacher)
+        response = self.client.get(f'/group/{self.group.id}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['attendance_rate'], 83)   # 5 из 6 отметок
+        self.assertEqual(response.context['homework_rate'], 50)
+        self.assertEqual([r['rate'] for r in response.context['rhythm']], [100, 100, 50])
+        aliya = self.data(response, 'Алия')
+        self.assertEqual(aliya['dots'], ['present', 'late', 'absent'])
+        self.assertEqual(aliya['rate'], 67)
+        self.assertEqual(aliya['stars'], 6)
+        self.assertEqual([d['student'].name for d in response.context['leaders']], ['Алия', 'Бек'])
+
+    def test_teacher_sees_no_money(self):
+        y, m = get_current_period(self.group.cycle_start_day)
+        Payment.objects.create(student=self.student, group=self.group, cycle_number=y * 100 + m, amount=1, is_paid=True)
+        self.login(self.teacher)
+        response = self.client.get(f'/group/{self.group.id}/')
+        self.assertFalse(response.context['can_money'])
+        self.assertFalse(self.data(response, 'Алия')['is_paid'])
+        self.login(self.accountant)
+        response = self.client.get(f'/group/{self.group.id}/')
+        self.assertTrue(self.data(response, 'Алия')['is_paid'])
+        self.assertEqual((response.context['paid_count'], response.context['billable_count']), (1, 2))
+
+    def test_lesson_today_is_created_on_lesson_day(self):
+        today = timezone.localdate()
+        ScheduleSlot.objects.create(group=self.group, day_of_week=today.weekday(), start_time=time(10), end_time=time(11))
+        self.login(self.teacher)
+        response = self.client.get(f'/group/{self.group.id}/')
+        self.assertTrue(response.context['lesson_active'])
+        self.assertEqual(response.context['today_slot'].start_time, time(10))
+        self.assertEqual([d['attendance_status'] for d in response.context['student_data']], ['absent', 'absent'])
+        self.assertContains(response, 'role="radiogroup"', count=2)
+
+    def test_other_teacher_redirected(self):
+        self.login(self.other_teacher)
+        self.assertRedirects(self.client.get(f'/group/{self.group.id}/'), '/dashboard/', fetch_redirect_response=False)
+
+
 class LessonTests(CRMTestCase):
     def setUp(self):
         super().setUp()
