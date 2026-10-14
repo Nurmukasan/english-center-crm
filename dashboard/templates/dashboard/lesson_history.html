@@ -98,7 +98,7 @@
                     <div class="flex gap-2">
                         {% if not lesson.is_cancelled %}
                         <button type="button" onclick="openEditor({{ lesson.id }})"
-                                class="bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                                class="bg-white border border-orange-200 text-orange-700 hover:bg-orange-50 px-4 py-2 rounded-lg text-sm font-medium transition">
                             <i class="fas fa-pen mr-1"></i> Изменить
                         </button>
                         {% endif %}
