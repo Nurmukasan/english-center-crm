@@ -16,30 +16,6 @@
         .goog-logo-link { display: none !important; }
         .goog-te-gadget { display: none !important; }
 
-        .grad-text {
-            background: linear-gradient(100deg, #c4b5fd 0%, #e879f9 35%, #fbbf24 65%, #c4b5fd 100%);
-            background-size: 220% auto; -webkit-background-clip: text; background-clip: text;
-            color: transparent; -webkit-text-fill-color: transparent; animation: ee-shimmer 7s linear infinite;
-        }
-        .panel, .gcard {
-            background:
-                radial-gradient(380px circle at var(--mx, 50%) var(--my, 50%), rgba(192, 132, 252, var(--spot, 0)), transparent 45%),
-                linear-gradient(160deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
-        }
-        .panel {
-            border: 1px solid rgba(255,255,255,.09); border-radius: 28px;
-            backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%);
-            box-shadow: 0 30px 80px -40px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.05);
-        }
-        .eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: rgba(233,231,245,.45); }
-        .chip-btn {
-            display: inline-flex; align-items: center; gap: .5rem; padding: .6rem 1rem; border-radius: 9999px;
-            font-size: 14px; font-weight: 700; color: #fff; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
-            transition: transform var(--spring-dur) var(--spring), background-color .25s ease, border-color .25s ease, box-shadow .3s ease;
-        }
-        .chip-btn:hover { transform: translateY(-2px) scale(1.04); background: rgba(255,255,255,.11); border-color: rgba(255,255,255,.25); box-shadow: 0 12px 30px -12px rgba(167,139,250,.8); }
-        .chip-btn i { color: #c4b5fd; }
-
         /* ---------- Часы ---------- */
         .clock { font-family: 'Unbounded', sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -.02em; }
         .clock .colon { animation: blink 1s steps(1) infinite; }
@@ -90,6 +66,11 @@
         .donut .bar { stroke-linecap: round; transition: stroke-dashoffset 1.6s cubic-bezier(.22,1,.36,1); }
 
         /* ---------- Карточки групп ---------- */
+        .gcard {
+            background:
+                radial-gradient(380px circle at var(--mx, 50%) var(--my, 50%), rgba(192, 132, 252, var(--spot, 0)), transparent 45%),
+                linear-gradient(160deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
+        }
         .gcard { --c: hsl(var(--h) 85% 65%); position: relative; border-radius: 26px; overflow: hidden; isolation: isolate;
             border: 1px solid rgba(255,255,255,.09); }
         .gcard::before { content: ''; position: absolute; z-index: -1; width: 220px; height: 220px; right: -70px; top: -90px; border-radius: 50%;
@@ -255,14 +236,17 @@
                 <div>
                     <p class="eyebrow mb-2">{{ group_cards|length }} {% if group_cards|length == 1 %}группа{% elif group_cards|length < 5 %}группы{% else %}групп{% endif %}</p>
                     <h3 class="text-xl sm:text-2xl font-bold text-white">{% if role == 'teacher' %}Мои группы{% elif show_archive %}Архив групп{% else %}Все группы{% endif %}</h3>
+                    <div class="flex flex-wrap gap-2 mt-3">
+                        <a href="{% url 'individual_lessons' %}" class="chip-btn !py-1.5 !px-3 !text-xs">
+                            <i class="fas fa-chalkboard-user"></i> Индивидуальные · {{ individual_count }}
+                        </a>
                     {% if role == 'admin' or role == 'developer' %}
-                    <div class="flex gap-2 mt-3">
                         <a href="{% url 'dashboard' %}" class="chip-btn !py-1.5 !px-3 !text-xs {% if not show_archive %}!bg-violet-500/30 !border-violet-400/50{% endif %}">Активные</a>
                         <a href="{% url 'dashboard' %}?archived=1" class="chip-btn !py-1.5 !px-3 !text-xs {% if show_archive %}!bg-violet-500/30 !border-violet-400/50{% endif %}">
                             <i class="fas fa-box-archive"></i> Архив{% if archived_groups_count %} · {{ archived_groups_count }}{% endif %}
                         </a>
-                    </div>
                     {% endif %}
+                    </div>
                 </div>
                 <form method="GET" class="flex gap-2 w-full sm:w-auto">
                     {% if show_archive %}<input type="hidden" name="archived" value="1">{% endif %}
