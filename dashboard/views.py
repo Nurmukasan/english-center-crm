@@ -625,7 +625,7 @@ def add_student(request):
                 school=request.POST.get('school', ''),
                 grade=request.POST.get('grade', ''),
                 age=request.POST.get('age') or None,
-                price_per_lesson=request.POST.get('price_per_lesson') or 0,
+                price_per_lesson=request.POST.get('price_per_lesson') or 3000,
             )
             
             for group_id in group_ids:
