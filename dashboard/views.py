@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from django.db.models import Q, Sum, Count
+from django.db.models import Q, Sum, Count, Min
 from django.db import transaction
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -1483,157 +1483,343 @@ def payment_management(request):
     return redirect('payments_page')
 
 
+STATS_RANGES = (6, 12, 24)
+MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+              'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
+
+
+def cycles_back(year, month, count):
+    """count месяцев подряд, заканчивая (year, month): [(год, месяц), ...] по возрастанию"""
+    result = []
+    for _ in range(count):
+        result.append((year, month))
+        year, month = (year - 1, 12) if month == 1 else (year, month - 1)
+    return result[::-1]
+
+
+def month_short(year, month, with_year=False):
+    return f'{MONTHS_SHORT[month - 1]} {year % 100:02d}' if with_year else MONTHS_SHORT[month - 1]
+
+
+def percent_change(now, before):
+    """Рост в процентах; None — сравнивать не с чем"""
+    if not before:
+        return None
+    return round((now - before) / before * 100)
+
+
+def income_stats(months, group_type='all'):
+    """Статистика доходов за последние months месяцев (текущий — последний, он ещё идёт).
+
+    Деньги считаются по месяцам оплаты (как на странице «Оплаты»): ждали = цена × уроки по расписанию,
+    собрано = отмеченные оплаты. Месяцы до первой отметки оплаты в CRM не считаются — тогда оплаты
+    ещё не вели, и все ученики выглядели бы должниками. Для сравнения берутся months месяцев до периода.
+    """
+    cur_year, cur_month = get_current_period()
+    current = cur_year * 100 + cur_month
+    all_cycles = cycles_back(cur_year, cur_month, months * 2)
+    prev_cycles, range_cycles = all_cycles[:months], all_cycles[months:]
+    first_cycle = Payment.objects.filter(is_paid=True).aggregate(first=Min('cycle_number'))['first']
+
+    payments = {}
+    for p in Payment.objects.filter(cycle_number__gte=all_cycles[0][0] * 100 + all_cycles[0][1], cycle_number__lte=current) \
+            .select_related('student'):
+        payments.setdefault((p.cycle_number, p.group_id), {})[p.student_id] = p
+    groups = Group.objects.filter(Q(is_active=True) | Q(id__in={gid for (_, gid) in payments}))
+    if group_type in ('group', 'individual'):
+        groups = groups.filter(group_type=group_type)
+    groups = list(groups.select_related('teacher').prefetch_related('schedule_slots', 'enrollments__student'))
+
+    def empty():
+        return {'expected': 0, 'collected': 0, 'paid': 0, 'total': 0, 'debt': 0}
+
+    month_totals = {y * 100 + m: empty() for y, m in all_cycles}
+    has_data = {y * 100 + m: bool(first_cycle) and y * 100 + m >= first_cycle for y, m in all_cycles}
+    # На графиках — с первого месяца, где оплаты уже отмечали
+    shown_cycles = [(y, m) for y, m in range_cycles if has_data[y * 100 + m]] or range_cycles
+    range_set = {y * 100 + m for y, m in range_cycles}
+    debtors, group_stats, teachers, by_type = {}, [], {}, {'group': 0, 'individual': 0}
+
+    for g in groups:
+        per_month = {}
+        for y, m in all_cycles:
+            cycle = y * 100 + m
+            if not has_data[cycle] or (not g.is_active and (cycle, g.id) not in payments):
+                continue
+            rows = month_rows(g, y, m, payments.get((cycle, g.id), {}))[0]
+            if not rows:
+                continue
+            t = empty()
+            for r in rows:
+                amount = int(r['amount'])
+                t['expected'] += amount
+                t['total'] += 1
+                if r['is_paid']:
+                    t['collected'] += amount
+                    t['paid'] += 1
+                elif amount and cycle < current:
+                    t['debt'] += amount
+                    if cycle in range_set:
+                        d = debtors.setdefault(r['student'].id, {'student': r['student'], 'amount': 0, 'months': []})
+                        d['amount'] += amount
+                        d['months'].append({'year': y, 'month': m, 'group': g, 'amount': amount})
+            per_month[cycle] = t
+            for key in t:
+                month_totals[cycle][key] += t[key]
+
+        in_range = [per_month[y * 100 + m] for y, m in range_cycles if y * 100 + m in per_month]
+        if not in_range:
+            continue
+        done = [per_month[c] for c in sorted(per_month) if c in range_set and c < current]
+        collected = sum(t['collected'] for t in in_range)
+        expected_done = sum(t['expected'] for t in done)
+        # Рост: последние 3 закрытых месяца против 3 предыдущих
+        recent, earlier = done[-3:], done[-6:-3]
+        trend = percent_change(sum(t['collected'] for t in recent) / len(recent),
+                               sum(t['collected'] for t in earlier) / len(earlier)) if recent and earlier else None
+        first_month = min(per_month) if per_month else None
+        paid_count = sum(t['paid'] for t in in_range)
+        # Текущий месяц не рисуем — он ещё идёт, и линия в конце всегда «падала» бы
+        spark = [per_month.get(y * 100 + m, {}).get('collected') for y, m in shown_cycles if y * 100 + m < current]
+        group_stats.append({
+            'group': g,
+            'collected': collected,
+            'collected_str': money(collected),
+            'rate': round(sum(t['collected'] for t in done) / expected_done * 100) if expected_done else None,
+            'debt': sum(t['debt'] for t in done),
+            'debt_str': money(sum(t['debt'] for t in done)),
+            'trend': trend,
+            # Новая — оплаты по группе пошли позже, чем по остальным, и сравнивать пока не с чем
+            'is_new': trend is None and first_month is not None and first_cycle is not None and first_month > first_cycle,
+            'students': sum(1 for e in g.enrollments.all() if e.student.is_active),
+            'avg_check': money(collected / paid_count) if paid_count else '',
+            'spark': spark,
+            'months': [{
+                'label': month_short(y, m, with_year=(m == 1)), 'name': f'{MONTHS_RU[m - 1]} {y}',
+                'year': y, 'month': m, 'is_current': y * 100 + m == current,
+                **per_month.get(y * 100 + m, empty()),
+            } for y, m in shown_cycles],
+        })
+        by_type[g.group_type if g.group_type in by_type else 'group'] += collected
+        teacher = g.teacher
+        tkey = teacher.id if teacher else 0
+        entry = teachers.setdefault(tkey, {'name': teacher.username if teacher else '', 'collected': 0, 'groups': 0, 'students': 0})
+        entry['collected'] += collected
+        entry['groups'] += 1
+        entry['students'] += group_stats[-1]['students']
+
+    group_stats.sort(key=lambda x: -x['collected'])
+    total = sum(x['collected'] for x in group_stats)
+    top = max([x['collected'] for x in group_stats] + [1])
+    for x in group_stats:
+        x['share'] = round(x['collected'] / total * 100) if total else 0
+        x['bar'] = round(x['collected'] / top * 100)
+        x['spark_points'] = sparkline_points(x['spark'])
+        # Столбики по месяцам внутри строки группы: высота от самого большого месяца этой группы
+        peak = max([m['expected'] for m in x['months']] + [m['collected'] for m in x['months']] + [1])
+        for m in x['months']:
+            m['track'] = round(m['expected'] / peak * 100)
+            m['fill'] = round(m['collected'] / peak * 100)
+            m['collected_str'], m['expected_str'] = money(m['collected']), money(m['expected'])
+
+    # Месяцы периода: для графика и таблицы
+    chart = []
+    for y, m in shown_cycles:
+        cycle = y * 100 + m
+        t = month_totals[cycle]
+        chart.append({
+            'label': month_short(y, m, with_year=(m == 1 or (y, m) == shown_cycles[0])),
+            'name': f'{MONTHS_RU[m - 1]} {y}', 'year': y, 'month': m,
+            'is_current': cycle == current, 'has_data': has_data[cycle],
+            'rate': round(t['collected'] / t['expected'] * 100) if t['expected'] else None,
+            'collected_str': money(t['collected']), 'expected_str': money(t['expected']), 'debt_str': money(t['debt']),
+            **t,
+        })
+    done = [c for c in chart if not c['is_current'] and c['has_data']]
+    before = [month_totals[y * 100 + m] for y, m in prev_cycles if has_data[y * 100 + m]]
+    done_collected = sum(c['collected'] for c in done)
+    done_expected = sum(c['expected'] for c in done)
+    done_paid = sum(c['paid'] for c in done)
+    avg_month = done_collected / len(done) if done else 0
+    avg_before = sum(t['collected'] for t in before) / len(before) if before else 0
+    rate = round(done_collected / done_expected * 100) if done_expected else None
+    before_expected = sum(t['expected'] for t in before)
+    rate_before = round(sum(t['collected'] for t in before) / before_expected * 100) if before_expected else None
+    best = max(done, key=lambda c: c['collected']) if done else None
+    now = chart[-1]
+
+    debtor_list = sorted(debtors.values(), key=lambda d: -d['amount'])
+    for d in debtor_list:
+        d['amount_str'] = money(d['amount'])
+        d['months'].sort(key=lambda x: (x['year'], x['month']))
+        d['first'] = d['months'][0]
+        d['month_labels'] = ', '.join(dict.fromkeys(f'{MONTHS_SHORT[x["month"] - 1].lower()}' for x in d['months']))
+        d['groups'] = list(dict.fromkeys(x['group'].name for x in d['months']))
+
+    teacher_list = sorted(teachers.values(), key=lambda t: -t['collected'])
+    top_teacher = max([t['collected'] for t in teacher_list] + [1])
+    for t in teacher_list:
+        t['collected_str'] = money(t['collected'])
+        t['share'] = round(t['collected'] / total * 100) if total else 0
+        t['bar'] = round(t['collected'] / top_teacher * 100)
+
+    first_label = ''
+    if first_cycle and first_cycle > range_cycles[0][0] * 100 + range_cycles[0][1]:
+        first_label = f'{MONTHS_GEN[first_cycle % 100 - 1]} {first_cycle // 100}'
+
+    return {
+        'range_cycles': range_cycles,
+        'chart': chart,
+        'groups': group_stats,
+        'debtors': debtor_list,
+        'teachers': teacher_list,
+        'total': total,
+        'total_str': money(total),
+        'avg_month': int(avg_month),
+        'avg_month_str': money(avg_month),
+        'avg_change': percent_change(avg_month, avg_before) if done else None,
+        'rate': rate,
+        'rate_change': rate - rate_before if rate is not None and rate_before is not None else None,
+        'debt': sum(d['amount'] for d in debtor_list),
+        'debt_str': money(sum(d['amount'] for d in debtor_list)),
+        'best': best,
+        'best_str': money(best['collected']) if best else '',
+        'avg_check_str': money(done_collected / done_paid) if done_paid else '',
+        'avg_paying': round(done_paid / len(done)) if done else 0,
+        'now': now,
+        'now_collected_str': money(now['collected']),
+        'now_expected_str': money(now['expected']),
+        'by_type': by_type,
+        'individual_share': round(by_type['individual'] / total * 100) if total else 0,
+        'group_share': 100 - round(by_type['individual'] / total * 100) if total else 0,
+        'group_total_str': money(by_type['group']),
+        'individual_total_str': money(by_type['individual']),
+        'first_label': first_label,
+        'has_data': bool(first_cycle),
+    }
+
+
+def sparkline_points(values, width=96, height=28):
+    """Точки ломаной для маленького графика в строке группы; пропуски (нет данных) — None"""
+    known = [v for v in values if v is not None]
+    if len(known) < 2:
+        return ''
+    top = max(known) or 1
+    step = width / (len(values) - 1)
+    return ' '.join(f'{i * step:.1f},{height - 2 - (v / top) * (height - 4):.1f}'
+                    for i, v in enumerate(values) if v is not None)
+
+
+def stats_params(request):
+    try:
+        months = int(request.GET.get('months', 12))
+    except (TypeError, ValueError):
+        months = 12
+    months = months if months in STATS_RANGES else 12
+    group_type = request.GET.get('type') if request.GET.get('type') in ('group', 'individual') else 'all'
+    return months, group_type
+
+
 @crm_view
 def accountant_stats(request):
-    """Статистика для бухгалтера"""
+    """Статистика доходов: динамика за период, сравнение с прошлым, долги, учителя и группы"""
     role = get_user_role(request.user)
-    
+
     if role not in ['accountant', 'developer', 'admin']:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
-    
-    today = timezone.localdate()
-    period = request.GET.get('period', 'month')
-    group_filter = request.GET.get('group', 'all')
-    
-    payments = Payment.objects.filter(paid_amount__gt=0)
-    
-    if group_filter != 'all':
-        payments = payments.filter(group_id=group_filter)
-    
-    total_income = sum([float(p.paid_amount) for p in payments])
-    
-    groups_stats = []
-    all_groups = Group.objects.all()
-    for group in all_groups:
-        group_payments = payments.filter(group=group)
-        group_income = sum([float(p.paid_amount) for p in group_payments])
-        if group_income > 0:
-            groups_stats.append({
-                'group': group,
-                'income': group_income,
-                'count': group_payments.count(),
-            })
-    
-    groups_stats.sort(key=lambda x: x['income'], reverse=True)
-    
-    monthly_income = []
-    for i in range(11, -1, -1):
-        month_date = today.replace(day=1) - timedelta(days=i*30)
-        month_start = month_date.replace(day=1)
-        if month_start.month == 12:
-            month_end = month_start.replace(day=31)
-        else:
-            next_month = month_start.replace(month=month_start.month + 1, day=1)
-            month_end = next_month - timedelta(days=1)
-        
-        paid_with_date = Payment.objects.filter(
-            paid_amount__gt=0,
-            paid_at__isnull=False,
-            paid_at__date__gte=month_start,
-            paid_at__date__lte=month_end
-        )
-        
-        partial_without_date = Payment.objects.filter(
-            paid_amount__gt=0,
-            paid_at__isnull=True,
-            end_date__gte=month_start,
-            end_date__lte=month_end
-        )
-        
-        month_income = sum([float(p.paid_amount) for p in paid_with_date]) + \
-                       sum([float(p.paid_amount) for p in partial_without_date])
-        
-        monthly_income.append({
-            'month': month_start.strftime('%B %Y'),
-            'income': month_income,
-        })
-    
+
+    months, group_type = stats_params(request)
+    stats = income_stats(months, group_type)
+    chart_data = {
+        'labels': [c['label'] for c in stats['chart']],
+        'names': [c['name'] for c in stats['chart']],
+        'collected': [c['collected'] for c in stats['chart']],
+        'expected': [c['expected'] for c in stats['chart']],
+        'paid': [c['paid'] for c in stats['chart']],
+        'total': [c['total'] for c in stats['chart']],
+        'debt': [c['debt'] for c in stats['chart']],
+        'current': [c['is_current'] for c in stats['chart']],
+        'text': {
+            'collected': 'Собрано', 'expected': 'Ожидалось', 'paid': 'Оплатили', 'total': 'Всего учеников',
+            'debt': 'Не оплатили', 'current': 'месяц ещё идёт', 'students': 'уч.', 'tenge': '₸',
+            'thousand': 'тыс', 'million': 'млн',
+        },
+    }
     context = {
         'role': role,
-        'total_income': total_income,
-        'groups_stats': groups_stats,
-        'monthly_income': monthly_income,
-        'period': period,
-        'start_date': today.replace(day=1),
-        'end_date': today,
-        'group_filter': group_filter,
-        'all_groups': all_groups,
+        'months': months,
+        'group_type': group_type,
+        'ranges': STATS_RANGES,
+        'stats': stats,
+        'chart_data': chart_data,
+        'start': stats['chart'][0],
+        'end': stats['chart'][-1],
     }
-    
     return render(request, 'dashboard/accountant_stats.html', context)
 
 
 @crm_view
 def export_income_excel(request):
-    """Экспорт статистики доходов в Excel"""
+    """Excel со статистикой доходов за тот же период: месяцы, группы, должники, оплаты"""
     role = get_user_role(request.user)
-    
+
     if role not in ['accountant', 'developer', 'admin']:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
-    
-    today = timezone.localdate()
-    period = request.GET.get('period', 'month')
-    group_filter = request.GET.get('group', 'all')
-    
-    if period == 'month':
-        start_date = today.replace(day=1)
-    elif period == '3months':
-        start_date = today - timedelta(days=90)
-    elif period == 'year':
-        start_date = today.replace(month=1, day=1)
-    else:
-        start_date = today.replace(day=1)
-    
-    end_date = today
-    
-    payments = Payment.objects.filter(
-        is_paid=True,
-        paid_at__date__gte=start_date,
-        paid_at__date__lte=end_date
-    )
-    
-    if group_filter != 'all':
-        payments = payments.filter(group_id=group_filter)
-    
+
+    months, group_type = stats_params(request)
+    stats = income_stats(months, group_type)
+    thin = Side(style='thin', color='E8E5E1')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    def sheet(ws, headers, rows, widths):
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = Font(bold=True, color='FFFFFF')
+            cell.fill = PatternFill(start_color='F97316', end_color='F97316', fill_type='solid')
+            cell.alignment = Alignment(horizontal='center')
+            cell.border = border
+        for r, values in enumerate(rows, 2):
+            for col, value in enumerate(values, 1):
+                cell = ws.cell(row=r, column=col, value=value)
+                cell.border = border
+                if isinstance(value, (int, float)) and headers[col - 1].endswith('₸'):
+                    cell.number_format = '#,##0'
+        for i, width in enumerate(widths, 1):
+            ws.column_dimensions[get_column_letter(i)].width = width
+        ws.freeze_panes = 'A2'
+
     wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = 'Доходы'
-    
-    headers = ['Ученик', 'Группа', 'Сумма', 'Дата оплаты', 'Кто отметил']
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.font = Font(bold=True, color='FFFFFF', size=12)
-        cell.fill = PatternFill(start_color='4F46E5', end_color='4F46E5', fill_type='solid')
-        cell.alignment = Alignment(horizontal='center')
-        cell.border = Border(
-            left=Side(style='thin'), right=Side(style='thin'),
-            top=Side(style='thin'), bottom=Side(style='thin')
-        )
-    
-    for row, payment in enumerate(payments, 2):
-        data = [
-            payment.student.name,
-            payment.group.name,
-            float(payment.paid_amount),
-            payment.paid_at.strftime('%d.%m.%Y') if payment.paid_at else '—',
-            payment.marked_by.username if payment.marked_by else '—',
-        ]
-        for col, value in enumerate(data, 1):
-            cell = ws.cell(row=row, column=col, value=value)
-            cell.border = Border(
-                left=Side(style='thin'), right=Side(style='thin'),
-                top=Side(style='thin'), bottom=Side(style='thin')
-            )
-    
-    for letter, width in [('A', 25), ('B', 25), ('C', 15), ('D', 15), ('E', 20)]:
-        ws.column_dimensions[letter].width = width
-    
+    sheet(wb.active, ['Месяц', 'Ожидалось, ₸', 'Собрано, ₸', 'Собрано, %', 'Оплатили', 'Учеников', 'Не оплатили, ₸'],
+          [[c['name'] + (' (идёт)' if c['is_current'] else ''), c['expected'], c['collected'], c['rate'],
+            c['paid'], c['total'], c['debt']] for c in stats['chart']],
+          [20, 16, 16, 12, 12, 12, 16])
+    wb.active.title = 'По месяцам'
+    sheet(wb.create_sheet('По группам'), ['Группа', 'Учитель', 'Тип', 'Учеников', 'Собрано, ₸', 'Доля, %', 'Собрано вовремя, %', 'Долг, ₸'],
+          [[x['group'].name, x['group'].teacher.username if x['group'].teacher else '', x['group'].get_group_type_display(),
+            x['students'], x['collected'], x['share'], x['rate'], x['debt']] for x in stats['groups']],
+          [28, 18, 16, 12, 16, 10, 18, 14])
+    sheet(wb.create_sheet('Должники'), ['Ученик', 'Телефон', 'Телефон родителя', 'Группы', 'Месяцы', 'Долг, ₸'],
+          [[d['student'].name, d['student'].phone, d['student'].parent_phone, ', '.join(d['groups']),
+            ', '.join(f'{MONTHS_RU[x["month"] - 1]} {x["year"]}' for x in d['months']), d['amount']] for d in stats['debtors']],
+          [26, 18, 18, 28, 30, 14])
+    first = stats['range_cycles'][0]
+    paid = Payment.objects.filter(is_paid=True, cycle_number__gte=first[0] * 100 + first[1]) \
+        .select_related('student', 'group', 'marked_by').order_by('cycle_number', 'group__name', 'student__name')
+    if group_type in ('group', 'individual'):
+        paid = paid.filter(group__group_type=group_type)
+    sheet(wb.create_sheet('Оплаты'), ['Месяц', 'Ученик', 'Группа', 'Сумма, ₸', 'Дата оплаты', 'Кто отметил'],
+          [[f'{MONTHS_RU[p.cycle_number % 100 - 1]} {p.cycle_number // 100}', p.student.name, p.group.name,
+            int(p.paid_amount or p.amount),
+            timezone.localtime(p.paid_at).strftime('%d.%m.%Y') if p.paid_at else '',
+            p.marked_by.username if p.marked_by else ''] for p in paid],
+          [18, 26, 26, 14, 14, 18])
+
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    response['Content-Disposition'] = 'attachment; filename="income_report.xlsx"'
+    response['Content-Disposition'] = f'attachment; filename="income_{months}m.xlsx"'
     wb.save(response)
     return response
 
