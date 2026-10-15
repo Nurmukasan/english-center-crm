@@ -31,6 +31,11 @@ Tailwind «светлый / dark:» — тёмный режим больше н�
         --accent-ink: #c2410c;
         --accent-soft: #fff3e8;
         --accent-line: #fed7aa;
+        --accent-100: #ffe8d4;        /* наведение на мягкий фон */
+        --accent-300: #fdba74;        /* светлые столбики и полосы */
+        --accent-select: #ffd7b5;     /* выделение текста */
+        --accent-rgb: 249, 115, 22;   /* для теней и подсветки: rgba(var(--accent-rgb), .16) */
+        --accent-glow: 251, 146, 60;  /* пятно на фоне */
         --ok: #16a34a;  --ok-soft: #edfbf2;  --ok-line: #bbf0cf;  --ok-ink: #15803d;
         --warn: #d97706; --warn-soft: #fff8e6; --warn-line: #fde3a7; --warn-ink: #b45309;
         --bad: #dc2626; --bad-soft: #fdf1f1; --bad-line: #f8cccc; --bad-ink: #b91c1c;
@@ -43,9 +48,23 @@ Tailwind «светлый / dark:» — тёмный режим больше н�
         --spring-soft: cubic-bezier(.22, 1, .36, 1);
         --spring-soft-dur: 800ms;
     }
+{% if request.user.profile.role == 'manager' %}
+    :root {
+        --accent: #0d9488;
+        --accent-hover: #0f766e;
+        --accent-ink: #0f766e;
+        --accent-soft: #edfaf7;
+        --accent-line: #a7e8dc;
+        --accent-100: #d5f5ee;
+        --accent-300: #5fd3c0;
+        --accent-select: #c3f0e7;
+        --accent-rgb: 13, 148, 136;
+        --accent-glow: 45, 212, 191;
+    }
+{% endif %}
     html.ee { background: var(--bg); color-scheme: light; }
     html.ee body { background: transparent !important; color: var(--ink); }
-    html.ee ::selection { background: #ffd7b5; color: var(--ink); }
+    html.ee ::selection { background: var(--accent-select); color: var(--ink); }
 
     /* ---------- Шрифт (иконки Font Awesome не трогаем) ---------- */
     html.ee body,
@@ -58,7 +77,7 @@ Tailwind «светлый / dark:» — тёмный режим больше н�
     /* ---------- Фон: тёплый светло-серый, сетка точек и мягкое оранжевое пятно ---------- */
     .ee-mesh { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; background: var(--bg); }
     .ee-blob { position: absolute; border-radius: 9999px; filter: blur(80px); }
-    .ee-blob.b1 { width: 46vw; height: 46vw; min-width: 320px; min-height: 320px; right: -14vw; top: -22vw; background: radial-gradient(circle, rgba(251, 146, 60, .22), transparent 65%); }
+    .ee-blob.b1 { width: 46vw; height: 46vw; min-width: 320px; min-height: 320px; right: -14vw; top: -22vw; background: radial-gradient(circle, rgba(var(--accent-glow), .22), transparent 65%); }
     .ee-blob.b2 { width: 40vw; height: 40vw; min-width: 280px; min-height: 280px; left: -16vw; bottom: -20vw; background: radial-gradient(circle, rgba(168, 162, 158, .18), transparent 65%); }
     .ee-blob.b3 { display: none; }
     .ee-grid {
@@ -95,6 +114,12 @@ Tailwind «светлый / dark:» — тёмный режим больше н�
     html.ee :is(.hover\:text-indigo-600, .hover\:text-indigo-500, .hover\:text-white, .hover\:text-violet-300):hover { color: var(--accent-hover); }
     html.ee :is(.text-amber-200, .text-amber-300, .text-yellow-300, .text-yellow-400, .text-amber-400) { color: #d97706; }
     html.ee :is(.text-amber-500, .text-amber-600, .text-yellow-500, .text-yellow-600, .text-orange-400, .text-orange-500) { color: var(--accent-ink); }
+    html.ee :is(.text-orange-300) { color: var(--accent-300); }
+    html.ee :is(.text-orange-600, .text-orange-700, .text-orange-800, .\!text-orange-700) { color: var(--accent-ink) !important; }
+    html.ee :is(.bg-orange-5, .bg-orange-50, .bg-orange-50\/40, .bg-orange-100, .\!bg-orange-50, .hover\:bg-orange-50:hover) { background-color: var(--accent-soft) !important; }
+    html.ee :is(.bg-orange-200) { background-color: var(--accent-line) !important; }
+    html.ee :is(.border-orange-200, .\!border-orange-300) { border-color: var(--accent-line) !important; }
+    html.ee :is(.ring-orange-300) { --tw-ring-color: var(--accent-line); }
     html.ee :is(.text-emerald-200, .text-emerald-300, .text-emerald-400, .text-green-300, .text-green-400, .text-green-500, .text-green-600) { color: var(--ok-ink); }
     html.ee :is(.text-red-300, .text-red-400, .text-red-500, .text-red-600, .text-rose-200, .text-rose-300) { color: var(--bad-ink); }
 
@@ -142,7 +167,7 @@ Tailwind «светлый / dark:» — тёмный режим больше н�
     html.ee :is(input, select, textarea):focus {
         outline: none;
         border-color: var(--accent) !important;
-        box-shadow: 0 0 0 3px rgba(249, 115, 22, .16) !important;
+        box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .16) !important;
     }
     html.ee ::placeholder { color: var(--faint) !important; }
     html.ee select option { background: #fff; color: var(--ink); }
@@ -244,7 +269,7 @@ Tailwind «светлый / dark:» — тёмный режим больше н�
     .ee-rail-item:hover > span:last-child { opacity: 1; transform: translate(0, -50%); }
     .ee-rail-glow {
         position: absolute; left: 0; top: 0; width: 48px; height: 48px; border-radius: 14px; pointer-events: none;
-        background: var(--accent); box-shadow: 0 6px 16px -8px rgba(249, 115, 22, .7);
+        background: var(--accent); box-shadow: 0 6px 16px -8px rgba(var(--accent-rgb), .7);
         transition: transform var(--spring-dur) var(--spring), opacity .3s ease;
     }
     .ee-lang-code { font-size: 12px; font-weight: 800; letter-spacing: .06em; padding: 3px 7px; border-radius: 8px; border: 1px solid var(--line-strong); color: var(--ink-2); }

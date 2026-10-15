@@ -66,7 +66,7 @@
         .vars { display: flex; flex-wrap: wrap; gap: 6px; }
         .var { padding: 4px 9px; border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--accent-ink); background: var(--accent-soft);
             border: 1px dashed var(--accent-line); transition: background .15s ease; }
-        .var:hover { background: #ffe8d4; }
+        .var:hover { background: var(--accent-100); }
         html.ee textarea#text { min-height: 220px; line-height: 1.5; font-size: 14.5px; border-radius: 14px; padding: 14px 16px; resize: vertical; }
 
         /* ---------- Предпросмотр как в WhatsApp ---------- */
@@ -107,7 +107,7 @@
         .summary { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); }
         .summary b { color: var(--ink); }
         .send-btn { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 15px; border-radius: 14px;
-            font-weight: 800; font-size: 15px; color: #fff; background: var(--accent); box-shadow: 0 10px 22px -12px rgba(249, 115, 22, .8);
+            font-weight: 800; font-size: 15px; color: #fff; background: var(--accent); box-shadow: 0 10px 22px -12px rgba(var(--accent-rgb), .8);
             transition: background .2s ease, transform var(--spring-dur) var(--spring); }
         .send-btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
         .send-btn:disabled { background: var(--line-strong); box-shadow: none; cursor: not-allowed; transform: none; }
