@@ -12,7 +12,7 @@ class Student(models.Model):
     grade = models.CharField(max_length=20, blank=True, verbose_name="Класс")
     age = models.IntegerField(null=True, blank=True, verbose_name="Возраст")
     price_per_lesson = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0,
+        max_digits=10, decimal_places=2, default=3000,
         verbose_name="Цена за 1 урок"
     )
     created_at = models.DateTimeField(auto_now_add=True)
