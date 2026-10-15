@@ -217,9 +217,11 @@
                 <h1 class="text-xl font-bold text-white hidden sm:block">Оплаты</h1>
             </div>
             <div class="flex items-center gap-2">
+                {% if role != 'manager' %}
                 <a href="{% url 'broadcast_page' %}?kind=payment&year={{ year }}&month={{ month }}" class="now-link" title="Напомнить в WhatsApp тем, кто не оплатил">
                     <i class="fab fa-whatsapp"></i><span class="hidden md:inline">Напомнить</span>
                 </a>
+                {% endif %}
                 {% if not is_current %}
                 <a href="?year={{ current_year }}&month={{ current_month }}" class="now-link" title="Текущий месяц">
                     <i class="fas fa-calendar-day"></i><span class="hidden md:inline">Текущий месяц</span>

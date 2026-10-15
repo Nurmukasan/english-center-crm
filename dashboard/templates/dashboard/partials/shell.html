@@ -19,7 +19,7 @@
            class="ee-rail-item {% if url_name in 'dashboard group_detail lesson_history add_group edit_group' %}is-active{% endif %}">
             <i class="fas fa-house"></i><span>Главная</span>
         </a>
-        {% if role == 'teacher' or role == 'developer' or role == 'admin' %}
+        {% if role == 'teacher' or role == 'developer' or role == 'admin' or role == 'manager' %}
         <a href="{% url 'weekly_schedule' %}" data-label="Расписание"
            class="ee-rail-item {% if url_name == 'weekly_schedule' %}is-active{% endif %}">
             <i class="fas fa-calendar-week"></i><span>Расписание</span>
@@ -35,7 +35,7 @@
            class="ee-rail-item {% if url_name in 'individual_lessons add_individual' %}is-active{% endif %}">
             <i class="fas fa-chalkboard-user"></i><span>Индивидуальные</span>
         </a>
-        {% if role == 'admin' or role == 'accountant' or role == 'developer' %}
+        {% if role == 'admin' or role == 'accountant' or role == 'developer' or role == 'manager' %}
         <a href="{% url 'payments_page' %}" data-label="Оплаты"
            class="ee-rail-item {% if url_name in 'payments_page payment_management' %}is-active{% endif %}">
             <i class="fas fa-coins"></i><span>Оплаты</span>
@@ -170,8 +170,8 @@
     pages.push({ name: 'Профиль', url: '{% url "profile" %}', icon: 'fas fa-user' });
     pages.push({ name: 'Выйти', url: '{% url "logout" %}', icon: 'fas fa-arrow-right-from-bracket' });
     {% if role != 'teacher' %}pages.push({ name: 'Скачать Excel', url: '{% url "export_excel" %}', icon: 'fas fa-file-excel' });{% endif %}
-    {% if role != 'teacher' %}pages.push({ name: 'Напомнить об оплате в WhatsApp', url: '{% url "broadcast_page" %}?kind=payment', icon: 'fab fa-whatsapp' });{% endif %}
-    {% if role == 'admin' or role == 'developer' %}
+    {% if role == 'admin' or role == 'accountant' or role == 'developer' %}pages.push({ name: 'Напомнить об оплате в WhatsApp', url: '{% url "broadcast_page" %}?kind=payment', icon: 'fab fa-whatsapp' });{% endif %}
+    {% if role == 'admin' or role == 'developer' or role == 'manager' %}
     pages.push({ name: 'Создать группу', url: '{% url "add_group" %}', icon: 'fas fa-users-rectangle' });
     pages.push({ name: 'Добавить ученика', url: '{% url "add_student" %}', icon: 'fas fa-user-plus' });
     pages.push({ name: 'Новый индивидуальный ученик', url: '{% url "add_individual" %}', icon: 'fas fa-chalkboard-user' });
