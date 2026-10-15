@@ -11,7 +11,7 @@
     <style>
         :root {
             --money: var(--accent);          /* собрано */
-            --money-soft: #fdba74;           /* собрано в месяце, который ещё идёт */
+            --money-soft: var(--accent-300);           /* собрано в месяце, который ещё идёт */
             --track: var(--surface-3);       /* ожидалось */
         }
 
@@ -100,7 +100,7 @@
         /* ---------- Рейтинг групп ---------- */
         .search { display: flex; align-items: center; gap: 10px; padding: 0 12px; height: 40px; border-radius: 12px; flex: 1 1 200px; max-width: 280px;
             background: var(--surface); border: 1px solid var(--line-strong); }
-        .search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(249, 115, 22, .16); }
+        .search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .16); }
         .search i { color: var(--faint); }
         html.ee .search input#q { flex: 1; min-width: 0; height: 100%; padding: 0; background: transparent !important; border: 0 !important;
             box-shadow: none !important; outline: 0; color: var(--ink) !important; font-weight: 600; font-size: 14px; }

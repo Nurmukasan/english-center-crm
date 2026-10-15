@@ -53,7 +53,7 @@
         .meter { height: 6px; border-radius: 9999px; overflow: hidden; background: var(--surface-3); }
         .meter i { display: block; height: 100%; width: 0; border-radius: inherit; transition: width 1.3s var(--spring-soft); }
         .bars { display: flex; align-items: flex-end; gap: 3px; height: 40px; flex-shrink: 0; }
-        .bars span { width: 8px; min-height: 3px; border-radius: 3px 3px 0 0; background: #fdba74;
+        .bars span { width: 8px; min-height: 3px; border-radius: 3px 3px 0 0; background: var(--accent-300);
             transform-origin: bottom; animation: grow .8s var(--spring-soft) both; animation-delay: calc(var(--i) * 40ms + .2s); }
         .bars span:last-child { background: var(--accent); }
         @keyframes grow { from { transform: scaleY(0); } }

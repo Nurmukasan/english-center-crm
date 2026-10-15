@@ -120,6 +120,11 @@ class ManagerTests(CRMTestCase):
                                 {'student_id': self.other_student.id, 'year': year, 'month': month}).json()
         self.assertTrue(data['success'])
 
+    def test_manager_has_green_accent(self):
+        self.assertContains(self.client.get('/payments/'), '--accent: #0d9488;')
+        self.login(self.admin)
+        self.assertNotContains(self.client.get('/payments/'), '--accent: #0d9488;')
+
     def test_manager_has_no_stats_broadcasts_books_and_rating(self):
         for url in ['/accountant-stats/', '/broadcast/', '/books-status/', '/star-rating/']:
             self.assertRedirects(self.client.get(url), '/dashboard/', fetch_redirect_response=False, msg_prefix=url)
