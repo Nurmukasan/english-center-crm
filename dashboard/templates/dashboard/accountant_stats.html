@@ -3,161 +3,565 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Статистика — Enjoy English</title>
+    <title>Статистика — Enjoy English CRM</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
     <style>
-        * { font-family: 'Inter', sans-serif; }
-        .fade-in { animation: fadeIn 0.4s ease; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        :root {
+            --money: var(--accent);          /* собрано */
+            --money-soft: #fdba74;           /* собрано в месяце, который ещё идёт */
+            --track: var(--surface-3);       /* ожидалось */
+        }
+
+        /* ---------- Шапка ---------- */
+        .head-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff; font-size: 17px; background: var(--accent); }
+        .seg { display: inline-flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); }
+        .seg a, .seg button { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 9px; font-size: 13px; font-weight: 700;
+            white-space: nowrap; color: var(--muted); transition: background .2s ease, color .2s ease; }
+        .seg a:hover, .seg button:hover { color: var(--ink); background: var(--surface-2); }
+        .seg .is-on { background: var(--accent-soft); color: var(--accent-ink); box-shadow: inset 0 0 0 1px var(--accent-line); }
+        .seg .is-on:hover { background: var(--accent-soft); color: var(--accent-ink); }
+
+        /* ---------- Плитки ---------- */
+        .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+        .kpi { position: relative; padding: 20px; display: flex; flex-direction: column; gap: 6px; min-height: 150px; }
+        .kpi .eyebrow { display: flex; align-items: center; gap: 8px; }
+        .kpi-value { font-size: clamp(26px, 3vw, 34px); font-weight: 800; line-height: 1.1; color: var(--ink); letter-spacing: -.02em; white-space: nowrap; margin-top: 6px; }
+        .kpi-value small { font-size: .5em; font-weight: 700; color: var(--faint); letter-spacing: 0; }
+        .kpi-sub { font-size: 13px; font-weight: 600; color: var(--muted); margin-top: auto; }
+        .kpi.is-link { transition: border-color .2s ease, transform var(--spring-dur) var(--spring); }
+        .kpi.is-link:hover { border-color: var(--accent-line); transform: translateY(-2px); }
+        .delta { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+        .delta.up { color: var(--ok-ink); background: var(--ok-soft); }
+        .delta.down { color: var(--bad-ink); background: var(--bad-soft); }
+        .delta.flat { color: var(--muted); background: var(--surface-2); }
+        .kpi-ring { position: absolute; right: 18px; top: 18px; width: 64px; height: 64px; }
+        .kpi-ring circle { fill: none; stroke-width: 7; }
+        .kpi-ring ~ .eyebrow { padding-right: 72px; }
+        .kpi-ring .track { stroke: var(--surface-3); }
+        .kpi-ring .fill { stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; transform: rotate(-90deg); transform-origin: center;
+            transition: stroke-dashoffset 1.4s var(--spring-soft) .2s; }
+        .tone-ok { color: var(--ok-ink); } .tone-warn { color: var(--warn-ink); } .tone-bad { color: var(--bad-ink); }
+        .kpi-ring .fill.tone-ok { stroke: var(--ok); } .kpi-ring .fill.tone-warn { stroke: var(--warn); } .kpi-ring .fill.tone-bad { stroke: var(--bad); }
+
+        .facts { display: flex; flex-wrap: wrap; gap: 8px; }
+        .fact { display: inline-block; padding: 9px 14px; border-radius: 12px; font-size: 13px; font-weight: 600; line-height: 1.45; color: var(--ink-2);
+            background: var(--surface); border: 1px solid var(--line); }
+        .fact i { color: var(--accent); margin-right: 8px; }
+        .fact b { color: var(--ink); font-weight: 800; }
+        a.fact:hover { border-color: var(--accent-line); }
+        .fact.is-note { background: var(--surface-2); color: var(--muted); }
+        .fact.is-note i { color: var(--faint); }
+
+        /* ---------- График ---------- */
+        .chart-box { position: relative; height: 300px; }
+        .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; font-weight: 600; color: var(--muted); }
+        .legend span { display: inline-flex; align-items: center; gap: 7px; }
+        .legend i { width: 10px; height: 10px; border-radius: 3px; }
+        .table-toggle { font-size: 13px; font-weight: 700; color: var(--muted); }
+        .table-toggle:hover { color: var(--ink); }
+        .mtable { width: 100%; font-size: 13px; border-collapse: collapse; }
+        .mtable th { text-align: right; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding: 8px 10px; border-bottom: 1px solid var(--line); }
+        .mtable th:first-child, .mtable td:first-child { text-align: left; }
+        .mtable td { text-align: right; padding: 9px 10px; border-bottom: 1px solid var(--line); color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .mtable td:first-child { font-weight: 700; color: var(--ink); }
+        .mtable tr.is-current td { background: var(--accent-soft); }
+
+        /* ---------- Должники ---------- */
+        .drow { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 12px; }
+        .drow + .drow { border-top: 1px solid var(--line); }
+        .drow:hover { background: var(--surface-2); }
+        .drow.is-extra { display: none; }
+        .debtors.show-all .drow.is-extra { display: flex; }
+        .dav { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; flex-shrink: 0; font-weight: 800; font-size: 14px;
+            color: var(--bad-ink); background: var(--bad-soft); }
+        .dname { font-weight: 700; font-size: 14px; color: var(--ink); }
+        .dname:hover { text-decoration: underline; text-underline-offset: 3px; }
+        .dmeta { font-size: 12px; font-weight: 600; color: var(--muted); }
+        .dsum { font-weight: 800; font-size: 14px; color: var(--ink); white-space: nowrap; text-align: right; }
+        .dsum small { display: block; font-size: 11px; font-weight: 700; color: var(--bad-ink); }
+        .dgo { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; color: var(--faint); }
+        .dgo:hover { background: var(--accent-soft); color: var(--accent-ink); }
+        .empty-ok { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 34px 12px; text-align: center; color: var(--muted); font-size: 14px; }
+        .empty-ok i { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; font-size: 20px; color: var(--ok-ink); background: var(--ok-soft); }
+
+        /* ---------- Полосы: учителя, доля в группах ---------- */
+        .hbar { height: 8px; border-radius: 9999px; background: var(--track); overflow: hidden; }
+        .hbar i { display: block; height: 100%; width: 0; border-radius: 9999px; background: var(--money); transition: width 1.1s var(--spring-soft); }
+        .trow + .trow { margin-top: 14px; }
+        .split { display: flex; gap: 2px; height: 12px; }
+        .split i { display: block; height: 100%; width: 0; transition: width 1.1s var(--spring-soft); }
+        .split i:first-child { border-radius: 9999px 3px 3px 9999px; background: var(--money); }
+        .split i:last-child { border-radius: 3px 9999px 9999px 3px; background: var(--ink-2); }
+        .split i:only-child { border-radius: 9999px; }
+
+        /* ---------- Рейтинг групп ---------- */
+        .search { display: flex; align-items: center; gap: 10px; padding: 0 12px; height: 40px; border-radius: 12px; flex: 1 1 200px; max-width: 280px;
+            background: var(--surface); border: 1px solid var(--line-strong); }
+        .search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(249, 115, 22, .16); }
+        .search i { color: var(--faint); }
+        html.ee .search input#q { flex: 1; min-width: 0; height: 100%; padding: 0; background: transparent !important; border: 0 !important;
+            box-shadow: none !important; outline: 0; color: var(--ink) !important; font-weight: 600; font-size: 14px; }
+        .ghead, .grp-head { display: grid; grid-template-columns: 28px minmax(0, 2.2fr) minmax(0, 1.6fr) 104px 92px 104px 74px 20px; gap: 14px; align-items: center; }
+        .ghead { padding: 0 16px 10px; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); border-bottom: 1px solid var(--line); }
+        .ghead span:nth-child(n+4) { text-align: right; }
+        .grp { border-bottom: 1px solid var(--line); }
+        .grp:last-child { border-bottom: 0; }
+        .grp.is-hidden { display: none; }
+        .grp-head { width: 100%; padding: 14px 16px; text-align: left; border-radius: 14px; transition: background .2s ease; }
+        .grp-head:hover { background: var(--surface-2); }
+        .grank { font-size: 13px; font-weight: 800; color: var(--faint); text-align: center; font-variant-numeric: tabular-nums; }
+        .gname { display: block; font-weight: 800; font-size: 15px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .gmeta { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .gtag { display: inline-block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: 1px 6px; border-radius: 6px;
+            background: var(--surface-3); color: var(--muted); margin-left: 6px; vertical-align: 2px; }
+        .gincome b { font-weight: 800; font-size: 15px; color: var(--ink); white-space: nowrap; }
+        .gincome small { font-size: 12px; font-weight: 700; color: var(--faint); margin-left: 4px; }
+        .gincome .hbar { height: 6px; margin-top: 7px; }
+        .spark { display: block; width: 104px; height: 28px; overflow: visible; }
+        .spark polyline { fill: none; stroke: var(--money); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round;
+            stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 1.6s var(--spring-soft) .3s; }
+        .is-drawn .spark polyline { stroke-dashoffset: 0; }
+        .chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 9999px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+        .chip.tone-ok { background: var(--ok-soft); } .chip.tone-warn { background: var(--warn-soft); } .chip.tone-bad { background: var(--bad-soft); }
+        .chip.tone-none { color: var(--faint); }
+        .gcell { text-align: right; font-size: 13px; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
+        .gcell .none { color: var(--faint); font-weight: 600; }
+        .chev { color: var(--faint); transition: transform .45s var(--spring-soft); }
+        .grp.is-open .chev { transform: rotate(180deg); }
+        .gbody { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .5s var(--spring-soft); }
+        .grp.is-open .gbody { grid-template-rows: 1fr; }
+        .gbody-inner { min-height: 0; overflow: hidden; }
+        .gmonths { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(28px, 1fr); gap: 6px; align-items: end; padding: 6px 16px 0 58px; }
+        .gm { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .gm-plot { position: relative; width: 100%; height: 84px; display: flex; justify-content: center; }
+        .gm-plot i { position: absolute; bottom: 0; width: min(18px, 70%); border-radius: 4px 4px 0 0; transform-origin: bottom; transform: scaleY(0);
+            transition: transform .7s var(--spring-soft); transition-delay: calc(var(--i) * 30ms); }
+        .grp.is-open .gm-plot i { transform: none; }
+        .gm-plot .t { background: var(--track); }
+        .gm-plot .f { background: var(--money); }
+        .gm.is-current .gm-plot .f { background: var(--money-soft); }
+        .gm span { font-size: 10px; font-weight: 700; color: var(--faint); white-space: nowrap; }
+        .gm.is-current span { color: var(--ink); }
+        .glinks { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 16px 18px 58px; }
+
+        @media (max-width: 1100px) {
+            .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .ghead { display: none; }
+            /* Узко: название на всю строку, под ним доход и собираемость, ниже — динамика, долг и рост */
+            .grp-head { grid-template-columns: 22px minmax(0, 1fr) auto auto 18px; column-gap: 12px; row-gap: 10px;
+                grid-template-areas: "rank name name name chev" "rank income income rate chev" "rank spark debt trend chev"; }
+            .grp-head > :nth-child(1) { grid-area: rank; align-self: start; padding-top: 2px; }
+            .grp-head > :nth-child(2) { grid-area: name; }
+            .grp-head > :nth-child(3) { grid-area: income; }
+            .grp-head > :nth-child(4) { grid-area: spark; justify-content: flex-start; }
+            .grp-head > :nth-child(5) { grid-area: rate; }
+            .grp-head > :nth-child(6) { grid-area: debt; }
+            .grp-head > :nth-child(7) { grid-area: trend; }
+            .grp-head > :nth-child(8) { grid-area: chev; align-self: start; padding-top: 4px; }
+            .gmonths, .glinks { padding-left: 16px; }
+        }
+        @media (max-width: 640px) {
+            .kpis { gap: 10px; }
+            .kpi { padding: 16px; min-height: 0; }
+            .kpi-ring { width: 48px; height: 48px; right: 14px; top: 14px; }
+            .kpi-ring ~ .eyebrow { padding-right: 52px; }
+            .chart-box { height: 240px; }
+            .gmonths { grid-auto-columns: minmax(22px, 1fr); gap: 3px; overflow-x: auto; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .kpi-ring .fill, .hbar i, .split i, .spark polyline, .gm-plot i, .gbody, .chev { transition: none !important; }
         }
     </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
-<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+<body class="min-h-screen">
     {% include 'dashboard/partials/shell.html' %}
 
     <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <div class="flex items-center gap-4">
-                <a href="{% url 'dashboard' %}" class="text-gray-300 hover:text-white">
-                    <i class="fas fa-arrow-left"></i> Назад
-                </a>
-                <div class="flex items-center gap-2">
-                    <i class="fas fa-chart-bar text-2xl text-purple-400"></i>
-                    <h1 class="text-xl font-bold text-white">Статистика доходов</h1>
-                </div>
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+                <span class="head-icon"><i class="fas fa-chart-line"></i></span>
+                <h1 class="text-xl font-bold text-white">Статистика доходов</h1>
             </div>
-            <div class="flex items-center gap-2 md:gap-4">
-                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
-                    <i class="fas fa-moon dark:hidden text-gray-300"></i>
-                    <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
-                </button>
-                <a href="{% url 'logout' %}" class="text-red-400 text-sm">
-                    <i class="fas fa-sign-out-alt"></i> Выйти
+            <div class="flex flex-wrap items-center gap-2">
+                <nav class="seg" aria-label="Период">
+                    {% for r in ranges %}
+                    <a href="?months={{ r }}&type={{ group_type }}" class="{% if r == months %}is-on{% endif %}">{{ r }} мес</a>
+                    {% endfor %}
+                </nav>
+                <nav class="seg" aria-label="Тип занятий">
+                    <a href="?months={{ months }}&type=all" class="{% if group_type == 'all' %}is-on{% endif %}">Все</a>
+                    <a href="?months={{ months }}&type=group" class="{% if group_type == 'group' %}is-on{% endif %}"><i class="fas fa-users"></i><span class="hidden md:inline">Группы</span></a>
+                    <a href="?months={{ months }}&type=individual" class="{% if group_type == 'individual' %}is-on{% endif %}"><i class="fas fa-user"></i><span class="hidden md:inline">Индивидуальные</span></a>
+                </nav>
+                <a href="{% url 'export_income_excel' %}?months={{ months }}&type={{ group_type }}" class="chip-btn" title="Скачать Excel за этот период">
+                    <i class="fas fa-file-excel"></i><span class="hidden sm:inline">Excel</span>
                 </a>
             </div>
         </div>
     </header>
-    
-    <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
-        
-        <!-- Фильтры -->
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6 border border-gray-300 dark:border-gray-600 transition-colors">
-            <form method="GET" class="flex flex-wrap gap-4 items-end">
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+
+        {% if not stats.has_data %}
+        <section class="panel p-12 text-center">
+            <div class="w-16 h-16 rounded-2xl bg-gray-100 text-gray-400 grid place-items-center text-2xl mx-auto mb-4"><i class="fas fa-chart-column"></i></div>
+            <p class="text-lg font-bold">Пока нечего считать</p>
+            <p class="text-gray-400 mt-2">Статистика появится, когда на странице «Оплаты» отметят первые оплаты.</p>
+            <a href="{% url 'payments_page' %}" class="chip-btn mt-5"><i class="fas fa-coins"></i>Открыть оплаты</a>
+        </section>
+        {% else %}
+
+        <!-- Главное за период -->
+        <section class="kpis">
+            <div class="panel kpi">
+                <p class="eyebrow"><i class="fas fa-coins"></i>Собрано за период</p>
+                <p class="kpi-value notranslate"><span data-count="{{ stats.total }}">{{ stats.total_str }}</span> <small>₸</small></p>
+                <p class="kpi-sub">{{ start.name }} — {{ end.name }}</p>
+            </div>
+            <div class="panel kpi">
+                <p class="eyebrow"><i class="fas fa-calendar"></i>В среднем за месяц</p>
+                <p class="kpi-value notranslate"><span data-count="{{ stats.avg_month }}">{{ stats.avg_month_str }}</span> <small>₸</small></p>
+                <p class="kpi-sub">
+                    {% if stats.avg_change is not None %}
+                    <span class="delta {% if stats.avg_change > 0 %}up{% elif stats.avg_change < 0 %}down{% else %}flat{% endif %}">
+                        <i class="fas {% if stats.avg_change > 0 %}fa-arrow-trend-up{% elif stats.avg_change < 0 %}fa-arrow-trend-down{% else %}fa-equals{% endif %}"></i>{% if stats.avg_change > 0 %}+{% endif %}{{ stats.avg_change }}%
+                    </span> к прошлым {{ months }} мес
+                    {% else %}за прошедшие месяцы, без текущего{% endif %}
+                </p>
+            </div>
+            <div class="panel kpi">
+                {% if stats.rate is not None %}
+                <svg class="kpi-ring" viewBox="0 0 64 64" aria-hidden="true">
+                    <circle class="track" cx="32" cy="32" r="27"></circle>
+                    <circle class="fill {% if stats.rate >= 90 %}tone-ok{% elif stats.rate >= 70 %}tone-warn{% else %}tone-bad{% endif %}" cx="32" cy="32" r="27" pathLength="100" data-ring="{{ stats.rate }}"></circle>
+                </svg>
+                {% endif %}
+                <p class="eyebrow"><i class="fas fa-percent"></i>Собираемость</p>
+                <p class="kpi-value">{% if stats.rate is not None %}<span data-count="{{ stats.rate }}">{{ stats.rate }}</span><small>%</small>{% else %}—{% endif %}</p>
+                <p class="kpi-sub">
+                    {% if stats.rate_change is not None and stats.rate_change != 0 %}
+                    <span class="delta {% if stats.rate_change > 0 %}up{% else %}down{% endif %}"><i class="fas {% if stats.rate_change > 0 %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>{% if stats.rate_change > 0 %}+{% endif %}{{ stats.rate_change }} п.</span>
+                    {% endif %}
+                    денег от ожидаемых за прошедшие месяцы
+                </p>
+            </div>
+            <a href="#debtors" class="panel kpi is-link">
+                <p class="eyebrow"><i class="fas fa-triangle-exclamation"></i>Не оплатили</p>
+                <p class="kpi-value notranslate {% if stats.debt %}tone-bad{% else %}tone-ok{% endif %}"><span data-count="{{ stats.debt }}">{{ stats.debt_str }}</span> <small>₸</small></p>
+                <p class="kpi-sub">{% if stats.debtors %}{{ stats.debtors|length }} уч. с долгом за прошлые месяцы{% else %}Долгов за прошлые месяцы нет{% endif %}</p>
+            </a>
+        </section>
+
+        <section class="facts">
+            {% if stats.best %}<span class="fact"><i class="fas fa-trophy"></i>Лучший месяц — {{ stats.best.name }}: <b class="notranslate">{{ stats.best_str }} ₸</b></span>{% endif %}
+            {% if stats.avg_check_str %}<span class="fact"><i class="fas fa-receipt"></i>Средний чек — <b class="notranslate">{{ stats.avg_check_str }} ₸</b> в месяц</span>{% endif %}
+            {% if stats.avg_paying %}<span class="fact"><i class="fas fa-user-check"></i>Платят в среднем <b>{{ stats.avg_paying }}</b> уч. в месяц</span>{% endif %}
+            {% if group_type == 'all' and stats.total %}<span class="fact"><i class="fas fa-user"></i>Индивидуальные — <b>{{ stats.individual_share }}%</b> дохода</span>{% endif %}
+            <a href="{% url 'payments_page' %}?year={{ stats.now.year }}&month={{ stats.now.month }}" class="fact"><i class="fas fa-hourglass-half"></i>{{ stats.now.name }} идёт: собрано <b class="notranslate">{{ stats.now_collected_str }}</b> из <span class="notranslate">{{ stats.now_expected_str }}</span> ₸</a>
+            {% if stats.first_label %}<span class="fact is-note"><i class="fas fa-circle-info"></i>Оплаты в CRM отмечаются с {{ stats.first_label }} — раньше данных нет</span>{% endif %}
+        </section>
+
+        <!-- По месяцам -->
+        <section class="panel p-5 sm:p-6">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div>
-                    <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">Период</label>
-                    <select name="period" class="px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
-                        <option value="month" {% if period == 'month' %}selected{% endif %}>За месяц</option>
-                        <option value="3months" {% if period == '3months' %}selected{% endif %}>За 3 месяца</option>
-                        <option value="year" {% if period == 'year' %}selected{% endif %}>За год</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">Группа</label>
-                    <select name="group" class="px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
-                        <option value="all" {% if group_filter == 'all' %}selected{% endif %}>Все группы</option>
-                        {% for group in all_groups %}
-                        <option value="{{ group.id }}" {% if group_filter == group.id|stringformat:"s" %}selected{% endif %}>{{ group.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <button type="submit" class="bg-indigo-500 text-white px-6 py-2 rounded-lg hover:bg-indigo-600 transition">
-                    Применить
-                </button>
-                <a href="{% url 'export_income_excel' %}?period={{ period }}&group={{ group_filter }}"
-                   class="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition">
-                    <i class="fas fa-file-excel mr-1"></i> Excel
-                </a>
-            </form>
-        </div>
-        
-        <!-- Общий доход -->
-        <div class="bg-gray-800 rounded-xl p-8 mb-8 text-white shadow-lg fade-in">
-            <p class="text-sm opacity-80 mb-2"><i class="fas fa-money-bill mr-1"></i>Общий доход</p>
-            <p class="text-4xl font-bold">{{ total_income|floatformat:0 }} ₸</p>
-            <p class="text-sm opacity-80 mt-2">{{ start_date|date:"d.m.Y" }} — {{ end_date|date:"d.m.Y" }}</p>
-        </div>
-        
-        <!-- График -->
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8 border border-gray-300 dark:border-gray-600 transition-colors">
-            <h3 class="font-bold text-gray-800 dark:text-white mb-4">
-                <i class="fas fa-chart-line text-indigo-500 mr-2"></i>Доход по месяцам
-            </h3>
-            <canvas id="incomeChart" height="100"></canvas>
-        </div>
-        
-        <!-- По группам -->
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-6 border border-gray-300 dark:border-gray-600 transition-colors">
-            <h3 class="font-bold text-gray-800 dark:text-white mb-4">
-                <i class="fas fa-users text-indigo-500 mr-2"></i>По группам
-            </h3>
-            <div class="space-y-4">
-                {% for stat in groups_stats %}
-                <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3">
-                    <div>
-                        <p class="font-medium text-gray-800 dark:text-white">{{ stat.group.name }}</p>
-                        <p class="text-sm text-gray-400">{{ stat.count }} оплат</p>
+                    <h2 class="text-lg font-bold">По месяцам</h2>
+                    <div class="legend mt-1" id="legend">
+                        <span><i style="background: var(--money)"></i><span data-legend="collected">Собрано</span></span>
+                        <span><i style="background: var(--track)"></i><span data-legend="expected">Ожидалось</span></span>
+                        <span><i style="background: var(--money-soft)"></i>Текущий месяц — ещё идёт</span>
                     </div>
-                    <p class="font-bold text-indigo-600 dark:text-indigo-400">{{ stat.income|floatformat:0 }} ₸</p>
+                </div>
+                <div class="seg" id="modeSeg">
+                    <button type="button" data-mode="money" class="is-on"><i class="fas fa-coins"></i>Деньги</button>
+                    <button type="button" data-mode="people"><i class="fas fa-user-check"></i>Ученики</button>
+                </div>
+            </div>
+            <div class="chart-box"><canvas id="monthChart" aria-label="Доход по месяцам" role="img"></canvas></div>
+            <details class="mt-4">
+                <summary class="table-toggle cursor-pointer"><i class="fas fa-table mr-1"></i>Таблица по месяцам</summary>
+                <div class="overflow-x-auto mt-3">
+                    <table class="mtable">
+                        <thead><tr><th>Месяц</th><th>Ожидалось</th><th>Собрано</th><th>%</th><th>Оплатили</th><th>Не оплатили</th></tr></thead>
+                        <tbody>
+                            {% for c in stats.chart %}
+                            <tr class="{% if c.is_current %}is-current{% endif %}">
+                                <td>{{ c.name }}{% if c.is_current %} · идёт{% endif %}</td>
+                                <td class="notranslate">{% if c.has_data %}{{ c.expected_str }} ₸{% else %}—{% endif %}</td>
+                                <td class="notranslate">{% if c.has_data %}{{ c.collected_str }} ₸{% else %}—{% endif %}</td>
+                                <td>{% if c.rate is not None %}{{ c.rate }}%{% else %}—{% endif %}</td>
+                                <td>{% if c.has_data %}{{ c.paid }} / {{ c.total }}{% else %}—{% endif %}</td>
+                                <td class="notranslate">{% if c.debt %}{{ c.debt_str }} ₸{% else %}—{% endif %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+        </section>
+
+        <!-- Должники и учителя -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div class="panel p-5 sm:p-6 lg:col-span-7 debtors" id="debtors">
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                        <h2 class="text-lg font-bold">Не оплатили за прошлые месяцы</h2>
+                        <p class="text-sm text-gray-500">Текущий месяц сюда не входит — он ещё идёт</p>
+                    </div>
+                    {% if stats.debtors %}<span class="chip tone-bad notranslate">{{ stats.debt_str }} ₸</span>{% endif %}
+                </div>
+                {% for d in stats.debtors %}
+                <div class="drow{% if forloop.counter > 8 %} is-extra{% endif %}">
+                    <span class="dav notranslate">{{ d.student.name|slice:":1"|upper }}</span>
+                    <div class="min-w-0 flex-1">
+                        <a href="{% url 'student_profile' d.student.id %}" class="dname notranslate truncate block">{{ d.student.name }}</a>
+                        <p class="dmeta truncate"><span class="notranslate">{{ d.groups|join:", " }}</span> · {{ d.month_labels }}</p>
+                    </div>
+                    <p class="dsum notranslate">{{ d.amount_str }} ₸<small>{{ d.months|length }} мес</small></p>
+                    <a href="{% url 'payments_page' %}?year={{ d.first.year }}&month={{ d.first.month }}&search={{ d.student.name|urlencode }}" class="dgo" title="Открыть в оплатах"><i class="fas fa-arrow-right"></i></a>
                 </div>
                 {% empty %}
-                <p class="text-gray-400 text-center py-4">Нет данных</p>
+                <div class="empty-ok"><i class="fas fa-check"></i><p class="font-bold text-gray-800">Все прошлые месяцы оплачены</p></div>
+                {% endfor %}
+                {% if stats.debtors|length > 8 %}
+                <button type="button" class="chip-btn mt-3" onclick="this.closest('.debtors').classList.add('show-all'); this.remove()">
+                    <i class="fas fa-chevron-down"></i>Показать всех · {{ stats.debtors|length }}
+                </button>
+                {% endif %}
+            </div>
+
+            <div class="lg:col-span-5 space-y-6">
+                <div class="panel p-5 sm:p-6">
+                    <h2 class="text-lg font-bold mb-4">По учителям</h2>
+                    {% for t in stats.teachers %}
+                    <div class="trow">
+                        <div class="flex items-baseline justify-between gap-3 mb-1.5">
+                            <p class="font-bold truncate"><span class="notranslate">{{ t.name|default:"Без учителя" }}</span> <span class="text-xs text-gray-500 font-semibold">· {{ t.groups }} гр. · {{ t.students }} уч.</span></p>
+                            <p class="font-bold whitespace-nowrap notranslate">{{ t.collected_str }} ₸ <span class="text-xs text-gray-500">{{ t.share }}%</span></p>
+                        </div>
+                        <div class="hbar"><i data-w="{{ t.bar }}"></i></div>
+                    </div>
+                    {% empty %}
+                    <p class="text-sm text-gray-500">Нет данных</p>
+                    {% endfor %}
+                </div>
+                {% if group_type == 'all' and stats.total %}
+                <div class="panel p-5 sm:p-6">
+                    <h2 class="text-lg font-bold mb-4">Группы и индивидуальные</h2>
+                    <div class="split" role="img" aria-label="Группы {{ stats.group_share }}%, индивидуальные {{ stats.individual_share }}%">
+                        {% if stats.group_share %}<i data-w="{{ stats.group_share }}"></i>{% endif %}{% if stats.individual_share %}<i data-w="{{ stats.individual_share }}"></i>{% endif %}
+                    </div>
+                    <div class="legend mt-3" style="justify-content: space-between">
+                        <span><i style="background: var(--money)"></i>Группы · <b class="text-gray-800 notranslate">{{ stats.group_total_str }} ₸</b> · {{ stats.group_share }}%</span>
+                        <span><i style="background: var(--ink-2)"></i>Индивидуальные · <b class="text-gray-800 notranslate">{{ stats.individual_total_str }} ₸</b> · {{ stats.individual_share }}%</span>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </section>
+
+        <!-- Группы -->
+        <section class="panel p-3 sm:p-4" id="groupsPanel">
+            <div class="flex flex-wrap items-center gap-3 px-2 sm:px-3 pt-2 pb-4">
+                <h2 class="text-lg font-bold mr-auto">Группы <span class="text-gray-500 font-semibold">· {{ stats.groups|length }}</span></h2>
+                <label class="search">
+                    <i class="fas fa-magnifying-glass"></i>
+                    <input type="search" id="q" placeholder="Группа или учитель…" autocomplete="off">
+                </label>
+                <div class="seg" id="sortSeg" aria-label="Сортировка">
+                    <button type="button" data-sort="collected" class="is-on">Доход</button>
+                    <button type="button" data-sort="trend">Рост</button>
+                    <button type="button" data-sort="rate">Собираемость</button>
+                    <button type="button" data-sort="debt">Долг</button>
+                </div>
+            </div>
+            <div class="ghead" aria-hidden="true">
+                <span>#</span><span>Группа</span><span>Собрано за период</span><span>По месяцам</span><span>Собираемость</span><span>Долг</span><span>Рост</span><span></span>
+            </div>
+            <div id="groupRows">
+                {% for g in stats.groups %}
+                <div class="grp" data-collected="{{ g.collected }}" data-trend="{{ g.trend|default_if_none:'-9999' }}" data-rate="{{ g.rate|default_if_none:'-1' }}"
+                     data-debt="{{ g.debt }}" data-search="{{ g.group.name|lower }} {{ g.group.teacher.username|lower }}">
+                    <button type="button" class="grp-head" onclick="toggleGroup(this)" aria-expanded="false">
+                        <span class="grank">{{ forloop.counter }}</span>
+                        <span class="min-w-0">
+                            <span class="gname"><span class="notranslate">{{ g.group.name }}</span>{% if g.group.group_type == 'individual' %}<span class="gtag">инд.</span>{% endif %}{% if not g.group.is_active %}<span class="gtag">архив</span>{% endif %}</span>
+                            <span class="gmeta"><span class="notranslate">{{ g.group.teacher.username|default:"без учителя" }}</span> · {{ g.students }} уч.{% if g.avg_check %} · чек <span class="notranslate">{{ g.avg_check }}</span> ₸{% endif %}</span>
+                        </span>
+                        <span class="gincome">
+                            <b class="notranslate">{{ g.collected_str }} ₸</b><small>{{ g.share }}%</small>
+                            <span class="hbar"><i data-w="{{ g.bar }}"></i></span>
+                        </span>
+                        <span class="flex justify-end">{% if g.spark_points %}<svg class="spark" viewBox="0 0 96 28" preserveAspectRatio="none" aria-hidden="true"><polyline points="{{ g.spark_points }}" pathLength="1"></polyline></svg>{% else %}<span class="gcell"><span class="none">—</span></span>{% endif %}</span>
+                        <span class="gcell">
+                            {% if g.rate is None %}<span class="chip tone-none">—</span>
+                            {% elif g.rate >= 90 %}<span class="chip tone-ok"><i class="fas fa-check"></i>{{ g.rate }}%</span>
+                            {% elif g.rate >= 70 %}<span class="chip tone-warn"><i class="fas fa-minus"></i>{{ g.rate }}%</span>
+                            {% else %}<span class="chip tone-bad"><i class="fas fa-exclamation"></i>{{ g.rate }}%</span>{% endif %}
+                        </span>
+                        <span class="gcell notranslate">{% if g.debt %}<span class="tone-bad">{{ g.debt_str }} ₸</span>{% else %}<span class="none">—</span>{% endif %}</span>
+                        <span class="gcell">
+                            {% if g.is_new %}<span class="delta flat">новая</span>
+                            {% elif g.trend is None %}<span class="none">—</span>
+                            {% elif g.trend > 0 %}<span class="delta up"><i class="fas fa-arrow-up"></i>{{ g.trend }}%</span>
+                            {% elif g.trend < 0 %}<span class="delta down"><i class="fas fa-arrow-down"></i>{{ g.trend|cut:"-" }}%</span>
+                            {% else %}<span class="delta flat">0%</span>{% endif %}
+                        </span>
+                        <i class="fas fa-chevron-down chev"></i>
+                    </button>
+                    <div class="gbody"><div class="gbody-inner">
+                        <div class="gmonths">
+                            {% for m in g.months %}
+                            <div class="gm{% if m.is_current %} is-current{% endif %}" title="{{ m.name }}: собрано {{ m.collected_str }} ₸ из {{ m.expected_str }} ₸">
+                                <span class="gm-plot">
+                                    <i class="t" style="height: {{ m.track }}%; --i: {{ forloop.counter0 }}"></i>
+                                    <i class="f" style="height: {{ m.fill }}%; --i: {{ forloop.counter0 }}"></i>
+                                </span>
+                                <span>{{ m.label }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="glinks">
+                            <a href="{% url 'payments_page' %}?year={{ stats.now.year }}&month={{ stats.now.month }}&search={{ g.group.name|urlencode }}" class="chip-btn"><i class="fas fa-coins"></i>Оплаты группы</a>
+                            <a href="{% url 'group_detail' g.group.id %}" class="chip-btn"><i class="fas fa-users"></i>Страница группы</a>
+                        </div>
+                    </div></div>
+                </div>
+                {% empty %}
+                <p class="text-center text-gray-500 py-10">Нет групп с оплатами за этот период</p>
                 {% endfor %}
             </div>
-        </div>
-        
+            <p class="text-center text-gray-500 py-10 hidden" id="noGroups">Ничего не нашли</p>
+        </section>
+        {% endif %}
     </main>
-    
+
+    {{ chart_data|json_script:"chart-data" }}
     <script>
-        function toggleTheme() {
-            document.documentElement.classList.toggle('dark');
+        const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const fmt = n => Math.round(n).toLocaleString('ru-RU').replace(/\s/g, '\u00a0');
+
+        /* ---------- Цифры докручиваются, полосы и кольцо заполняются ---------- */
+        function countUp(el) {
+            const to = Number(el.dataset.count) || 0;
+            if (reduceMotion || !to) return;
+            const start = performance.now(), dur = 1100;
+            (function step(now) {
+                const t = Math.min(1, (now - start) / dur), e = 1 - Math.pow(1 - t, 4);
+                el.textContent = fmt(to * e);
+                if (t < 1) requestAnimationFrame(step);
+            })(start);
         }
-        
-        
-        const ctx = document.getElementById('incomeChart').getContext('2d');
-        // Цвета графика под тёмную тему
-        Chart.defaults.color = 'rgba(233, 231, 245, 0.6)';
-        Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.06)';
-        Chart.defaults.font.family = 'Manrope, sans-serif';
-        const incomeFill = ctx.createLinearGradient(0, 0, 0, 320);
-        incomeFill.addColorStop(0, 'rgba(192, 38, 211, 0.35)');
-        incomeFill.addColorStop(1, 'rgba(124, 58, 237, 0)');
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [{% for item in monthly_income %}'{{ item.month }}',{% endfor %}],
-                datasets: [{
-                    label: 'Доход (₸)',
-                    data: [{% for item in monthly_income %}{{ item.income }},{% endfor %}],
-                    borderColor: '#c084fc',
-                    backgroundColor: incomeFill,
-                    borderWidth: 3,
-                    pointBackgroundColor: '#fbbf24',
-                    pointBorderColor: '#fbbf24',
-                    pointRadius: 4,
-                    pointHoverRadius: 7,
-                    fill: true,
-                    tension: 0.4,
-                }]
-            },
-            options: {
-                responsive: true,
-                animation: { duration: 1400, easing: 'easeOutQuart' },
+        function fillBars(root) {
+            root.querySelectorAll('[data-w]').forEach(el => { el.style.width = el.dataset.w + '%'; });
+        }
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            document.querySelectorAll('[data-count]').forEach(countUp);
+            document.querySelectorAll('[data-ring]').forEach(el => { el.style.strokeDashoffset = 100 - Number(el.dataset.ring); });
+            fillBars(document);
+            document.getElementById('groupRows')?.classList.add('is-drawn');
+        }));
+
+        /* ---------- График по месяцам ---------- */
+        const D = JSON.parse(document.getElementById('chart-data').textContent);
+        const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        const compact = v => v >= 1e6 ? (v / 1e6).toFixed(1).replace('.0', '').replace('.', ',') + ' ' + D.text.million
+            : v >= 1000 ? Math.round(v / 1000) + ' ' + D.text.thousand : String(v);
+        let chart = null, mode = 'money';
+        function series() {
+            const money = mode === 'money';
+            const fill = D.current.map(cur => cur ? css('--money-soft') || '#fdba74' : css('--accent') || '#f97316');
+            return [
+                { key: money ? 'collected' : 'paid', data: money ? D.collected : D.paid, backgroundColor: fill, hoverBackgroundColor: fill, order: 1 },
+                { key: money ? 'expected' : 'total', data: money ? D.expected : D.total, backgroundColor: css('--surface-3') || '#efedea', hoverBackgroundColor: css('--line-strong') || '#d7d3ce', order: 2 },
+            ].map(s => ({ ...s, label: D.text[s.key], grouped: false, maxBarThickness: 24, borderRadius: { topLeft: 4, topRight: 4 }, borderSkipped: 'start' }));
+        }
+        function drawChart() {
+            const canvas = document.getElementById('monthChart');
+            if (!canvas || !window.Chart) return;
+            const money = mode === 'money';
+            const ink = css('--muted') || '#78716c', grid = css('--line') || '#e8e5e1';
+            const options = {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                animation: reduceMotion ? false : { duration: 900, easing: 'easeOutQuart', delay: ctx => ctx.type === 'data' && ctx.mode === 'default' ? ctx.dataIndex * 35 : 0 },
                 plugins: {
                     legend: { display: false },
-                    tooltip: { backgroundColor: 'rgba(20, 17, 34, 0.95)', borderColor: 'rgba(167, 139, 250, 0.4)', borderWidth: 1, padding: 12, cornerRadius: 10 },
+                    tooltip: {
+                        backgroundColor: '#ffffff', titleColor: '#1f1c1a', bodyColor: '#44403c', borderColor: grid, borderWidth: 1,
+                        padding: 12, cornerRadius: 12, boxPadding: 4, usePointStyle: true,
+                        titleFont: { weight: '800', family: 'Manrope' }, bodyFont: { weight: '600', family: 'Manrope' },
+                        callbacks: {
+                            title: items => D.names[items[0].dataIndex] + (D.current[items[0].dataIndex] ? ' · ' + D.text.current : ''),
+                            label: item => money ? `${item.dataset.label}: ${fmt(item.raw)} ${D.text.tenge}` : `${item.dataset.label}: ${item.raw}`,
+                            afterBody: items => {
+                                const i = items[0].dataIndex;
+                                if (!money || !D.debt[i]) return '';
+                                return `${D.text.debt}: ${fmt(D.debt[i])} ${D.text.tenge}`;
+                            },
+                        },
+                    },
                 },
-                scales: { y: { beginAtZero: true }, x: { grid: { display: false } } }
-            }
+                scales: {
+                    x: { grid: { display: false }, border: { display: false }, ticks: { color: ink, font: { weight: '700', family: 'Manrope', size: 11 } } },
+                    y: { beginAtZero: true, border: { display: false }, grid: { color: grid }, ticks: { color: ink, maxTicksLimit: 5, precision: 0,
+                         font: { weight: '600', family: 'Manrope', size: 11 }, callback: v => money ? compact(v) : v } },
+                },
+            };
+            if (chart) { chart.data.datasets = series(); chart.options = options; chart.update(); return; }
+            chart = new Chart(canvas, { type: 'bar', data: { labels: D.labels, datasets: series() }, options });
+        }
+        document.querySelectorAll('#modeSeg button').forEach(btn => btn.addEventListener('click', () => {
+            mode = btn.dataset.mode;
+            document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('is-on', b === btn));
+            document.querySelector('[data-legend="collected"]').textContent = D.text[mode === 'money' ? 'collected' : 'paid'];
+            document.querySelector('[data-legend="expected"]').textContent = D.text[mode === 'money' ? 'expected' : 'total'];
+            drawChart();
+        }));
+        drawChart();
+
+        /* ---------- Группы: раскрыть, найти, отсортировать ---------- */
+        function toggleGroup(btn) {
+            const row = btn.closest('.grp');
+            row.classList.toggle('is-open');
+            btn.setAttribute('aria-expanded', row.classList.contains('is-open'));
+        }
+        const rowsBox = document.getElementById('groupRows');
+        const q = document.getElementById('q');
+        q?.addEventListener('input', () => {
+            const term = q.value.trim().toLowerCase();
+            let shown = 0;
+            rowsBox.querySelectorAll('.grp').forEach(row => {
+                const hit = !term || row.dataset.search.includes(term);
+                row.classList.toggle('is-hidden', !hit);
+                if (hit) shown++;
+            });
+            document.getElementById('noGroups').classList.toggle('hidden', shown > 0);
         });
-        
+        // Сортировка с плавной перестановкой строк (FLIP)
+        document.querySelectorAll('#sortSeg button').forEach(btn => btn.addEventListener('click', () => {
+            document.querySelectorAll('#sortSeg button').forEach(b => b.classList.toggle('is-on', b === btn));
+            const key = btn.dataset.sort, ascending = key === 'rate';
+            const rows = [...rowsBox.querySelectorAll('.grp')];
+            const before = new Map(rows.map(r => [r, r.getBoundingClientRect().top]));
+            rows.sort((a, b) => {
+                const diff = Number(b.dataset[key]) - Number(a.dataset[key]);
+                return (ascending ? -diff : diff) || Number(b.dataset.collected) - Number(a.dataset.collected);
+            });
+            // По собираемости сначала проблемные; группы без данных — в конце
+            if (ascending) rows.sort((a, b) => (a.dataset.rate === '-1') - (b.dataset.rate === '-1'));
+            rows.forEach((r, i) => { rowsBox.appendChild(r); r.querySelector('.grank').textContent = i + 1; });
+            if (reduceMotion) return;
+            rows.forEach(r => {
+                const dy = before.get(r) - r.getBoundingClientRect().top;
+                if (!dy) return;
+                r.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 520, easing: 'cubic-bezier(.22, 1, .36, 1)' });
+            });
+        }));
     </script>
-    
 </body>
 </html>

@@ -880,3 +880,51 @@ class BroadcastTests(CRMTestCase):
         # Учителю и бухгалтеру настройки WAHA недоступны
         self.login(self.accountant)
         self.assertEqual(self.client.get('/broadcast/whatsapp/qr/').status_code, 403)
+
+
+class IncomeStatsTests(CRMTestCase):
+    def setUp(self):
+        super().setUp()
+        from .views import cycles_back
+        ScheduleSlot.objects.create(group=self.group, day_of_week=0, start_time=time(10), end_time=time(11))
+        Enrollment.objects.update(enrolled_at=timezone.now() - timedelta(days=500))
+        year, month = get_current_period()
+        # Три месяца назад .. текущий: оплачены все, кроме прошлого месяца
+        self.cycles = [y * 100 + m for y, m in cycles_back(year, month, 4)]
+        for cycle in (self.cycles[0], self.cycles[1], self.cycles[3]):
+            Payment.objects.create(student=self.student, group=self.group, cycle_number=cycle, amount=16000,
+                                   paid_amount=16000, is_paid=True, paid_at=timezone.now())
+        self.login(self.accountant)
+
+    def test_stats_for_period(self):
+        stats = self.client.get('/accountant-stats/?months=6').context['stats']
+        self.assertEqual(stats['total'], 48000)
+        # График начинается с первого месяца, когда в CRM отметили оплату
+        first = stats['chart'][0]
+        self.assertEqual(first['year'] * 100 + first['month'], self.cycles[0])
+        self.assertTrue(stats['chart'][-1]['is_current'])
+        # Долг — только за прошлый месяц; текущий ещё идёт и долгом не считается
+        self.assertEqual([d['student'].name for d in stats['debtors']], ['Алия'])
+        debt_month = stats['debtors'][0]['months']
+        self.assertEqual([m['year'] * 100 + m['month'] for m in debt_month], [self.cycles[2]])
+        self.assertGreater(stats['debt'], 0)
+        self.assertTrue(0 < stats['rate'] < 100)
+        group = next(g for g in stats['groups'] if g['group'] == self.group)
+        self.assertEqual((group['collected'], group['debt']), (48000, stats['debt']))
+        self.assertEqual(stats['teachers'][0]['name'], 'teacher')
+
+    def test_filters_and_access(self):
+        self.assertEqual(self.client.get('/accountant-stats/?months=7').context['months'], 12)
+        self.assertEqual(self.client.get('/accountant-stats/?type=individual').context['stats']['total'], 0)
+        self.login(self.teacher)
+        self.assertRedirects(self.client.get('/accountant-stats/'), '/dashboard/', fetch_redirect_response=False)
+
+    def test_excel_export(self):
+        import io
+        import openpyxl
+        response = self.client.get('/accountant-stats/export/?months=6')
+        self.assertEqual(response.status_code, 200)
+        wb = openpyxl.load_workbook(io.BytesIO(response.content))
+        self.assertEqual(wb.sheetnames, ['По месяцам', 'По группам', 'Должники', 'Оплаты'])
+        self.assertEqual(wb['Должники']['A2'].value, 'Алия')
+        self.assertEqual(wb['Оплаты'].max_row, 4)
