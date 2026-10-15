@@ -52,7 +52,7 @@ class Command(BaseCommand):
             urls += [reverse('book_detail', args=[b.id]), reverse('book_reader', args=[b.id])]
 
         users = []
-        for role in ['admin', 'developer', 'accountant', 'teacher']:
+        for role in ['admin', 'developer', 'accountant', 'manager', 'teacher']:
             user = User.objects.filter(profile__role=role).first()
             if user:
                 users.append(user)

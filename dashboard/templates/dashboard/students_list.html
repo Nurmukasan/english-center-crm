@@ -51,7 +51,7 @@
     
     <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
         
-        {% if role == 'admin' or role == 'developer' %}
+        {% if role == 'admin' or role == 'developer' or role == 'manager' %}
         <!-- Учатся / Архив -->
         <div class="flex gap-2 mb-4">
             <a href="{% url 'students_list' %}"
@@ -149,7 +149,7 @@
             </form>
         </div>
         
-        {% if role == 'admin' or role == 'developer' %}{% if not show_archive %}
+        {% if role == 'admin' or role == 'developer' or role == 'manager' %}{% if not show_archive %}
         <form method="POST" action="{% url 'bulk_archive_students' %}" id="bulkForm"
               data-confirm="Перенести выбранных учеников в архив? Они уйдут из всех групп, история оплат и посещаемости сохранится."
               onsubmit="return confirm(this.dataset.confirm)">
@@ -170,7 +170,7 @@
                 <table class="w-full">
                     <thead>
                         <tr class="bg-gray-100 dark:bg-gray-700/50 text-left border-b border-gray-300 dark:border-gray-600">
-                            {% if role == 'admin' or role == 'developer' %}{% if not show_archive %}
+                            {% if role == 'admin' or role == 'developer' or role == 'manager' %}{% if not show_archive %}
                             <th class="pl-6 py-3 w-8">
                                 <input type="checkbox" id="selectAll" title="Выбрать всех" onchange="toggleAll(this.checked)"
                                        class="w-4 h-4 accent-indigo-500 cursor-pointer">
@@ -179,7 +179,7 @@
                             <th class="px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Имя</th>
                             <th class="px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Телефон</th>
                             <th class="px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Группы</th>
-                            {% if role == 'admin' or role == 'developer' %}
+                            {% if role == 'admin' or role == 'developer' or role == 'manager' %}
                             <th class="px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Действия</th>
                             {% endif %}
                         </tr>
@@ -187,7 +187,7 @@
                     <tbody>
                         {% for data in student_data %}
                         <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition">
-                            {% if role == 'admin' or role == 'developer' %}{% if not show_archive %}
+                            {% if role == 'admin' or role == 'developer' or role == 'manager' %}{% if not show_archive %}
                             <td class="pl-6 py-4 w-8">
                                 <input type="checkbox" name="student_ids" value="{{ data.student.id }}" form="bulkForm"
                                        onchange="updateBulk()" class="student-check w-4 h-4 accent-indigo-500 cursor-pointer">
@@ -215,7 +215,7 @@
                                     {% endfor %}
                                 </div>
                             </td>
-                            {% if role == 'admin' or role == 'developer' %}
+                            {% if role == 'admin' or role == 'developer' or role == 'manager' %}
                             <td class="px-6 py-4">
                                 <div class="flex gap-2">
                                     {% if show_archive %}

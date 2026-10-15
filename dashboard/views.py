@@ -125,9 +125,16 @@ def crm_view(view):
     return wrapper
 
 
+# Кто что может (кроме учителя, которому доступны только свои группы):
+# группы и ученики — создавать, менять, архивировать, записывать и убирать из групп, вести уроки
+MANAGE_ROLES = ('admin', 'developer', 'manager')
+# оплаты — страница оплат и отметки об оплате
+MONEY_ROLES = ('admin', 'accountant', 'developer', 'manager')
+
+
 def can_manage_group(user, role, group):
-    """Вести уроки группы: админ и разработчик — любой, учитель — только своей"""
-    if role in ('admin', 'developer'):
+    """Вести уроки группы: админ, разработчик и менеджер — любой, учитель — только своей"""
+    if role in MANAGE_ROLES:
         return True
     if role == 'teacher':
         return group.teacher_id == user.id or group.teachers.filter(id=user.id).exists()
@@ -298,7 +305,7 @@ def dashboard(request):
     else:
         base_groups = Group.objects.filter(is_active=True)
         # Архив групп видят админ и разработчик
-        show_archive = request.GET.get('archived') == '1' and role in ['admin', 'developer']
+        show_archive = request.GET.get('archived') == '1' and role in MANAGE_ROLES
         groups = Group.objects.filter(is_active=not show_archive)
         if not show_archive:
             groups = groups.exclude(group_type='individual')  # они в своей вкладке
@@ -390,7 +397,7 @@ def group_detail(request, group_id):
     planned = count_lessons_in_period(group, period_start, period_end)
     held = Lesson.objects.filter(group=group, is_cancelled=False, date__gte=period_start,
                                  date__lte=min(period_end, today)).count()
-    can_money = role in ['admin', 'accountant', 'developer']
+    can_money = role in MONEY_ROLES
     paid_ids = set(Payment.objects.filter(group=group, cycle_number=py * 100 + pm, is_paid=True)
                    .values_list('student_id', flat=True)) if can_money else set()
 
@@ -434,7 +441,7 @@ def group_detail(request, group_id):
         'lesson': lesson,
         'today_slot': today_slot,
         'can_mark_attendance': can_manage_group(request.user, role, group),
-        'can_manage': role in ['admin', 'developer'],
+        'can_manage': role in MANAGE_ROLES,
         'can_money': can_money,
         'lesson_active': bool(lesson and not lesson.is_cancelled),
         'week': [{'short': d, 'times': [f'{sl.start_time:%H:%M}' for sl in slots if sl.day_of_week == i],
@@ -520,7 +527,7 @@ def students_list(request):
         available_groups = Group.objects.filter(is_active=True).order_by('name')
 
     # Архив видят админ и разработчик, остальные списки — только те, кто учится
-    show_archive = request.GET.get('archived') == '1' and role in ['admin', 'developer']
+    show_archive = request.GET.get('archived') == '1' and role in MANAGE_ROLES
     students = students.filter(is_active=not show_archive)
 
     # ===== Поиск =====
@@ -594,7 +601,7 @@ def students_list(request):
         'has_filters': has_filters,
         'total_found': len(student_data),
         'show_archive': show_archive,
-        'archived_count': Student.objects.filter(is_active=False).count() if role in ['admin', 'developer'] else 0,
+        'archived_count': Student.objects.filter(is_active=False).count() if role in MANAGE_ROLES else 0,
     }
 
     return render(request, 'dashboard/students_list.html', context)
@@ -605,7 +612,7 @@ def add_student(request):
     """Добавление ученика"""
     role = get_user_role(request.user)
     
-    if role not in ['admin', 'developer']:
+    if role not in MANAGE_ROLES:
         messages.error(request, 'У вас нет доступа')
         return redirect('students_list')
     
@@ -902,8 +909,8 @@ def shared_individual_groups(groups):
 def individual_lessons(request):
     """Индивидуальные ученики: отдельная вкладка с карточкой на каждого"""
     role = get_user_role(request.user)
-    can_money = role in ['admin', 'accountant', 'developer']
-    can_manage = role in ['admin', 'developer']
+    can_money = role in MONEY_ROLES
+    can_manage = role in MANAGE_ROLES
 
     groups = Group.objects.filter(is_active=True)
     if role == 'teacher':
@@ -994,7 +1001,7 @@ def individual_lessons(request):
 def add_individual(request):
     """Новый индивидуальный ученик: ученик + учитель + расписание одним шагом"""
     role = get_user_role(request.user)
-    if role not in ['admin', 'developer']:
+    if role not in MANAGE_ROLES:
         messages.error(request, 'У вас нет доступа')
         return redirect('individual_lessons')
 
@@ -1042,7 +1049,7 @@ def add_individual(request):
 def split_individual_group(request, group_id):
     """Общую «индивидуальную» группу — в отдельное занятие на каждого ученика (вместе с историей)"""
     role = get_user_role(request.user)
-    if role not in ['admin', 'developer']:
+    if role not in MANAGE_ROLES:
         messages.error(request, 'У вас нет доступа')
         return redirect('individual_lessons')
 
@@ -1258,7 +1265,7 @@ def export_excel(request):
     """Экспорт данных в Excel"""
     role = get_user_role(request.user)
     
-    if role not in ['admin', 'accountant', 'developer']:
+    if role not in MONEY_ROLES:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
     
@@ -1829,7 +1836,7 @@ def add_group(request):
     """Создание группы"""
     role = get_user_role(request.user)
     
-    if role not in ['admin', 'developer']:
+    if role not in MANAGE_ROLES:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
     
@@ -1880,7 +1887,7 @@ def remove_student_from_group(request, student_id, group_id):
     """Убрать ученика из группы (оплаты и посещаемость остаются в истории)"""
     role = get_user_role(request.user)
     
-    if role not in ['admin', 'developer']:
+    if role not in MANAGE_ROLES:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
     
@@ -1899,7 +1906,7 @@ def archive_student(request, student_id):
     """Ученик ушёл: в архив вместо удаления — история оплат и посещаемости сохраняется"""
     role = get_user_role(request.user)
     
-    if role not in ['admin', 'developer']:
+    if role not in MANAGE_ROLES:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
     
@@ -1919,7 +1926,7 @@ def bulk_archive_students(request):
     """Несколько учеников сразу в архив (отмечены галочками в списке учеников)"""
     role = get_user_role(request.user)
     
-    if role not in ['admin', 'developer']:
+    if role not in MANAGE_ROLES:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
     
@@ -1944,7 +1951,7 @@ def restore_student(request, student_id):
     """Вернуть ученика из архива и сразу предложить группы"""
     role = get_user_role(request.user)
     
-    if role not in ['admin', 'developer']:
+    if role not in MANAGE_ROLES:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
     
@@ -1963,7 +1970,7 @@ def archive_group(request, group_id):
     """Группа закрылась: в архив вместо удаления — уроки и оплаты сохраняются"""
     role = get_user_role(request.user)
     
-    if role not in ['admin', 'developer']:
+    if role not in MANAGE_ROLES:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
     
@@ -1981,7 +1988,7 @@ def restore_group(request, group_id):
     """Вернуть группу из архива"""
     role = get_user_role(request.user)
     
-    if role not in ['admin', 'developer']:
+    if role not in MANAGE_ROLES:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
     
@@ -1998,7 +2005,7 @@ def add_existing_student_to_group(request, student_id):
     """Добавить существующего ученика в группу"""
     role = get_user_role(request.user)
     
-    if role not in ['admin', 'developer']:
+    if role not in MANAGE_ROLES:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
     
@@ -2154,7 +2161,7 @@ def edit_student(request, student_id):
     """Редактирование ученика"""
     role = get_user_role(request.user)
     
-    if role not in ['admin', 'developer']:
+    if role not in MANAGE_ROLES:
         messages.error(request, 'У вас нет доступа')
         return redirect('students_list')
     
@@ -2200,7 +2207,7 @@ def edit_group(request, group_id):
     """Редактирование группы"""
     role = get_user_role(request.user)
     
-    if role not in ['admin', 'developer']:
+    if role not in MANAGE_ROLES:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
     
@@ -2334,7 +2341,7 @@ def month_rows(group, year, month, cycle_payments):
 def payments_page(request):
     """Касса: один месяц целиком — сумма, график года, все группы и ученики с отметкой оплаты"""
     role = get_user_role(request.user)
-    if role not in ['admin', 'accountant', 'developer']:
+    if role not in MONEY_ROLES:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
 
@@ -2459,7 +2466,7 @@ def payments_page(request):
 def toggle_student_payment(request, group_id):
     """AJAX: отметить/отменить оплату"""
     role = get_user_role(request.user)
-    if role not in ['admin', 'accountant', 'developer']:
+    if role not in MONEY_ROLES:
         return JsonResponse({'success': False, 'error': 'Нет доступа'})
 
     group = get_object_or_404(Group, id=group_id)

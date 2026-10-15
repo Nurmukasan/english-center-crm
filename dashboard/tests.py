@@ -33,6 +33,7 @@ class CRMTestCase(TestCase):
         self.teacher = make_user('teacher', 'teacher')
         self.other_teacher = make_user('other', 'teacher')
         self.accountant = make_user('acc', 'accountant')
+        self.manager = make_user('mgr', 'manager')
 
         self.group = Group.objects.create(name='Beginner', teacher=self.teacher)
         self.other_group = Group.objects.create(name='Альфа', teacher=self.other_teacher)
@@ -91,6 +92,51 @@ class RoleTests(CRMTestCase):
         response = self.client.post('/calibration/create/', {'student_id': self.other_student.id, 'group_id': self.other_group.id, 'direction': 'up'})
         self.assertFalse(response.json()['success'])
         self.assertFalse(LevelCalibration.objects.exists())
+
+
+class ManagerTests(CRMTestCase):
+    def setUp(self):
+        super().setUp()
+        self.login(self.manager)
+
+    def test_manager_sees_groups_students_and_payments(self):
+        for url in ['/dashboard/', '/dashboard/?archived=1', '/students/', '/students/?archived=1', '/students/add/',
+                    '/groups/add/', f'/group/{self.group.id}/', f'/group/{self.group.id}/edit/', f'/group/{self.other_group.id}/',
+                    f'/student/{self.student.id}/edit/', f'/student/{self.student.id}/add-to-group/', '/individual/add/',
+                    '/payments/', '/schedule/', '/export/']:
+            self.assertEqual(self.client.get(url).status_code, 200, url)
+        groups = self.client.get('/dashboard/').context['group_cards']
+        self.assertEqual({g.name for g in groups}, {'Beginner', 'Альфа'})
+        self.assertTrue(self.client.get(f'/group/{self.group.id}/').context['can_manage'])
+
+    def test_manager_changes_students_and_marks_payment(self):
+        self.client.post(f'/student/{self.student.id}/remove-from-group/{self.group.id}/')
+        self.assertFalse(Enrollment.objects.filter(student=self.student, group=self.group).exists())
+        self.client.post(f'/student/{self.other_student.id}/archive/')
+        self.other_student.refresh_from_db()
+        self.assertFalse(self.other_student.is_active)
+        year, month = get_current_period()
+        data = self.client.post(f'/payments/group/{self.other_group.id}/toggle/',
+                                {'student_id': self.other_student.id, 'year': year, 'month': month}).json()
+        self.assertTrue(data['success'])
+
+    def test_manager_has_no_stats_broadcasts_books_and_rating(self):
+        for url in ['/accountant-stats/', '/broadcast/', '/books-status/', '/star-rating/']:
+            self.assertRedirects(self.client.get(url), '/dashboard/', fetch_redirect_response=False, msg_prefix=url)
+
+    def test_create_manager_command(self):
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+        call_command('create_manager', 'aksunkar', 'secret2026!')
+        user = User.objects.get(username='aksunkar')
+        self.assertEqual(user.profile.role, 'manager')
+        self.assertTrue(self.client.login(username='aksunkar', password='secret2026!'))
+        # Повторный запуск меняет пароль, а чужой логин не трогает
+        call_command('create_manager', 'aksunkar', 'other2026!')
+        self.assertTrue(self.client.login(username='aksunkar', password='other2026!'))
+        with self.assertRaises(CommandError):
+            call_command('create_manager', 'admin', 'secret2026!')
+        self.assertEqual(Profile.objects.get(user=self.admin).role, 'admin')
 
 
 class ArchiveTests(CRMTestCase):
@@ -608,7 +654,7 @@ class EnglishTests(CRMTestCase):
         try:
             self.client.cookies['ee_lang'] = 'en'
             self.client.get('/')
-            for user in [self.admin, self.teacher, self.accountant]:
+            for user in [self.admin, self.teacher, self.accountant, self.manager]:
                 self.login(user)
                 for url in ['/dashboard/', '/students/', '/students/add/', '/schedule/', '/individual/', '/payments/',
                             '/accountant-stats/', '/groups/add/', '/books-status/', '/star-rating/', '/profile/',
