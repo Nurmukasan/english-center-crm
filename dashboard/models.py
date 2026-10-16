@@ -392,3 +392,23 @@ class LoginEvent(models.Model):
 
     def __str__(self):
         return f'{self.username} — {"вошёл" if self.success else "неудачно"} — {self.created_at:%d.%m.%Y %H:%M}'
+
+
+class GameScore(models.Model):
+    """Партия в тетрис (кнопка в меню CRM) — для таблицы «Топ-5 центра»"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='game_scores', verbose_name="Сотрудник")
+    game = models.CharField(max_length=20, default='tetris', verbose_name="Игра")
+    score = models.PositiveIntegerField(verbose_name="Очки")
+    lines = models.PositiveIntegerField(default=0, verbose_name="Линий")
+    level = models.PositiveSmallIntegerField(default=1, verbose_name="Уровень")
+    duration = models.PositiveIntegerField(default=0, verbose_name="Секунд")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Когда")
+
+    class Meta:
+        ordering = ['-score']
+        indexes = [models.Index(fields=['game', '-score'], name='gamescore_top')]
+        verbose_name = "Результат в тетрисе"
+        verbose_name_plural = "Тетрис: результаты"
+
+    def __str__(self):
+        return f'{self.user} — {self.score}'

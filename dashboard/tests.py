@@ -677,7 +677,7 @@ class EnglishTests(CRMTestCase):
                             '/accountant-stats/', '/groups/add/', '/books-status/', '/star-rating/', '/profile/',
                             '/broadcast/', '/broadcast/?kind=news', '/broadcast/?kind=payment&audience=teacher',
                             f'/group/{self.group.id}/', f'/group/{self.group.id}/history/', f'/group/{self.group.id}/edit/',
-                            f'/students/{self.student.id}/', f'/student/{self.student.id}/edit/']:
+                            f'/students/{self.student.id}/', f'/student/{self.student.id}/edit/', '/game/tetris/']:
                     self.client.get(url)
             # Одна буква — инициалы на аватарах и сочетание Ctrl+Л
             missing = {phrase for phrase in i18n.missing - names if len(phrase) > 1}
@@ -1847,6 +1847,70 @@ class GroupCoverTests(CRMTestCase):
         self.assertContains(page, 'data-cover="campus"')              # «Альфа» — без особого рисунка
         self.client.cookies['ee_lang'] = 'en'
         self.assertContains(self.client.get('/dashboard/'), 'Australia')
+
+
+class TetrisTests(CRMTestCase):
+    """Тетрис: страница для всех сотрудников, сохранение очков, «Топ-5 центра»"""
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def post_score(self, **data):
+        payload = {'score': 12000, 'lines': 30, 'level': 4, 'duration': 300}
+        payload.update(data)
+        return self.client.post('/game/tetris/score/', data=json.dumps(payload), content_type='application/json')
+
+    def test_page_and_menu_button(self):
+        self.assertEqual(self.client.get('/game/tetris/').status_code, 302)   # только для вошедших
+        for user in (self.admin, self.teacher, self.accountant, self.manager):
+            self.login(user)
+            page = self.client.get('/game/tetris/')
+            self.assertContains(page, 'Топ-5 центра')
+            self.assertContains(page, 'id="boardCv"')
+        dashboard = self.client.get('/dashboard/')
+        self.assertContains(dashboard, 'class="ee-rail-item ee-rail-game"')
+        self.assertContains(dashboard, 'target="_blank"')
+
+    def test_score_saved_and_top5(self):
+        from django.core.cache import cache
+        from .models import GameScore
+        self.login(self.manager)
+        response = self.post_score(score=12000)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['ok'] and data['record'] and data['in_top'])
+        self.assertEqual(data['me'], {'best': 12000, 'place': 1, 'games': 1})
+        self.assertEqual(data['top'][0]['name'], 'mgr')
+        self.assertEqual(self.post_score(score=500).status_code, 429)          # не чаще раза в 5 секунд
+        cache.clear()
+        self.assertFalse(self.post_score(score=500).json()['record'])          # хуже рекорда — не рекорд
+        # В топе — лучший результат каждого сотрудника, по одному разу
+        for user, score in ((self.admin, 30000), (self.teacher, 9000), (self.accountant, 7000), (self.other_teacher, 5000)):
+            GameScore.objects.create(user=user, score=score, lines=20, level=3, duration=200)
+        make_user('sixth', 'teacher')
+        GameScore.objects.create(user=User.objects.get(username='sixth'), score=100, lines=1, level=1, duration=20)
+        self.login(self.accountant)
+        page = self.client.get('/game/tetris/')
+        top = page.context['top']
+        self.assertEqual([r['name'] for r in top], ['admin', 'mgr', 'teacher', 'acc', 'other'])
+        self.assertEqual(top[1]['score'], 12000)
+        self.assertTrue(top[3]['me'])
+        self.assertEqual(page.context['me']['place'], 4)
+        self.client.cookies['ee_lang'] = 'en'
+        self.assertContains(self.client.get('/game/tetris/'), 'Center top 5')
+
+    def test_unreal_scores_rejected(self):
+        from .models import GameScore
+        self.login(self.teacher)
+        for bad in ({'score': 0}, {'score': -5}, {'score': 50_000_000}, {'level': 9, 'lines': 5},     # уровень без линий
+                    {'lines': 900, 'duration': 60}, {'score': 900000, 'lines': 3, 'level': 1}, {'score': 'много'}):
+            self.assertEqual(self.post_score(**bad).status_code, 400, bad)
+        self.assertEqual(self.client.post('/game/tetris/score/', data='не json', content_type='application/json').status_code, 400)
+        self.assertEqual(self.client.get('/game/tetris/score/').status_code, 405)
+        self.assertFalse(GameScore.objects.exists())
 
 
 class BackupTests(TransactionTestCase):

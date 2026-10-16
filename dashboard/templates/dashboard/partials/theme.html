@@ -298,6 +298,16 @@ Tailwind «светлый / dark:» — тёмный режим больше н�
     }
     .ee-rail-avatar.is-active img, .ee-rail-avatar.is-active b { box-shadow: 0 0 0 2px var(--accent); }
     .ee-rail-avatar.is-active { background: transparent; }
+    /* Тетрис: маленькая плитка с цветной фигуркой — открывает игру в новой вкладке */
+    .ee-rail-item.ee-rail-game { width: 38px; height: 38px; margin: 0 auto 4px; border-radius: 11px;
+        background: linear-gradient(145deg, #2b1f63, #151034); box-shadow: 0 6px 14px -8px rgba(43, 31, 99, .8), inset 0 0 0 1px rgba(255, 255, 255, .08); }
+    .ee-rail-item.ee-rail-game:hover { background: linear-gradient(145deg, #3a2a86, #1c1545); }
+    .ee-rail-game svg { width: 22px; height: 22px; overflow: visible; }
+    .ee-rail-game rect { transition: transform var(--spring-dur) var(--spring); }
+    .ee-rail-game .g1 { fill: #38d9f5; } .ee-rail-game .g2 { fill: #a78bfa; } .ee-rail-game .g3 { fill: #fbbf24; } .ee-rail-game .g4 { fill: #f472b6; }
+    .ee-rail-game:hover .g4 { transform: translateY(-3px); }
+    .ee-rail-game:hover .g1 { transform: translateX(-1.5px); }
+    .ee-rail-game:hover .g3 { transform: translateX(1.5px); }
     .ee-rail-exit:hover { color: var(--bad); }
     #eeLogout { display: contents; }   /* форма выхода не ломает раскладку меню */
 
