@@ -1,0 +1,26 @@
+# WAHA — бесплатная рассылка в WhatsApp для CRM (github.com/devlikeapro/waha).
+# Ставится скриптом deploy/waha/install.sh: он копирует этот файл в /opt/waha и сам создаёт
+# там .env с ключами. Вручную здесь ничего менять не нужно.
+services:
+  waha:
+    image: ${WAHA_IMAGE:-devlikeapro/waha:latest}
+    container_name: waha
+    restart: always
+    ports:
+      # Только для самого сервера — из интернета WAHA не видна
+      - '127.0.0.1:${WAHA_PORT:-3000}:3000/tcp'
+    volumes:
+      # Вход в WhatsApp: после перезапуска сервера QR-код сканировать заново не нужно
+      - './sessions:/app/.sessions'
+      - './media:/app/.media'
+    env_file:
+      - .env
+    # Если сервер не находит web.whatsapp.com
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    logging:
+      driver: json-file
+      options:
+        max-size: '20m'
+        max-file: '3'

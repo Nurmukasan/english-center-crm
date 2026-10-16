@@ -353,8 +353,8 @@
 
                 <div data-section="waha" class="space-y-3">
                     <ol class="howto mb-3">
-                        <li><span class="n">1</span><span>Программист ставит <b>WAHA</b> на сервер CRM — это бесплатно, инструкция в файле <b>docs/whatsapp-waha.md</b>.</span></li>
-                        <li><span class="n">2</span><span>Впишите адрес WAHA и API-ключ (он в файле <b>.env</b> рядом с WAHA) и нажмите «Подключить».</span></li>
+                        <li><span class="n">1</span><span>На сервере CRM выполните одну команду: <b class="notranslate">sudo bash deploy/waha/install.sh</b> — она поставит WAHA и сама впишет адрес и ключ сюда. Подробно — <b>docs/whatsapp-waha.md</b>.</span></li>
+                        <li><span class="n">2</span><span>Если ставили вручную — впишите адрес WAHA и API-ключ (он в файле <b class="notranslate">/opt/waha/.env</b>) и нажмите «Подключить».</span></li>
                         <li><span class="n">3</span><span>Ниже появится QR-код — отсканируйте его телефоном с WhatsApp центра: <b>Настройки → Связанные устройства</b>.</span></li>
                         <li><span class="n">4</span><span>Привяжите группы CRM к групповым чатам WhatsApp — список появится ниже.</span></li>
                     </ol>
@@ -363,7 +363,7 @@
                     </label>
                     <label class="block text-sm font-bold">API-ключ
                         <input type="password" name="token" class="mt-1 w-full px-3 py-2.5 border rounded-xl font-normal" autocomplete="off"
-                               placeholder="{% if token_hint and settings.provider == 'waha' %}сохранён ({{ token_hint }}) — оставьте пустым, чтобы не менять{% else %}WAHA_API_KEY из файла .env{% endif %}">
+                               placeholder="{% if token_hint and settings.provider == 'waha' %}сохранён ({{ token_hint }}) — оставьте пустым, чтобы не менять{% else %}WAHA_API_KEY из файла /opt/waha/.env{% endif %}">
                     </label>
                 </div>
 
