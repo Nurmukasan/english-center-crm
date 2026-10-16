@@ -15,6 +15,8 @@ from datetime import datetime, timedelta, date
 import json
 from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book, ScheduleSlot, LevelCalibration, InboxMessage
 from users.models import Profile
+from .i18n import current_language
+from .quotes import quote_for
 from decimal import Decimal
 import re
 
@@ -464,6 +466,7 @@ def dashboard(request):
     context['individual_count'] = Enrollment.objects.filter(
         group__in=base_groups.filter(group_type='individual'), student__is_active=True
     ).count()
+    context['quote'] = quote_for(today, current_language(request))
     return render(request, 'dashboard/dashboard.html', context)
 
 
