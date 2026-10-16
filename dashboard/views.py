@@ -1503,234 +1503,15 @@ def security_context(request, role):
     return context
 
 
-import openpyxl
-from openpyxl.utils import get_column_letter
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from django.http import HttpResponse
-
-
 @crm_view
 def export_excel(request):
-    """Экспорт данных в Excel"""
-    role = get_user_role(request.user)
-    
-    if role not in MONEY_ROLES:
+    """Общий отчёт в Excel: сводка с графиками, ученики, оплаты по месяцам, группы, журнал посещаемости (dashboard/excel.py)"""
+    if get_user_role(request.user) not in MONEY_ROLES:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')
-    
-    wb = openpyxl.Workbook()
-    
-    header_font = Font(bold=True, color='FFFFFF', size=12)
-    header_fill = PatternFill(start_color='4F46E5', end_color='4F46E5', fill_type='solid')
-    border = Border(
-        left=Side(style='thin'), right=Side(style='thin'),
-        top=Side(style='thin'), bottom=Side(style='thin')
-    )
-    header_alignment = Alignment(horizontal='center', vertical='center')
-    cell_alignment = Alignment(vertical='center')
-    
-    # Лист 1: ученики — успеваемость и оплаты по новой схеме (уроки в периоде × цена за урок)
-    from django.db.models import Count
-    MONTHS_SHORT = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
-    paid_fill = PatternFill(start_color='DCFCE7', end_color='DCFCE7', fill_type='solid')
-    unpaid_fill = PatternFill(start_color='FEE2E2', end_color='FEE2E2', fill_type='solid')
-    partial_fill = PatternFill(start_color='FEF3C7', end_color='FEF3C7', fill_type='solid')
-    muted_font = Font(color='9CA3AF')
-
-    enrollments = list(Enrollment.objects.select_related('student', 'group').order_by('student__name', 'group__name'))
-    students_without_group = list(Student.objects.filter(enrollments__isnull=True, is_active=True).order_by('name'))
-
-    # Посещаемость, ДЗ и звёзды — одним запросом по каждой паре «ученик + группа»
-    stats = {}
-    for st in Attendance.objects.values('student_id', 'lesson__group_id').annotate(
-        total=Count('id'),
-        present=Count('id', filter=Q(status__in=['present', 'late'])),
-        homework=Count('id', filter=Q(homework_done=True)),
-        starred=Count('id', filter=Q(stars__gt=0)),
-        stars=Sum('stars'),
-    ):
-        stats[(st['student_id'], st['lesson__group_id'])] = st
-
-    # Последние 12 месяцев оплаты, заканчивая самым поздним текущим периодом среди групп
-    current_by_group = {}
-    for e in enrollments:
-        if e.group_id not in current_by_group:
-            current_by_group[e.group_id] = get_current_period(e.group.cycle_start_day)
-    last_y, last_m = max(current_by_group.values(), default=get_current_period())
-    months = []
-    y, m = last_y, last_m
-    for _ in range(12):
-        months.append((y, m))
-        y, m = (y - 1, 12) if m == 1 else (y, m - 1)
-    months.reverse()
-
-    payments = {
-        (p_student, p_group, p_cycle): (p_paid, p_partial)
-        for p_student, p_group, p_cycle, p_paid, p_partial in Payment.objects.filter(
-            cycle_number__in=[y * 100 + m for y, m in months]
-        ).values_list('student_id', 'group_id', 'cycle_number', 'is_paid', 'is_partial')
-    }
-
-    def payment_status(paid_partial):
-        if paid_partial is None:
-            return '❌ Не оплачено', unpaid_fill
-        paid, partial = paid_partial
-        if paid:
-            return '✅ Оплачено', paid_fill
-        if partial:
-            return '🟡 Частично', partial_fill
-        return '❌ Не оплачено', unpaid_fill
-
-    ws1 = wb.active
-    ws1.title = 'Ученики'
-    headers1 = [
-        'Ученик', 'Телефон', 'Телефон родителя', 'Группа',
-        'Посещаемость', 'ДЗ выполнено', 'Уроки со звёздами', 'Звёзд всего',
-        'Цена за урок (₸)', 'Уроков в текущем месяце', 'К оплате за текущий месяц (₸)', 'Текущий месяц',
-    ] + [f'{MONTHS_SHORT[m - 1]} {y}' for y, m in months]
-    for col, header in enumerate(headers1, 1):
-        cell = ws1.cell(row=1, column=col, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        cell.border = border
-    ws1.row_dimensions[1].height = 36
-
-    def write_row(row, values, fills=None):
-        for col, value in enumerate(values, 1):
-            cell = ws1.cell(row=row, column=col, value=value)
-            cell.alignment = cell_alignment
-            cell.border = border
-            if 5 <= col <= 7 and isinstance(value, float):
-                cell.number_format = '0%'
-            elif col in (9, 11) and isinstance(value, (int, float)):
-                cell.number_format = '#,##0'
-            if fills and col in fills:
-                cell.fill = fills[col]
-            if value == '—':
-                cell.font = muted_font
-
-    def share(part, total):
-        return part / total if total else '—'
-
-    row = 2
-    for e in enrollments:
-        student, group = e.student, e.group
-        st = stats.get((student.id, group.id), {})
-        total = st.get('total', 0)
-
-        cur_y, cur_m = current_by_group[group.id]
-        cur_start, cur_end = get_period(cur_y, cur_m, group.cycle_start_day)
-        price = float(student.price_per_lesson or 0)
-        lessons = count_lessons_in_period(group, cur_start, cur_end)
-        cur_text, cur_fill = payment_status(payments.get((student.id, group.id, cur_y * 100 + cur_m)))
-
-        values = [
-            student.name, student.phone or '—', student.parent_phone or '—', group.name,
-            share(st.get('present', 0), total), share(st.get('homework', 0), total),
-            share(st.get('starred', 0), total), st.get('stars') or 0,
-            price, lessons, price * lessons, cur_text,
-        ]
-        fills = {12: cur_fill}
-        for i, (y, m) in enumerate(months):
-            col = len(headers1) - len(months) + 1 + i
-            paid_partial = payments.get((student.id, group.id, y * 100 + m))
-            if paid_partial is not None:
-                text, fill = payment_status(paid_partial)
-                fills[col] = fill
-            elif (y, m) > (cur_y, cur_m):
-                text = ''  # период ещё не начался
-            elif not is_enrolled_by(e, get_period(y, m, group.cycle_start_day)[1]):
-                text = '—'  # ещё не учился в этой группе
-            else:
-                text, fill = payment_status(None)
-                fills[col] = fill
-            values.append(text)
-        write_row(row, values, fills)
-        row += 1
-
-    for student in students_without_group:
-        write_row(row, [student.name, student.phone or '—', student.parent_phone or '—', '—'] + ['—'] * (len(headers1) - 4))
-        row += 1
-
-    widths1 = [26, 18, 18, 22, 14, 14, 14, 12, 14, 14, 18, 16] + [14] * len(months)
-    for i, width in enumerate(widths1, 1):
-        ws1.column_dimensions[get_column_letter(i)].width = width
-    ws1.freeze_panes = 'B2'
-    ws1.auto_filter.ref = ws1.dimensions
-    
-    # Лист 3
-    ws3 = wb.create_sheet('Группы')
-    
-    headers3 = ['Название', 'Учитель', 'Расписание', 'Учеников', 'Активна']
-    for col, header in enumerate(headers3, 1):
-        cell = ws3.cell(row=1, column=col, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = header_alignment
-        cell.border = border
-    
-    groups = Group.objects.all()
-    for row, group in enumerate(groups, 2):
-        data = [
-            group.name,
-            group.teacher.username if group.teacher else '—',
-            group.schedule or '',
-            group.enrollments.count(),
-            'Да' if group.is_active else 'Нет',
-        ]
-        for col, value in enumerate(data, 1):
-            cell = ws3.cell(row=row, column=col, value=value)
-            cell.alignment = cell_alignment
-            cell.border = border
-    
-    for letter, width in [('A', 25), ('B', 20), ('C', 30), ('D', 15), ('E', 10)]:
-        ws3.column_dimensions[letter].width = width
-    
-    # Лист 4
-    ws4 = wb.create_sheet('Посещаемость')
-    
-    headers4 = ['Дата', 'Группа', 'Ученик', 'Статус']
-    for col, header in enumerate(headers4, 1):
-        cell = ws4.cell(row=1, column=col, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = header_alignment
-        cell.border = border
-    
-    attendances = Attendance.objects.select_related('lesson', 'lesson__group', 'student').order_by('-lesson__date')
-    for row, attendance in enumerate(attendances, 2):
-        status_map = {
-            'present': 'Присутствовал',
-            'absent': 'Отсутствовал',
-            'late': 'Опоздал',
-        }
-        data = [
-            attendance.lesson.date.strftime('%d.%m.%Y'),
-            attendance.lesson.group.name,
-            attendance.student.name,
-            status_map.get(attendance.status, attendance.status),
-        ]
-        for col, value in enumerate(data, 1):
-            cell = ws4.cell(row=row, column=col, value=value)
-            cell.alignment = cell_alignment
-            cell.border = border
-            if col == 4:
-                if attendance.status == 'present':
-                    cell.fill = PatternFill(start_color='DCFCE7', end_color='DCFCE7', fill_type='solid')
-                elif attendance.status == 'absent':
-                    cell.fill = PatternFill(start_color='FEE2E2', end_color='FEE2E2', fill_type='solid')
-    
-    for letter, width in [('A', 15), ('B', 25), ('C', 25), ('D', 20)]:
-        ws4.column_dimensions[letter].width = width
-    
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = 'attachment; filename="english_center_report.xlsx"'
-    
-    wb.save(response)
-    return response
+    from . import excel
+    content, filename = excel.general_workbook()
+    return excel.response(content, filename)
 
 
 @crm_view
@@ -1787,12 +1568,13 @@ def percent_change(now, before):
     return round((now - before) / before * 100)
 
 
-def income_stats(months, group_type='all'):
+def income_stats(months, group_type='all', rows_out=None):
     """Статистика доходов за последние months месяцев (текущий — последний, он ещё идёт).
 
     Деньги считаются по месяцам оплаты (как на странице «Оплаты»): ждали = цена × уроки по расписанию,
     собрано = отмеченные оплаты. Месяцы до первой отметки оплаты в CRM не считаются — тогда оплаты
     ещё не вели, и все ученики выглядели бы должниками. Для сравнения берутся months месяцев до периода.
+    rows_out — список, куда сложить все начисления периода построчно (для Excel, dashboard/excel.py).
     """
     cur_year, cur_month = get_current_period()
     current = cur_year * 100 + cur_month
@@ -1802,7 +1584,7 @@ def income_stats(months, group_type='all'):
 
     payments = {}
     for p in Payment.objects.filter(cycle_number__gte=all_cycles[0][0] * 100 + all_cycles[0][1], cycle_number__lte=current) \
-            .select_related('student'):
+            .select_related('student', 'marked_by'):
         payments.setdefault((p.cycle_number, p.group_id), {})[p.student_id] = p
     groups = Group.objects.filter(Q(is_active=True) | Q(id__in={gid for (_, gid) in payments}))
     if group_type in ('group', 'individual'):
@@ -1825,9 +1607,12 @@ def income_stats(months, group_type='all'):
             cycle = y * 100 + m
             if not has_data[cycle] or (not g.is_active and (cycle, g.id) not in payments):
                 continue
-            rows = month_rows(g, y, m, payments.get((cycle, g.id), {}))[0]
+            rows, lessons = month_rows(g, y, m, payments.get((cycle, g.id), {}))[:2]
             if not rows:
                 continue
+            if rows_out is not None and cycle in range_set:
+                rows_out.extend({**r, 'group': g, 'year': y, 'month': m, 'cycle': cycle, 'lessons': lessons,
+                                 'is_current': cycle == current} for r in rows)
             t = empty()
             for r in rows:
                 amount = int(r['amount'])
@@ -2053,7 +1838,7 @@ def accountant_stats(request):
 
 @crm_view
 def export_income_excel(request):
-    """Excel со статистикой доходов за тот же период: месяцы, группы, должники, оплаты"""
+    """Excel со статистикой доходов за тот же период, что на странице (dashboard/excel.py)"""
     role = get_user_role(request.user)
 
     if role not in ['accountant', 'developer', 'admin']:
@@ -2061,59 +1846,9 @@ def export_income_excel(request):
         return redirect('dashboard')
 
     months, group_type = stats_params(request)
-    stats = income_stats(months, group_type)
-    thin = Side(style='thin', color='E8E5E1')
-    border = Border(left=thin, right=thin, top=thin, bottom=thin)
-
-    def sheet(ws, headers, rows, widths):
-        for col, header in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col, value=header)
-            cell.font = Font(bold=True, color='FFFFFF')
-            cell.fill = PatternFill(start_color='F97316', end_color='F97316', fill_type='solid')
-            cell.alignment = Alignment(horizontal='center')
-            cell.border = border
-        for r, values in enumerate(rows, 2):
-            for col, value in enumerate(values, 1):
-                cell = ws.cell(row=r, column=col, value=value)
-                cell.border = border
-                if isinstance(value, (int, float)) and headers[col - 1].endswith('₸'):
-                    cell.number_format = '#,##0'
-        for i, width in enumerate(widths, 1):
-            ws.column_dimensions[get_column_letter(i)].width = width
-        ws.freeze_panes = 'A2'
-
-    wb = openpyxl.Workbook()
-    sheet(wb.active, ['Месяц', 'Ожидалось, ₸', 'Собрано, ₸', 'Банк, ₸', 'Наличные, ₸', 'Собрано, %', 'Оплатили', 'Учеников', 'Не оплатили, ₸'],
-          [[c['name'] + (' (идёт)' if c['is_current'] else ''), c['expected'], c['collected'], c['collected'] - c['cash'], c['cash'],
-            c['rate'], c['paid'], c['total'], c['debt']] for c in stats['chart']],
-          [20, 16, 16, 14, 14, 12, 12, 12, 16])
-    wb.active.title = 'По месяцам'
-    sheet(wb.create_sheet('По группам'), ['Группа', 'Учитель', 'Тип', 'Учеников', 'Собрано, ₸', 'Доля, %', 'Собрано вовремя, %', 'Долг, ₸'],
-          [[x['group'].name, x['group'].teacher.username if x['group'].teacher else '', x['group'].get_group_type_display(),
-            x['students'], x['collected'], x['share'], x['rate'], x['debt']] for x in stats['groups']],
-          [28, 18, 16, 12, 16, 10, 18, 14])
-    sheet(wb.create_sheet('Должники'), ['Ученик', 'Телефон', 'Телефон родителя', 'Группы', 'Месяцы', 'Долг, ₸'],
-          [[d['student'].name, d['student'].phone, d['student'].parent_phone, ', '.join(d['groups']),
-            ', '.join(f'{MONTHS_RU[x["month"] - 1]} {x["year"]}' for x in d['months']), d['amount']] for d in stats['debtors']],
-          [26, 18, 18, 28, 30, 14])
-    first = stats['range_cycles'][0]
-    paid = Payment.objects.filter(is_paid=True, cycle_number__gte=first[0] * 100 + first[1]) \
-        .select_related('student', 'group', 'marked_by').order_by('cycle_number', 'group__name', 'student__name')
-    if group_type in ('group', 'individual'):
-        paid = paid.filter(group__group_type=group_type)
-    sheet(wb.create_sheet('Оплаты'), ['Месяц', 'Ученик', 'Группа', 'Сумма, ₸', 'Способ', 'Дата оплаты', 'Кто отметил'],
-          [[f'{MONTHS_RU[p.cycle_number % 100 - 1]} {p.cycle_number // 100}', p.student.name, p.group.name,
-            int(p.paid_amount or p.amount), p.get_method_display(),
-            timezone.localtime(p.paid_at).strftime('%d.%m.%Y') if p.paid_at else '',
-            p.marked_by.username if p.marked_by else ''] for p in paid],
-          [18, 26, 26, 14, 12, 14, 18])
-
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = f'attachment; filename="income_{months}m.xlsx"'
-    wb.save(response)
-    return response
+    from . import excel
+    content, filename = excel.income_workbook(months, group_type)
+    return excel.response(content, filename)
 
 
 @crm_view
