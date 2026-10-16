@@ -6,192 +6,179 @@
     <title>Создать группу — Enjoy English</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
-        * { font-family: 'Inter', sans-serif; }
-        .fade-in { animation: fadeIn 0.4s ease; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        /* Форма группы — общий вид со страницей «Редактировать группу» */
+        .ee-pick[hidden] { display: none; }
+        .ee-pick.is-teacher { align-items: center; }
+        .ee-pick.is-teacher > input { margin-top: 0; }
+        .ee-pick .ee-avatar { width: 32px; height: 32px; font-size: 13px; }
+
+        /* ---------- Расписание: строка на каждый день ---------- */
+        .days { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+        .day { display: flex; align-items: center; gap: 12px; padding: 9px 10px 9px 14px; transition: background-color .2s ease; }
+        .day + .day { border-top: 1px solid var(--line); }
+        .day.is-on { background: var(--accent-soft); }
+        .day-toggle { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; cursor: pointer; font-size: 14px; font-weight: 700; color: var(--ink); }
+        .day:not(.is-on) .day-toggle { color: var(--muted); }
+        .day-times { display: flex; align-items: center; gap: 8px; flex-shrink: 0; transition: opacity .2s ease; }
+        .day:not(.is-on) .day-times { opacity: .45; }
+        .day:not(.is-on) .day-times:focus-within { opacity: 1; }
+        html.ee .day-times .ee-input { width: 92px; height: 40px; padding: 0 8px; border-radius: 10px; text-align: center; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .day-dash { color: var(--faint); }
+        .day-short { display: none; }
+        @media (max-width: 480px) {
+            .day { gap: 8px; padding-left: 12px; }
+            .day-full { display: none; }
+            .day-short { display: inline; }
+            html.ee .day-times .ee-input { width: 76px; }
         }
+
+        /* Переключатель дня */
+        .ee-switch { appearance: none; -webkit-appearance: none; position: relative; width: 40px; height: 24px; flex-shrink: 0; margin: 0; border-radius: 9999px; cursor: pointer;
+            background: var(--line-strong); transition: background-color .2s ease; }
+        .ee-switch::before { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 9999px; background: #fff;
+            box-shadow: 0 1px 3px rgba(31, 28, 26, .25); transition: transform var(--spring-dur) var(--spring); }
+        .ee-switch:checked { background: var(--accent); }
+        .ee-switch:checked::before { transform: translateX(16px); }
+        .ee-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
-<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+<body class="min-h-screen">
     {% include 'dashboard/partials/shell.html' %}
 
-    <header class="bg-gray-800 shadow-lg">
-        <div class="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
-            <a href="{% url 'dashboard' %}" class="text-gray-300 hover:text-white">
-                <i class="fas fa-arrow-left"></i> Назад
-            </a>
-            <h1 class="text-xl font-bold text-white">Создать группу</h1>
-            <div></div>
+    <header class="sticky top-0 z-40">
+        <div class="ee-head max-w-4xl mx-auto px-4 sm:px-6">
+            <div class="ee-head-main">
+                <a href="{% url 'dashboard' %}" class="head-back" aria-label="Назад"><i class="fas fa-arrow-left"></i></a>
+                <span class="head-icon"><i class="fas fa-users-rectangle"></i></span>
+                <h1 class="head-title">Создать группу</h1>
+            </div>
         </div>
     </header>
-    
-    <main class="max-w-3xl mx-auto px-4 py-8 fade-in">
-        
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-8 border border-gray-300 dark:border-gray-600 transition-colors">
-            
-            <form method="POST">
-                {% csrf_token %}
-                
-                <div class="mb-6">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Название группы *</label>
-                    <input type="text" name="name" required
-                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg"
-                           placeholder="Например: Pre-Intermediate A2">
-                </div>
-                
-                <div class="mb-6">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Тип</label>
-                    <select name="group_type" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
-                        <option value="group">Групповая</option>
-                        <option value="individual">Индивидуальная</option>
-                    </select>
-                </div>
 
-                <div class="mb-6">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Уровень</label>
-                    <select name="level" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
-                        <option value="">Определить по названию</option>
-                        {% for value, label in levels %}<option value="{{ value }}" {% if group.level == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
-                    </select>
-                    <p class="text-xs text-gray-400 mt-1">По уровню калибровка подскажет группу сильнее или слабее. Для индивидуальных не нужен.</p>
+    <main class="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <form method="POST" class="panel ee-form" id="groupForm">
+            {% csrf_token %}
+
+            <section class="ee-sec">
+                <div class="ee-sec-head">
+                    <span class="ee-sec-icon"><i class="fas fa-circle-info"></i></span>
+                    <div><h2 class="ee-sec-title">Основное</h2></div>
                 </div>
-                
-                <div class="mb-6">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Учитель *</label>
-                    <select name="teacher" required class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
-                        {% for teacher in teachers %}
-                        <option value="{{ teacher.id }}"><span class="notranslate">{{ teacher.username }}</span></option>
-                        {% empty %}
-                        <option value="">Нет учителей</option>
-                        {% endfor %}
-                    </select>
+                <div class="grid grid-cols-1 sm:grid-cols-6 gap-4">
+                    <div class="sm:col-span-4">
+                        <label class="ee-label" for="fName">Название группы <span class="req">*</span></label>
+                        <input type="text" id="fName" name="name" required autofocus class="ee-input" placeholder="Например: Pre-Intermediate A2">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="ee-label" for="fType">Тип</label>
+                        <select id="fType" name="group_type" class="ee-input">
+                            <option value="group">Групповая</option>
+                            <option value="individual">Индивидуальная</option>
+                        </select>
+                    </div>
+                    <div class="sm:col-span-3">
+                        <label class="ee-label" for="fTeacher">Учитель <span class="req">*</span></label>
+                        <select id="fTeacher" name="teacher" required class="ee-input">
+                            {% for teacher in teachers %}
+                            <option value="{{ teacher.id }}" class="notranslate">{{ teacher.username }}</option>
+                            {% empty %}
+                            <option value="">Нет учителей</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="sm:col-span-3" id="levelBox">
+                        <label class="ee-label" for="fLevel">Уровень</label>
+                        <select id="fLevel" name="level" class="ee-input">
+                            <option value="">Определить по названию</option>
+                            {% for value, label in levels %}<option value="{{ value }}" {% if group.level == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                        </select>
+                        <p class="ee-hint">По уровню калибровка подскажет группу сильнее или слабее. Для индивидуальных не нужен.</p>
+                    </div>
                 </div>
-                
-                <div class="mb-6">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Дополнительные учителя</label>
-                    <div class="space-y-2">
-                        {% for teacher in teachers %}
-                        <label class="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                            <input type="checkbox" name="additional_teachers" value="{{ teacher.id }}" class="w-4 h-4 text-indigo-600">
-                            <span class="text-sm text-gray-700 dark:text-gray-300">{{ teacher.username }}</span>
+            </section>
+
+            <section class="ee-sec">
+                <div class="ee-sec-head">
+                    <span class="ee-sec-icon"><i class="fas fa-chalkboard-user"></i></span>
+                    <div class="flex-1 min-w-0">
+                        <h2 class="ee-sec-title">Учителя</h2>
+                        <p class="ee-sec-desc">Дополнительные учителя тоже ведут уроки группы · Выбрано: <b id="teachersCount">0</b></p>
+                    </div>
+                </div>
+                {% if teachers %}
+                <div class="ee-picks" id="teacherPicks">
+                    {% for teacher in teachers %}
+                    <label class="ee-pick is-teacher" data-teacher="{{ teacher.id }}">
+                        <input type="checkbox" name="additional_teachers" value="{{ teacher.id }}">
+                        <span class="ee-avatar notranslate" aria-hidden="true">{% if teacher.profile.photo %}<img src="{{ teacher.profile.photo.url }}" alt="">{% else %}{{ teacher.username|slice:":1"|upper }}{% endif %}</span>
+                        <span class="min-w-0">
+                            <b class="ee-pick-name notranslate">{{ teacher.username }}</b>
+                            {% if teacher.get_full_name %}<span class="ee-pick-meta notranslate">{{ teacher.get_full_name }}</span>{% endif %}
+                        </span>
+                    </label>
+                    {% endfor %}
+                </div>
+                <p class="ee-hint" id="noOtherTeachers" hidden>Других учителей нет</p>
+                {% else %}
+                <div class="ee-empty !py-8"><i class="fas fa-chalkboard-user"></i><b>Нет учителей</b></div>
+                {% endif %}
+            </section>
+
+            <section class="ee-sec">
+                <div class="ee-sec-head">
+                    <span class="ee-sec-icon"><i class="fas fa-calendar-week"></i></span>
+                    <div class="flex-1 min-w-0">
+                        <h2 class="ee-sec-title">Расписание</h2>
+                        <p class="ee-sec-desc">Занятий в неделю: <b id="daysCount">0</b></p>
+                    </div>
+                </div>
+                <div class="days" id="days">
+                    {% for d in "0123456" %}
+                    {% cycle 'Пн' 'Вт' 'Ср' 'Чт' 'Пт' 'Сб' 'Вс' as short silent %}{% cycle 'Понедельник' 'Вторник' 'Среда' 'Четверг' 'Пятница' 'Суббота' 'Воскресенье' as full silent %}
+                    <div class="day">
+                        <label class="day-toggle">
+                            <input type="checkbox" name="day_{{ d }}" value="1" class="ee-switch">
+                            <span class="day-full">{{ full }}</span><span class="day-short">{{ short }}</span>
                         </label>
-                        {% endfor %}
-                    </div>
-                </div>
-                
-                <div class="mb-6">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-3">
-                        <i class="fas fa-calendar text-indigo-500 mr-1"></i>Расписание
-                    </label>
-                    <div class="space-y-2">
-                        <!-- Пн -->
-                        <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
-                            <label class="flex items-center gap-2 w-20">
-                                <input type="checkbox" name="day_0" value="1" class="w-4 h-4 text-indigo-600">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Пн</span>
-                            </label>
-                            <input type="text" name="start_0" placeholder="20:00" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 min-w-0 w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
-                            <span class="text-gray-400">—</span>
-                            <input type="text" name="end_0" placeholder="21:30" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 min-w-0 w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
-                        </div>
-                        
-                        <!-- Вт -->
-                        <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
-                            <label class="flex items-center gap-2 w-20">
-                                <input type="checkbox" name="day_1" value="1" class="w-4 h-4 text-indigo-600">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Вт</span>
-                            </label>
-                            <input type="text" name="start_1" placeholder="20:00" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 min-w-0 w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
-                            <span class="text-gray-400">—</span>
-                            <input type="text" name="end_1" placeholder="21:30" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 min-w-0 w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
-                        </div>
-                        
-                        <!-- Ср -->
-                        <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
-                            <label class="flex items-center gap-2 w-20">
-                                <input type="checkbox" name="day_2" value="1" class="w-4 h-4 text-indigo-600">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Ср</span>
-                            </label>
-                            <input type="text" name="start_2" placeholder="20:00" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 min-w-0 w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
-                            <span class="text-gray-400">—</span>
-                            <input type="text" name="end_2" placeholder="21:30" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 min-w-0 w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
-                        </div>
-                        
-                        <!-- Чт -->
-                        <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
-                            <label class="flex items-center gap-2 w-20">
-                                <input type="checkbox" name="day_3" value="1" class="w-4 h-4 text-indigo-600">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Чт</span>
-                            </label>
-                            <input type="text" name="start_3" placeholder="20:00" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 min-w-0 w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
-                            <span class="text-gray-400">—</span>
-                            <input type="text" name="end_3" placeholder="21:30" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 min-w-0 w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
-                        </div>
-                        
-                        <!-- Пт -->
-                        <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
-                            <label class="flex items-center gap-2 w-20">
-                                <input type="checkbox" name="day_4" value="1" class="w-4 h-4 text-indigo-600">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Пт</span>
-                            </label>
-                            <input type="text" name="start_4" placeholder="20:00" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 min-w-0 w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
-                            <span class="text-gray-400">—</span>
-                            <input type="text" name="end_4" placeholder="21:30" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 min-w-0 w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
-                        </div>
-                        
-                        <!-- Сб -->
-                        <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
-                            <label class="flex items-center gap-2 w-20">
-                                <input type="checkbox" name="day_5" value="1" class="w-4 h-4 text-indigo-600">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Сб</span>
-                            </label>
-                            <input type="text" name="start_5" placeholder="20:00" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 min-w-0 w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
-                            <span class="text-gray-400">—</span>
-                            <input type="text" name="end_5" placeholder="21:30" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 min-w-0 w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
-                        </div>
-                        
-                        <!-- Вс -->
-                        <div class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg">
-                            <label class="flex items-center gap-2 w-20">
-                                <input type="checkbox" name="day_6" value="1" class="w-4 h-4 text-indigo-600">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Вс</span>
-                            </label>
-                            <input type="text" name="start_6" placeholder="20:00" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 min-w-0 w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
-                            <span class="text-gray-400">—</span>
-                            <input type="text" name="end_6" placeholder="21:30" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" class="flex-1 min-w-0 w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+                        <div class="day-times">
+                            <input type="text" name="start_{{ d }}" placeholder="20:00" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" inputmode="numeric" class="ee-input" aria-label="{{ full }}: начало">
+                            <span class="day-dash" aria-hidden="true">—</span>
+                            <input type="text" name="end_{{ d }}" placeholder="21:30" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" inputmode="numeric" class="ee-input" aria-label="{{ full }}: конец">
                         </div>
                     </div>
+                    {% endfor %}
                 </div>
-                
-                <div class="mb-6">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
-                        <i class="fas fa-calendar-day text-indigo-500 mr-1"></i>С какого числа начинается цикл
-                    </label>
-                    <input type="number" name="cycle_start_day" min="2" max="28" value="11"
-                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
-                    <p class="text-xs text-gray-400 mt-1">
-                        Например, если <b>6</b> — цикл длится <b>с 6 числа этого месяца по 5 число следующего</b>.
-                    </p>
+                <p class="ee-hint">Начните вводить время — день включится сам.</p>
+            </section>
+
+            <section class="ee-sec">
+                <div class="ee-sec-head">
+                    <span class="ee-sec-icon"><i class="fas fa-calendar-day"></i></span>
+                    <div><h2 class="ee-sec-title">Цикл оплаты</h2></div>
                 </div>
-                
-                <button type="submit"
-                        class="w-full bg-indigo-500 text-white py-3 rounded-lg font-medium hover:bg-indigo-600 transition">
-                    <i class="fas fa-plus mr-2"></i>Создать группу
-                </button>
-                
-            </form>
-            
-        </div>
-        
+                <div class="sm:max-w-xs">
+                    <label class="ee-label" for="fCycle">С какого числа начинается цикл</label>
+                    <input type="number" id="fCycle" name="cycle_start_day" min="2" max="28" value="11" class="ee-input">
+                </div>
+                <p class="ee-hint">
+                    Например, если <b>6</b> — цикл длится <b>с 6 числа этого месяца по 5 число следующего</b>.
+                </p>
+            </section>
+
+            <div class="ee-actions">
+                <a href="{% url 'dashboard' %}" class="ee-btn ee-btn-soft">Отмена</a>
+                <button type="submit" class="ee-btn ee-btn-primary"><i class="fas fa-plus"></i>Создать группу</button>
+            </div>
+        </form>
     </main>
-    
+
     <script>
+        const form = document.getElementById('groupForm');
+
+        // Время: цифры без двоеточия сами становятся 20:00
         document.querySelectorAll('input[pattern*="[0-9]"]').forEach(input => {
             input.addEventListener('input', function() {
                 let val = this.value.replace(/\D/g, '');
@@ -202,35 +189,84 @@
                 }
             });
         });
-        
-        
+
+        // Уровень нужен только групповым занятиям
+        const typeSelect = form.querySelector('select[name="group_type"]');
+        const levelBox = document.getElementById('levelBox');
+        function syncType() {
+            const individual = typeSelect.value === 'individual';
+            levelBox.hidden = individual;
+            levelBox.querySelector('select').disabled = individual;
+        }
+        typeSelect.addEventListener('change', syncType);
+        syncType();
+
+        // Основной учитель не показывается среди дополнительных
+        const mainTeacher = form.querySelector('select[name="teacher"]');
+        const teacherPicks = document.getElementById('teacherPicks');
+        function syncTeachers() {
+            if (!teacherPicks) return;
+            let visible = 0;
+            teacherPicks.querySelectorAll('[data-teacher]').forEach(pick => {
+                const isMain = pick.dataset.teacher === mainTeacher.value;
+                pick.hidden = isMain;
+                pick.querySelector('input').disabled = isMain;
+                if (!isMain) visible++;
+            });
+            document.getElementById('noOtherTeachers').hidden = visible > 0;
+            document.getElementById('teachersCount').textContent = teacherPicks.querySelectorAll('input:checked:not(:disabled)').length;
+        }
+        mainTeacher.addEventListener('change', syncTeachers);
+        if (teacherPicks) teacherPicks.addEventListener('change', syncTeachers);
+        syncTeachers();
+
+        // Расписание: выключенный день приглушён, у включённого время обязательно
+        const days = Array.from(document.querySelectorAll('#days .day'));
+        function syncDay(row) {
+            const on = row.querySelector('.ee-switch').checked;
+            row.classList.toggle('is-on', on);
+            row.querySelectorAll('.day-times input').forEach(input => { input.required = on; });
+            document.getElementById('daysCount').textContent = days.filter(r => r.classList.contains('is-on')).length;
+        }
+        days.forEach(row => {
+            const toggle = row.querySelector('.ee-switch');
+            const [start, end] = row.querySelectorAll('.day-times input');
+            toggle.addEventListener('change', () => {
+                // Включили пустой день — подставляем время другого включённого дня
+                if (toggle.checked && !start.value && !end.value) {
+                    const other = days.find(r => r !== row && r.classList.contains('is-on') && r.querySelector('.day-times input').value);
+                    if (other) {
+                        const [s, e] = other.querySelectorAll('.day-times input');
+                        start.value = s.value;
+                        end.value = e.value;
+                    }
+                }
+                syncDay(row);
+            });
+            // Начали вводить время — день включается
+            [start, end].forEach(input => input.addEventListener('input', () => {
+                if (input.value && !toggle.checked) { toggle.checked = true; syncDay(row); }
+            }));
+            syncDay(row);
+        });
+
+        // Стрелки вверх и вниз переводят между полями
         document.addEventListener('DOMContentLoaded', function() {
-            const form = document.querySelector('form');
-            if (!form) return;
-    
             const fields = Array.from(form.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]), select, textarea'));
-    
             fields.forEach((field, index) => {
                 field.addEventListener('keydown', function(e) {
-                    let nextIndex = null;
-            
-                    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-                        nextIndex = index + 1;
-                    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-                        nextIndex = index - 1;
-                    }
-            
-                    if (nextIndex !== null && fields[nextIndex]) {
+                    const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+                    if (!step) return;
+                    let next = index + step;
+                    while (fields[next] && (fields[next].disabled || !fields[next].offsetParent)) next += step;
+                    if (fields[next]) {
                         e.preventDefault();
-                        fields[nextIndex].focus();
-                        if (fields[nextIndex].select && fields[nextIndex].type !== 'checkbox') {
-                            fields[nextIndex].select();
-                        }
+                        fields[next].focus();
+                        if (fields[next].select) fields[next].select();
                     }
                 });
             });
         });
     </script>
-    
 </body>
 </html>

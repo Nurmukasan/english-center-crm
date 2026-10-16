@@ -898,6 +898,20 @@ PHRASES = {
     '{d}: начало': '{d}: start',
     '{d}: конец': '{d}: end',
     'Начать занятия': 'Start lessons',
+    # Создать / редактировать группу
+    'Основное': 'Basics',
+    'Название группы': 'Group name',
+    'Дополнительные учителя тоже ведут уроки группы · Выбрано:': 'Additional teachers can also run this group\'s lessons · Selected:',
+    'Других учителей нет': 'No other teachers',
+    'Цикл оплаты': 'Payment period',
+
+    # История уроков
+    'Уроков проведено': 'Lessons held',
+    'Звёзд выдано': 'Stars given',
+    'Дата урока': 'Lesson date',
+    'Уроков: {n}': 'Lessons: {n}',
+    'Кто был': 'Who came',
+    'Все были': 'All present',
     # Расписание
     'Групп': 'Groups',
     'Учителей': 'Teachers',
