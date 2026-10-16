@@ -6,153 +6,181 @@
     <title>Редактировать ученика — Enjoy English</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <style>
-        * { font-family: 'Inter', sans-serif; }
-        .fade-in { animation: fadeIn 0.4s ease; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
     {% include 'dashboard/partials/theme.html' %}
+    <style>
+        /* Группа, где ученик сейчас учится, но галочку сняли: подсказываем, что он из неё выйдет */
+        .pick-out { display: none; margin-top: 6px; }
+        .ee-pick[data-was]:has(> input:not(:checked)) { border-style: dashed; }
+        .ee-pick[data-was]:has(> input:not(:checked)) .pick-out { display: inline-flex; }
+    </style>
 </head>
-<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+<body class="min-h-screen">
     {% include 'dashboard/partials/shell.html' %}
 
-    <header class="bg-gray-800 shadow-lg">
-        <div class="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
-            <a href="{% url 'students_list' %}" class="text-gray-300 hover:text-white">
-                <i class="fas fa-arrow-left"></i> Назад
-            </a>
-            <h1 class="text-xl font-bold text-white">Редактировать ученика</h1>
-            <div></div>
+    {% with ret=request.GET.return %}
+    <header class="sticky top-0 z-40">
+        <div class="ee-head max-w-4xl mx-auto px-4 sm:px-6">
+            <div class="ee-head-main">
+                <a href="{% if ret|slice:':1' == '/' and ret|slice:'1:2' not in '/\\' %}{{ ret }}{% else %}{% url 'students_list' %}{% endif %}" class="head-back" aria-label="Назад"><i class="fas fa-arrow-left"></i></a>
+                <span class="head-icon"><i class="fas fa-user-pen"></i></span>
+                <div class="min-w-0">
+                    <h1 class="head-title">Редактировать ученика</h1>
+                    <p class="head-sub notranslate">{{ student.name }}</p>
+                </div>
+            </div>
+            <div class="ee-head-actions">
+                <a href="{% url 'student_profile' student.id %}" class="head-btn" title="Профиль ученика" aria-label="Профиль ученика"><i class="fas fa-id-card"></i><span class="hidden sm:inline">Профиль</span></a>
+            </div>
         </div>
     </header>
-    
-    <main class="max-w-3xl mx-auto px-4 py-8 fade-in">
-        
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-8 border border-gray-300 dark:border-gray-600 transition-colors">
-            
-            <form method="POST">
-                {% csrf_token %}
-                <input type="hidden" name="return_url" value="{{ request.GET.return|default:'' }}">
-                
-                <div class="mb-6">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
-                        <i class="fas fa-user text-indigo-500 mr-1"></i>Имя *
-                    </label>
-                    <input type="text" name="name" value="{{ student.name }}" required
-                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+
+    <main class="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <form method="POST" class="panel ee-form" id="studentForm">
+            {% csrf_token %}
+            <input type="hidden" name="return_url" value="{{ request.GET.return|default:'' }}">
+
+            <section class="ee-sec">
+                <div class="ee-sec-head">
+                    <span class="ee-sec-icon"><i class="fas fa-user"></i></span>
+                    <div class="flex-1 min-w-0"><h2 class="ee-sec-title">Ученик</h2></div>
+                    {% if not student.is_active %}<span class="ee-tag ee-tag-muted"><i class="fas fa-box-archive"></i>В архиве</span>{% endif %}
                 </div>
-                
-                <div class="mb-6">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Телефон</label>
-                    <input type="text" name="phone" value="{{ student.phone }}"
-                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <div>
-                        <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Школа</label>
-                        <input type="text" name="school" value="{{ student.school }}"
-                               class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
+                <div class="grid grid-cols-1 sm:grid-cols-6 gap-4">
+                    <div class="sm:col-span-4">
+                        <label class="ee-label" for="fName">Имя ученика <span class="req">*</span></label>
+                        <input type="text" id="fName" name="name" value="{{ student.name }}" required class="ee-input">
                     </div>
-                    <div>
-                        <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Класс</label>
-                        <input type="text" name="grade" value="{{ student.grade }}"
-                               class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
+                    <div class="sm:col-span-2">
+                        <label class="ee-label" for="fAge">Возраст</label>
+                        <input type="number" id="fAge" name="age" min="1" max="99" value="{{ student.age|default:'' }}" class="ee-input">
                     </div>
-                    <div>
-                        <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Возраст</label>
-                        <input type="number" name="age" value="{{ student.age|default:'' }}"
-                               class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
+                    <div class="sm:col-span-2">
+                        <label class="ee-label" for="fPhone">Телефон</label>
+                        <input type="tel" id="fPhone" name="phone" value="{{ student.phone }}" class="ee-input" placeholder="+7 777 123 4567">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="ee-label" for="fSchool">Школа</label>
+                        <input type="text" id="fSchool" name="school" value="{{ student.school }}" class="ee-input">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="ee-label" for="fGrade">Класс</label>
+                        <input type="text" id="fGrade" name="grade" value="{{ student.grade }}" class="ee-input">
                     </div>
                 </div>
-                
-                <div class="mb-6">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
-                        <i class="fas fa-money-bill text-emerald-500 mr-1"></i>Цена за 1 урок (₸)
-                    </label>
-                    <input type="number" name="price_per_lesson" step="0.01" min="0"
-                           value="{{ student.price_per_lesson|default:0 }}"
-                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <p class="text-xs text-gray-400 mt-1">Сумма за цикл = цена × количество уроков в периоде</p>
+            </section>
+
+            <section class="ee-sec">
+                <div class="ee-sec-head">
+                    <span class="ee-sec-icon"><i class="fas fa-people-roof"></i></span>
+                    <div><h2 class="ee-sec-title">Родитель</h2></div>
                 </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Родитель</label>
-                        <input type="text" name="parent_name" value="{{ student.parent_name }}"
-                               class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
+                        <label class="ee-label" for="fParent">Родитель</label>
+                        <input type="text" id="fParent" name="parent_name" value="{{ student.parent_name }}" class="ee-input">
                     </div>
                     <div>
-                        <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Телефон родителя</label>
-                        <input type="text" name="parent_phone" value="{{ student.parent_phone }}"
-                               class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
+                        <label class="ee-label" for="fParentPhone">Телефон родителя</label>
+                        <input type="tel" id="fParentPhone" name="parent_phone" value="{{ student.parent_phone }}" class="ee-input" placeholder="+7 777 123 4567">
                     </div>
                 </div>
-                
-                <div class="mb-6">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-3">
-                        <i class="fas fa-users text-indigo-500 mr-1"></i>Группы
-                    </label>
-                    <div class="space-y-2">
-                        {% for group in groups %}
-                        <label class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                            <input type="checkbox" name="groups" value="{{ group.id }}"
-                                   {% if group.id in student_groups %}checked{% endif %}
-                                   class="w-5 h-5 text-indigo-600">
-                            <div>
-                                <p class="font-medium text-gray-800 dark:text-white">{{ group.name }}</p>
-                                <p class="text-sm text-gray-400">{{ group.get_schedule_display }}</p>
-                            </div>
+            </section>
+
+            <section class="ee-sec">
+                <div class="ee-sec-head">
+                    <span class="ee-sec-icon"><i class="fas fa-money-bill-wave"></i></span>
+                    <div><h2 class="ee-sec-title">Цена за урок</h2></div>
+                </div>
+                <div class="sm:max-w-xs">
+                    <div class="ee-affix">
+                        <input type="number" id="fPrice" name="price_per_lesson" step="0.01" min="0" value="{{ student.price_per_lesson|default:0|floatformat:'-2u' }}" class="ee-input" aria-label="Цена за урок">
+                        <span class="ee-suffix">₸</span>
+                    </div>
+                </div>
+                <p class="ee-hint">Сумма за цикл = цена × количество уроков в периоде</p>
+            </section>
+
+            <section class="ee-sec">
+                <div class="ee-sec-head">
+                    <span class="ee-sec-icon"><i class="fas fa-users"></i></span>
+                    <div class="flex-1 min-w-0">
+                        <h2 class="ee-sec-title">Группы</h2>
+                        <p class="ee-sec-desc">Выбрано: <b id="pickedCount">0</b></p>
+                    </div>
+                    {% if groups|length > 6 %}
+                    <input type="search" class="ee-input !h-10 !w-48 sm:!w-60" data-ee-filter="#groupPicks" placeholder="Найти группу…" aria-label="Найти группу…">
+                    {% endif %}
+                </div>
+                <div id="groupPicks">
+                    <div class="ee-picks">
+                        {% for group in groups %}{% if group.group_type != 'individual' %}
+                        <label class="ee-pick" data-ee-item{% if group.id in student_groups %} data-was{% endif %}>
+                            <input type="checkbox" name="groups" value="{{ group.id }}" {% if group.id in student_groups %}checked{% endif %}>
+                            <span class="min-w-0">
+                                <b class="ee-pick-name notranslate">{{ group.name }}</b>
+                                <span class="ee-pick-meta">{{ group.get_schedule_display }}</span>
+                                {% if group.id in student_groups %}<span class="pick-out ee-tag ee-tag-bad"><i class="fas fa-arrow-right-from-bracket"></i>Выйдет из группы</span>{% endif %}
+                            </span>
                         </label>
-                        {% endfor %}
+                        {% endif %}{% endfor %}
                     </div>
+                    {% if groups|length %}
+                    <p class="ee-section-title !mx-0">Индивидуальные</p>
+                    <div class="ee-picks">
+                        {% for group in groups %}{% if group.group_type == 'individual' %}
+                        <label class="ee-pick" data-ee-item{% if group.id in student_groups %} data-was{% endif %}>
+                            <input type="checkbox" name="groups" value="{{ group.id }}" {% if group.id in student_groups %}checked{% endif %}>
+                            <span class="min-w-0">
+                                <b class="ee-pick-name notranslate">{{ group.name }}</b>
+                                <span class="ee-pick-meta">{{ group.get_schedule_display }}</span>
+                                {% if group.id in student_groups %}<span class="pick-out ee-tag ee-tag-bad"><i class="fas fa-arrow-right-from-bracket"></i>Выйдет из группы</span>{% endif %}
+                            </span>
+                        </label>
+                        {% endif %}{% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
-                
-                <button type="submit"
-                        class="w-full bg-indigo-500 text-white py-3 rounded-lg font-medium hover:bg-indigo-600 transition">
-                    <i class="fas fa-save mr-2"></i>Сохранить
-                </button>
-                
-            </form>
-            
-        </div>
-        
+                {% if not groups|length %}
+                <div class="ee-empty"><i class="fas fa-users-slash"></i><b>Нет доступных групп</b></div>
+                {% endif %}
+            </section>
+
+            <div class="ee-actions">
+                <a href="{% if ret|slice:':1' == '/' and ret|slice:'1:2' not in '/\\' %}{{ ret }}{% else %}{% url 'students_list' %}{% endif %}" class="ee-btn ee-btn-soft">Отмена</a>
+                <button type="submit" class="ee-btn ee-btn-primary"><i class="fas fa-floppy-disk"></i>Сохранить</button>
+            </div>
+        </form>
     </main>
-    
+    {% endwith %}
+
     <script>
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            const form = document.querySelector('form');
-            if (!form) return;
-    
-            const fields = Array.from(form.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]), select, textarea'));
-    
+        // Счётчик выбранных групп; пустой блок «Индивидуальные» прячем
+        const picks = document.getElementById('groupPicks');
+        function countPicked() { document.getElementById('pickedCount').textContent = picks.querySelectorAll('input:checked').length; }
+        picks.addEventListener('change', countPicked);
+        countPicked();
+        picks.querySelectorAll('.ee-picks').forEach(box => {
+            if (!box.children.length) { box.hidden = true; const title = box.previousElementSibling; if (title && title.matches('.ee-section-title')) title.hidden = true; }
+        });
+
+        // Стрелки вверх и вниз переводят между полями
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('studentForm');
+            const fields = Array.from(form.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([data-ee-filter]), select, textarea'));
             fields.forEach((field, index) => {
-                field.addEventListener('keydown', function(e) {
-                    let nextIndex = null;
-            
-                    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-                        nextIndex = index + 1;
-                    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-                        nextIndex = index - 1;
-                    }
-            
-                    if (nextIndex !== null && fields[nextIndex]) {
+                field.addEventListener('keydown', function (e) {
+                    let next = null;
+                    if (e.key === 'ArrowDown') next = index + 1;
+                    else if (e.key === 'ArrowUp') next = index - 1;
+                    if (next !== null && fields[next]) {
                         e.preventDefault();
-                        fields[nextIndex].focus();
-                        if (fields[nextIndex].select && fields[nextIndex].type !== 'checkbox') {
-                            fields[nextIndex].select();
-                        }
+                        fields[next].focus();
+                        if (fields[next].select) fields[next].select();
                     }
                 });
             });
         });
     </script>
-    
 </body>
 </html>

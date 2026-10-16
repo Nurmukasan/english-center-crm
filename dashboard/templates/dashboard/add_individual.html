@@ -7,84 +7,132 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <style>
-        .day-row { transition: background-color .25s ease, border-color .25s ease; }
-        .day-row.on { background: var(--accent-soft); border-color: var(--accent-line); }
-        .day-row:not(.on) input[type=time] { opacity: .35; }
-    </style>
     {% include 'dashboard/partials/theme.html' %}
+    <style>
+        /* Дни недели: карточка дня с двумя полями времени */
+        .days { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; }
+        .day-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px;
+            background: var(--surface); border: 1px solid var(--line); transition: background-color .25s ease, border-color .25s ease, box-shadow .25s ease; }
+        .day-row.on, .day-row:has(.day-check input:checked) { background: var(--accent-soft); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+        .day-check { display: flex; align-items: center; gap: 10px; width: 62px; flex-shrink: 0; cursor: pointer; }
+        .day-check input { width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; }
+        .day-check span { font-size: 14px; font-weight: 800; color: var(--ink); }
+        .day-dash { color: var(--faint); flex-shrink: 0; }
+        html.ee .day-row input[type=time].ee-input { flex: 1; min-width: 0; width: 0; height: 40px; padding: 0 10px; font-size: 14px; border-radius: 10px; transition: opacity .25s ease; }
+        .day-row:not(.on):not(:has(.day-check input:checked)) input[type=time] { opacity: .45; }
+        .ee-hint a { color: var(--accent-ink); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+        @media (max-width: 400px) {
+            .days { grid-template-columns: 1fr; }
+            .day-row { padding: 9px 10px; gap: 8px; }
+            .day-check { width: 54px; gap: 8px; }
+            html.ee .day-row input[type=time].ee-input { padding: 0 8px; }
+            .day-row input[type=time]::-webkit-calendar-picker-indicator { display: none; }
+        }
+    </style>
 </head>
 <body class="min-h-screen">
     {% include 'dashboard/partials/shell.html' %}
 
-    <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
-        <div class="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
-            <a href="{% url 'individual_lessons' %}" class="text-gray-300 hover:text-white"><i class="fas fa-arrow-left"></i> Назад</a>
-            <h1 class="text-xl font-bold text-white">Новый индивидуальный</h1>
-            <div></div>
+    <header class="sticky top-0 z-40">
+        <div class="ee-head max-w-4xl mx-auto px-4 sm:px-6">
+            <div class="ee-head-main">
+                <a href="{% url 'individual_lessons' %}" class="head-back" aria-label="Назад"><i class="fas fa-arrow-left"></i></a>
+                <span class="head-icon"><i class="fas fa-chalkboard-user"></i></span>
+                <h1 class="head-title">Новый индивидуальный ученик</h1>
+            </div>
         </div>
     </header>
 
-    <main class="max-w-3xl mx-auto px-4 py-8">
-        <form method="POST" class="panel p-6 sm:p-8 space-y-6">
+    <main class="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <form method="POST" class="panel ee-form" id="individualForm">
             {% csrf_token %}
 
-            <div>
-                <label class="block text-gray-700 text-sm font-medium mb-2"><i class="fas fa-user-graduate text-violet-300 mr-1"></i>Ученик *</label>
-                <select name="student" id="student" required class="w-full px-4 py-3 border rounded-xl dark:bg-gray-700 dark:text-white">
-                    <option value="">— выберите ученика —</option>
-                    {% for s in students %}
-                    <option value="{{ s.id }}" data-price="{{ s.price_per_lesson|floatformat:0 }}" {% if selected_student == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+            <section class="ee-sec">
+                <div class="ee-sec-head">
+                    <span class="ee-sec-icon"><i class="fas fa-user-graduate"></i></span>
+                    <div><h2 class="ee-sec-title">Ученик</h2></div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-6 gap-4">
+                    <div class="sm:col-span-4">
+                        <label class="ee-label" for="student">Имя ученика <span class="req">*</span></label>
+                        <select name="student" id="student" required class="ee-input">
+                            <option value="">— выберите ученика —</option>
+                            {% for s in students %}
+                            <option value="{{ s.id }}" class="notranslate" data-price="{{ s.price_per_lesson|floatformat:0 }}" {% if selected_student == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <p class="ee-hint">Нет в списке? <a href="{% url 'add_student' %}">Сначала добавьте ученика</a> — потом вернитесь сюда.</p>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="ee-label" for="price">Цена за урок</label>
+                        <div class="ee-affix">
+                            <input type="text" name="price" id="price" inputmode="numeric" placeholder="например, 5000" class="ee-input">
+                            <span class="ee-suffix">₸</span>
+                        </div>
+                        <p class="ee-hint">Берётся из карточки ученика — можно поменять</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="ee-sec">
+                <div class="ee-sec-head">
+                    <span class="ee-sec-icon"><i class="fas fa-chalkboard-user"></i></span>
+                    <div><h2 class="ee-sec-title">Учитель</h2></div>
+                </div>
+                {% if teachers %}
+                <div class="ee-picks">
+                    {% for t in teachers %}
+                    <label class="ee-pick">
+                        <input type="radio" name="teacher" value="{{ t.id }}" required {% if forloop.first %}checked{% endif %}>
+                        <span class="min-w-0">
+                            <b class="ee-pick-name notranslate">{{ t.username }}</b>
+                        </span>
+                    </label>
                     {% endfor %}
-                </select>
-                <p class="text-xs text-gray-500 mt-2">Нет в списке? <a href="{% url 'add_student' %}" class="text-violet-300 hover:text-white">Сначала добавьте ученика</a> — потом вернитесь сюда.</p>
-            </div>
-
-            <div class="grid sm:grid-cols-2 gap-5">
-                <div>
-                    <label class="block text-gray-700 text-sm font-medium mb-2"><i class="fas fa-chalkboard-user text-violet-300 mr-1"></i>Учитель *</label>
-                    <select name="teacher" required class="w-full px-4 py-3 border rounded-xl dark:bg-gray-700 dark:text-white">
-                        {% for t in teachers %}
-                        <option value="{{ t.id }}">{{ t.username }}</option>
-                        {% empty %}
-                        <option value="">Нет учителей</option>
-                        {% endfor %}
-                    </select>
                 </div>
-                <div>
-                    <label class="block text-gray-700 text-sm font-medium mb-2"><i class="fas fa-tenge-sign text-violet-300 mr-1"></i>Цена за урок, ₸</label>
-                    <input type="text" name="price" id="price" inputmode="numeric" placeholder="например, 5000"
-                           class="w-full px-4 py-3 border rounded-xl dark:bg-gray-700 dark:text-white">
-                </div>
-            </div>
+                {% else %}
+                <div class="ee-empty"><i class="fas fa-user-slash"></i><b>Нет учителей</b></div>
+                {% endif %}
+            </section>
 
-            <div>
-                <p class="text-gray-700 text-sm font-medium mb-3"><i class="fas fa-calendar-week text-violet-300 mr-1"></i>Дни и время</p>
-                <div class="space-y-2">
+            <section class="ee-sec">
+                <div class="ee-sec-head">
+                    <span class="ee-sec-icon"><i class="fas fa-calendar-week"></i></span>
+                    <div>
+                        <h2 class="ee-sec-title">Дни и время</h2>
+                        <p class="ee-sec-desc">Начните вводить время — день включится сам.</p>
+                    </div>
+                </div>
+                <div class="days">
                     {% for i, d in days %}
-                    <div class="day-row flex items-center gap-3 p-3 border border-white/10 rounded-xl">
-                        <label class="flex items-center gap-3 w-24 cursor-pointer">
-                            <input type="checkbox" name="day_{{ i }}" value="1" class="w-5 h-5" onchange="this.closest('.day-row').classList.toggle('on', this.checked)">
-                            <span class="font-bold text-white">{{ d }}</span>
+                    <div class="day-row">
+                        <label class="day-check">
+                            <input type="checkbox" name="day_{{ i }}" value="1" onchange="this.closest('.day-row').classList.toggle('on', this.checked)">
+                            <span>{{ d }}</span>
                         </label>
-                        <input type="time" name="start_{{ i }}" value="16:00" class="flex-1 min-w-0 w-0 px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
-                        <span class="text-gray-500">—</span>
-                        <input type="time" name="end_{{ i }}" value="17:00" class="flex-1 min-w-0 w-0 px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
+                        <input type="time" name="start_{{ i }}" value="16:00" class="ee-input" aria-label="{{ d }}: начало">
+                        <span class="day-dash">—</span>
+                        <input type="time" name="end_{{ i }}" value="17:00" class="ee-input" aria-label="{{ d }}: конец">
                     </div>
                     {% endfor %}
                 </div>
-            </div>
+            </section>
 
-            <div>
-                <label class="block text-gray-700 text-sm font-medium mb-2"><i class="fas fa-rotate text-violet-300 mr-1"></i>С какого числа начинается месяц оплаты</label>
-                <input type="number" name="cycle_start_day" value="11" min="2" max="28"
-                       class="w-full sm:w-40 px-4 py-3 border rounded-xl dark:bg-gray-700 dark:text-white">
-                <p class="text-xs text-gray-500 mt-2">Как у групп: если 11 — период оплаты с 11 числа по 10 следующего месяца.</p>
-            </div>
+            <section class="ee-sec">
+                <div class="ee-sec-head">
+                    <span class="ee-sec-icon"><i class="fas fa-rotate"></i></span>
+                    <div><h2 class="ee-sec-title">С какого числа начинается месяц оплаты</h2></div>
+                </div>
+                <div class="sm:max-w-xs">
+                    <input type="number" name="cycle_start_day" value="11" min="2" max="28" class="ee-input" aria-label="С какого числа начинается месяц оплаты">
+                </div>
+                <p class="ee-hint">Как у групп: если 11 — период оплаты с 11 числа по 10 следующего месяца.</p>
+            </section>
 
-            <button type="submit" class="w-full bg-indigo-500 text-white py-3.5 rounded-xl font-bold text-base">
-                <i class="fas fa-check mr-1"></i> Начать индивидуальные занятия
-            </button>
+            <div class="ee-actions">
+                <a href="{% url 'individual_lessons' %}" class="ee-btn ee-btn-soft">Отмена</a>
+                <button type="submit" class="ee-btn ee-btn-primary"><i class="fas fa-check"></i><span class="sm:hidden">Начать занятия</span><span class="hidden sm:inline">Начать индивидуальные занятия</span></button>
+            </div>
         </form>
     </main>
 
@@ -98,6 +146,15 @@
         }
         student.addEventListener('change', fillPrice);
         fillPrice();
+
+        // Начали вводить время у неотмеченного дня — значит, этот день нужен: отмечаем его
+        document.querySelectorAll('.day-row').forEach(row => {
+            const day = row.querySelector('input[type=checkbox]');
+            row.classList.toggle('on', day.checked);
+            row.querySelectorAll('input[type=time]').forEach(t => t.addEventListener('input', () => {
+                if (!day.checked) { day.checked = true; row.classList.add('on'); }
+            }));
+        });
     </script>
 </body>
 </html>

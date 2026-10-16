@@ -6,78 +6,134 @@
     <title>Добавить в группу — Enjoy English</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <style>
-        * { font-family: 'Inter', sans-serif; }
-        .fade-in { animation: fadeIn 0.4s ease; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
     {% include 'dashboard/partials/theme.html' %}
+    <style>
+        .who-avatar { width: 52px; height: 52px; font-size: 20px; border-radius: 16px; }
+        .who-label { font-size: 12px; font-weight: 700; color: var(--muted); }
+        .who-name { font-size: 18px; font-weight: 800; color: var(--ink); line-height: 1.25; }
+        .who-groups { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 16px; font-size: 13px; color: var(--muted); }
+    </style>
 </head>
-<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+<body class="min-h-screen">
     {% include 'dashboard/partials/shell.html' %}
 
-    <header class="bg-gray-800 shadow-lg">
-        <div class="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
-            <a href="{% url 'students_list' %}" class="text-gray-300 hover:text-white">
-                <i class="fas fa-arrow-left"></i> Назад
-            </a>
-            <h1 class="text-xl font-bold text-white">Добавить в группу</h1>
-            <div></div>
-        </div>
-    </header>
-    
-    <main class="max-w-3xl mx-auto px-4 py-8 fade-in">
-        
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md p-8 border border-gray-300 dark:border-gray-600 transition-colors">
-            
-            <div class="mb-6 flex items-center gap-4">
-                <div class="w-14 h-14 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center">
-                    <i class="fas fa-user text-xl text-indigo-600"></i>
-                </div>
-                <div>
-                    <p class="text-sm text-gray-400">Ученик</p>
-                    <p class="text-xl font-bold text-gray-800 dark:text-white">{{ student.name }}</p>
+    <header class="sticky top-0 z-40">
+        <div class="ee-head max-w-4xl mx-auto px-4 sm:px-6">
+            <div class="ee-head-main">
+                <a href="{% url 'students_list' %}" class="head-back" aria-label="Назад"><i class="fas fa-arrow-left"></i></a>
+                <span class="head-icon"><i class="fas fa-user-group"></i></span>
+                <div class="min-w-0">
+                    <h1 class="head-title">Добавить в группу</h1>
+                    <p class="head-sub notranslate">{{ student.name }}</p>
                 </div>
             </div>
-            
-            <form method="POST">
-                {% csrf_token %}
-                
-                <div class="mb-6">
-                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-3">
-                        <i class="fas fa-users text-indigo-500 mr-1"></i>Выберите группы
-                    </label>
-                    <div class="space-y-2">
-                        {% for group in available_groups %}
-                        <label class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-                            <input type="checkbox" name="groups" value="{{ group.id }}" class="w-5 h-5 text-indigo-600">
-                            <div>
-                                <p class="font-medium text-gray-800 dark:text-white">{{ group.name }}</p>
-                                <p class="text-sm text-gray-400">{{ group.get_schedule_display|default:"расписание не задано" }}</p>
-                            </div>
+            <div class="ee-head-actions">
+                <a href="{% url 'student_profile' student.id %}" class="head-btn" title="Профиль ученика" aria-label="Профиль ученика"><i class="fas fa-id-card"></i><span class="hidden sm:inline">Профиль</span></a>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <form method="POST" class="panel ee-form" id="groupForm">
+            {% csrf_token %}
+
+            <section class="ee-sec">
+                <div class="flex items-center gap-4">
+                    <span class="ee-avatar who-avatar notranslate" aria-hidden="true">{{ student.name|slice:":1"|upper }}</span>
+                    <div class="flex-1 min-w-0">
+                        <p class="who-label">Ученик</p>
+                        <p class="who-name notranslate truncate">{{ student.name }}</p>
+                    </div>
+                    {% if not student.is_active %}<span class="ee-tag ee-tag-muted"><i class="fas fa-box-archive"></i>В архиве</span>{% endif %}
+                </div>
+                <div class="who-groups">
+                    <span>Сейчас в группах:</span>
+                    {% for e in student.enrollments.all %}
+                    {% if e.group.is_active %}<span class="ee-tag notranslate">{{ e.group.name }}</span>{% else %}<span class="ee-tag ee-tag-muted" title="Группа в архиве"><i class="fas fa-box-archive"></i><span class="notranslate">{{ e.group.name }}</span></span>{% endif %}
+                    {% empty %}
+                    <span class="ee-tag ee-tag-muted">пока ни в одной</span>
+                    {% endfor %}
+                </div>
+                {% if not student.is_active %}
+                <p class="ee-hint">Ученик в архиве — после записи в группу он снова станет активным.</p>
+                {% endif %}
+            </section>
+
+            <section class="ee-sec">
+                <div class="ee-sec-head flex-wrap">
+                    <span class="ee-sec-icon"><i class="fas fa-users"></i></span>
+                    <div class="flex-1 min-w-0">
+                        <h2 class="ee-sec-title">Выберите группы</h2>
+                        {% if available_groups %}<p class="ee-sec-desc">Выбрано: <b id="pickedCount">0</b></p>{% endif %}
+                    </div>
+                    {% if available_groups|length > 6 %}
+                    <input type="search" class="ee-input !h-10 !w-full sm:!w-60" data-ee-filter="#groupPicks" placeholder="Найти группу…" aria-label="Найти группу…">
+                    {% endif %}
+                </div>
+                {% if available_groups %}
+                <div id="groupPicks">
+                    <div class="ee-picks">
+                        {% for group in available_groups %}{% if group.group_type != 'individual' %}
+                        <label class="ee-pick" data-ee-item>
+                            <input type="checkbox" name="groups" value="{{ group.id }}">
+                            <span class="min-w-0">
+                                <b class="ee-pick-name notranslate">{{ group.name }}</b>
+                                <span class="ee-pick-meta">{{ group.get_schedule_display|default:"расписание не задано" }}</span>
+                            </span>
                         </label>
-                        {% empty %}
-                        <p class="text-gray-400 text-center py-4">Нет доступных групп</p>
-                        {% endfor %}
+                        {% endif %}{% endfor %}
+                    </div>
+                    <p class="ee-section-title !mx-0">Индивидуальные</p>
+                    <div class="ee-picks">
+                        {% for group in available_groups %}{% if group.group_type == 'individual' %}
+                        <label class="ee-pick" data-ee-item>
+                            <input type="checkbox" name="groups" value="{{ group.id }}">
+                            <span class="min-w-0">
+                                <b class="ee-pick-name notranslate">{{ group.name }}</b>
+                                <span class="ee-pick-meta">{{ group.get_schedule_display|default:"расписание не задано" }}</span>
+                            </span>
+                        </label>
+                        {% endif %}{% endfor %}
                     </div>
                 </div>
-                
-                <button type="submit"
-                        class="w-full bg-indigo-500 text-white py-3 rounded-lg font-medium hover:bg-indigo-600 transition">
-                    <i class="fas fa-plus mr-2"></i>Добавить в группы
-                </button>
-                
-            </form>
-            
-        </div>
-        
+                {% else %}
+                <div class="ee-empty">
+                    <i class="fas fa-users-slash"></i>
+                    <b>Нет доступных групп</b>
+                    <p>Ученик уже записан во все активные группы.</p>
+                    <a href="{% url 'add_group' %}" class="ee-btn ee-btn-soft ee-btn-sm mt-4"><i class="fas fa-plus"></i>Создать группу</a>
+                </div>
+                {% endif %}
+            </section>
+
+            <div class="ee-actions">
+                {% if available_groups %}
+                <a href="{% url 'students_list' %}" class="ee-btn ee-btn-soft">Отмена</a>
+                <button type="submit" class="ee-btn ee-btn-primary" id="addBtn"><i class="fas fa-plus"></i>Добавить в группы</button>
+                {% else %}
+                <a href="{% url 'students_list' %}" class="ee-btn ee-btn-soft"><i class="fas fa-arrow-left"></i>Назад</a>
+                {% endif %}
+            </div>
+        </form>
     </main>
-    
-    
+
+    <script>
+        // Счётчик выбранных групп; пока ничего не выбрано, кнопка неактивна; пустой блок «Индивидуальные» прячем
+        const picks = document.getElementById('groupPicks');
+        if (picks) {
+            const addBtn = document.getElementById('addBtn');
+            function countPicked() {
+                const n = picks.querySelectorAll('input:checked').length;
+                document.getElementById('pickedCount').textContent = n;
+                if (addBtn) addBtn.disabled = !n;
+            }
+            picks.addEventListener('change', countPicked);
+            countPicked();
+            picks.querySelectorAll('.ee-picks').forEach(box => {
+                if (!box.children.length) { box.hidden = true; const title = box.previousElementSibling; if (title && title.matches('.ee-section-title')) title.hidden = true; }
+            });
+        }
+    </script>
 </body>
 </html>
