@@ -1479,6 +1479,9 @@ def profile(request):
     return render(request, 'dashboard/profile.html', context)
 
 
+JOURNAL_VISIBLE = 10   # сколько записей журнала входов видно сразу, остальные — по «Показать ещё»
+
+
 def security_context(request, role):
     """Для «Личного кабинета»: последние входы в аккаунт, на скольких устройствах вошли,
     а админу — журнал входов всей CRM"""
@@ -1498,11 +1501,16 @@ def security_context(request, role):
     week_ago = now - timedelta(days=7)
     context = {
         'my_events': mine,
+        'my_last_login': next((e for e in mine if e.success), None),   # для строки в заголовке панели
         'my_failed_recent': any(not e.success and e.created_at >= week_ago for e in mine),
         'sessions_count': len(user_sessions(request.user)),
     }
     if role in ('admin', 'developer'):
-        context['all_events'] = decorate(list(LoginEvent.objects.select_related('user')[:30]))
+        events = decorate(list(LoginEvent.objects.select_related('user')[:30]))
+        context['all_events'] = events
+        context['all_last_login'] = next((e for e in events if e.success), None)
+        context['all_more'] = max(0, len(events) - JOURNAL_VISIBLE)
+        context['journal_visible'] = JOURNAL_VISIBLE
         context['failed_day'] = LoginEvent.objects.filter(success=False, created_at__gte=now - timedelta(hours=24)).count()
     return context
 

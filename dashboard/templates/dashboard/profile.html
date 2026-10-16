@@ -196,57 +196,80 @@
             </section>
         </div>
 
-        <!-- Безопасность: где вошли и последние входы -->
-        <section class="panel ee-sec mb-5" id="security">
-            <div class="ee-sec-head !mb-4">
+        <!-- Безопасность: где вошли и последние входы. Панель сворачивается, браузер помнит, открыта ли она;
+             были неудачные попытки войти — открыта всегда -->
+        <section class="panel ee-fold mb-5" id="security" data-ee-fold="security"{% if my_failed_recent %} data-open-force{% endif %}>
+            <button type="button" class="ee-fold-head" aria-expanded="false" aria-controls="securityBody">
                 <span class="ee-sec-icon"><i class="fas fa-shield-halved"></i></span>
-                <div>
-                    <h2 class="ee-sec-title">Безопасность</h2>
-                    <p class="ee-sec-desc">Последние входы в ваш аккаунт. Если видите незнакомое устройство — смените пароль и выйдите на других устройствах.</p>
-                </div>
+                <span class="ee-fold-text">
+                    <span class="ee-fold-title">Безопасность</span>
+                    <span class="ee-fold-sum">
+                        <span>Открытых сеансов:</span> <b>{{ sessions_count }}</b>{% if my_last_login %} · <span>последний вход</span> <span>{{ my_last_login.when }}</span>{% endif %}{% if my_failed_recent %} · <span class="ee-fold-warn">были неудачные попытки войти</span>{% endif %}
+                    </span>
+                </span>
+                <span class="ee-fold-chev" aria-hidden="true"><i class="fas fa-chevron-down"></i></span>
+            </button>
+            <div class="ee-fold-body" id="securityBody" role="region" aria-label="Безопасность">
+                <div class="ee-fold-inner"><div class="ee-fold-pad">
+                    <p class="ee-sec-desc mb-4">Последние входы в ваш аккаунт. Если видите незнакомое устройство — смените пароль и выйдите на других устройствах.</p>
+                    {% if my_failed_recent %}
+                    <p class="sec-alert"><i class="fas fa-triangle-exclamation mt-0.5"></i><span>За последнюю неделю были неудачные попытки войти в ваш аккаунт. Если это были не вы — смените пароль.</span></p>
+                    {% endif %}
+                    <div class="sess">
+                        <i class="fas fa-laptop" style="color: var(--accent)" aria-hidden="true"></i>
+                        <span class="text-sm text-gray-600">Открытых сеансов: <b>{{ sessions_count }}</b></span>
+                        {% if sessions_count > 1 %}
+                        <form method="POST" class="ml-auto">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="end_sessions">
+                            <button type="submit" class="ee-btn ee-btn-sm ee-btn-soft"><i class="fas fa-right-from-bracket"></i>Выйти на других устройствах</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% if my_events %}
+                    <ul class="ev-list">
+                        {% for e in my_events %}{% include 'dashboard/partials/login_event.html' %}{% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-sm text-gray-500">Журнал входов пока пуст — он начнёт заполняться со следующего входа.</p>
+                    {% endif %}
+                </div></div>
             </div>
-            {% if my_failed_recent %}
-            <p class="sec-alert"><i class="fas fa-triangle-exclamation mt-0.5"></i><span>За последнюю неделю были неудачные попытки войти в ваш аккаунт. Если это были не вы — смените пароль.</span></p>
-            {% endif %}
-            <div class="sess">
-                <i class="fas fa-laptop" style="color: var(--accent)" aria-hidden="true"></i>
-                <span class="text-sm text-gray-600">Открытых сеансов: <b>{{ sessions_count }}</b></span>
-                {% if sessions_count > 1 %}
-                <form method="POST" class="ml-auto">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="end_sessions">
-                    <button type="submit" class="ee-btn ee-btn-sm ee-btn-soft"><i class="fas fa-right-from-bracket"></i>Выйти на других устройствах</button>
-                </form>
-                {% endif %}
-            </div>
-            {% if my_events %}
-            <ul class="ev-list">
-                {% for e in my_events %}{% include 'dashboard/partials/login_event.html' %}{% endfor %}
-            </ul>
-            {% else %}
-            <p class="text-sm text-gray-500">Журнал входов пока пуст — он начнёт заполняться со следующего входа.</p>
-            {% endif %}
         </section>
 
         {% if role == 'admin' or role == 'developer' %}
-        <!-- Журнал входов всей CRM -->
-        <section class="panel ee-sec mb-5">
-            <div class="ee-sec-head !mb-4">
+        <!-- Журнал входов всей CRM: сворачивается; внутри сначала несколько записей (views.JOURNAL_VISIBLE), остальные — по «Показать ещё» -->
+        <section class="panel ee-fold mb-5" data-ee-fold="login-journal">
+            <button type="button" class="ee-fold-head" aria-expanded="false" aria-controls="journalBody">
                 <span class="ee-sec-icon"><i class="fas fa-list-check"></i></span>
-                <div class="flex-1 min-w-0">
-                    <h2 class="ee-sec-title">Журнал входов в CRM</h2>
-                    <p class="ee-sec-desc">Все сотрудники, последние 30 входов. Неудачных попыток за сутки: <b class="{% if failed_day %}text-red-600{% endif %}">{{ failed_day }}</b></p>
-                </div>
+                <span class="ee-fold-text">
+                    <span class="ee-fold-title">Журнал входов в CRM</span>
+                    <span class="ee-fold-sum">
+                        <span>Неудачных попыток за сутки:</span> <b class="{% if failed_day %}ee-fold-warn{% endif %}">{{ failed_day }}</b>{% if all_last_login %} · <span>последний вход</span> <span class="notranslate">{{ all_last_login.username }}</span>, <span>{{ all_last_login.when }}</span>{% endif %}
+                    </span>
+                </span>
+                <span class="ee-fold-chev" aria-hidden="true"><i class="fas fa-chevron-down"></i></span>
+            </button>
+            <div class="ee-fold-body" id="journalBody" role="region" aria-label="Журнал входов в CRM">
+                <div class="ee-fold-inner"><div class="ee-fold-pad">
+                    <p class="ee-sec-desc mb-4">Все сотрудники — последние записи, сначала новые.</p>
+                    {% if all_events %}
+                    <ul class="ev-list" data-ee-more="{{ journal_visible }}">
+                        {% for e in all_events %}{% include 'dashboard/partials/login_event.html' with show_user=True %}{% endfor %}
+                    </ul>
+                    {% if all_more %}
+                    <button type="button" class="ee-more-btn" data-ee-more-btn hidden>
+                        <span data-more>Показать ещё {{ all_more }}</span><span data-less hidden>Свернуть</span><i class="fas fa-chevron-down" aria-hidden="true"></i>
+                    </button>
+                    {% endif %}
+                    {% else %}
+                    <p class="text-sm text-gray-500">Журнал входов пока пуст — он начнёт заполняться со следующего входа.</p>
+                    {% endif %}
+                </div></div>
             </div>
-            {% if all_events %}
-            <ul class="ev-list">
-                {% for e in all_events %}{% include 'dashboard/partials/login_event.html' with show_user=True %}{% endfor %}
-            </ul>
-            {% else %}
-            <p class="text-sm text-gray-500">Журнал входов пока пуст — он начнёт заполняться со следующего входа.</p>
-            {% endif %}
         </section>
         {% endif %}
+        <script>eeFolds()</script>
 
         {% if role == 'admin' or role == 'developer' %}
         <!-- Резервная копия -->
