@@ -1470,8 +1470,28 @@ class SecurityTests(CRMTestCase):
         self.assertContains(page, 'Safari · iPhone')
         self.assertContains(page, 'Журнал входов в CRM')            # админу — журнал всей CRM
         self.assertContains(page, 'неудачные попытки войти в ваш аккаунт')
+        self.assertContains(page, 'data-ee-fold="security" data-open-force')   # была неудачная попытка — «Безопасность» открыта всегда
         self.login(self.teacher)
         self.assertNotContains(self.client.get('/profile/'), 'Журнал входов в CRM')
+
+    def test_security_panels_fold(self):
+        """«Безопасность» и журнал входов сворачиваются; в журнале сначала 10 записей, остальные — по «Показать ещё»"""
+        from .models import LoginEvent
+        from .views import JOURNAL_VISIBLE
+        for _ in range(JOURNAL_VISIBLE + 5):
+            LoginEvent.objects.create(user=self.manager, username='mgr', success=True, ip='1.2.3.4')
+        LoginEvent.objects.create(user=self.admin, username='admin', success=True, ip='1.2.3.4')
+        self.login(self.admin)
+        page = self.client.get('/profile/')
+        self.assertContains(page, 'data-ee-fold="security"')
+        self.assertContains(page, 'data-ee-fold="login-journal"')
+        self.assertContains(page, 'data-ee-fold="security">')      # неудачных попыток не было — закрыта, пока не откроют
+        self.assertContains(page, f'data-ee-more="{JOURNAL_VISIBLE}"')
+        self.assertContains(page, 'Показать ещё 6')                 # 16 записей, 10 видно сразу
+        self.assertEqual(page.content.decode().count('class="ev '), JOURNAL_VISIBLE + 7)   # все в разметке: 1 своя + 16 в журнале
+        self.assertContains(page, 'последний вход')
+        self.client.cookies['ee_lang'] = 'en'
+        self.assertContains(self.client.get('/profile/'), 'Show 6 more')
 
     def test_admin_login_is_throttled(self):
         from .models import LoginEvent
