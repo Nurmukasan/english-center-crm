@@ -1620,6 +1620,173 @@ class GeneralExcelTests(CRMTestCase):
         self.assertEqual(self.client.get('/export/').status_code, 200)
         self.assertEqual(self.client.get('/accountant-stats/export/?months=12&type=individual').status_code, 200)
 
+class WeatherTests(CRMTestCase):
+    """Погода Алматы на главной: коды MET, кэш и правила API, солнце и луна, страница без интернета"""
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    @staticmethod
+    def payload(start, hours=6, symbol='lightrain'):
+        from datetime import datetime, timezone as tz
+        iso = lambda t: datetime.fromtimestamp(t, tz=tz.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        return {'type': 'Feature', 'properties': {'meta': {'updated_at': iso(start)}, 'timeseries': [
+            {'time': iso(start + i * 3600), 'data': {
+                'instant': {'details': {'air_temperature': 10.4 + i, 'wind_speed': 3.4, 'wind_from_direction': 200,
+                                        'relative_humidity': 70, 'cloud_area_fraction': 95}},
+                'next_1_hours': {'summary': {'symbol_code': symbol}, 'details': {'precipitation_amount': 0.4}},
+                'next_6_hours': {'summary': {'symbol_code': 'rain'}, 'details': {'precipitation_amount': 2.0}}}}
+            for i in range(hours)]}}
+
+    def test_every_met_code_is_understood_and_translated(self):
+        from unittest import mock
+        from . import i18n, weather
+        legend = ['clearsky', 'fair', 'partlycloudy', 'cloudy', 'fog'] + [
+            f'{level}{kind}{shower}{thunder}' for level in ('light', '', 'heavy') for kind in ('rain', 'sleet', 'snow')
+            for shower in ('', 'showers') for thunder in ('', 'andthunder')]
+        legend += ['lightssleetshowersandthunder', 'lightssnowshowersandthunder']   # опечатки из легенды MET
+        for code in legend:
+            for suffix in ('', '_day', '_night', '_polartwilight'):
+                info = weather.describe(code + suffix)
+                self.assertIsNotNone(info, code + suffix)
+                self.assertTrue(weather.icon_for(info, night=suffix == '_night'))
+                self.assertIsNotNone(i18n.translate_phrase(info['label']), info['label'])
+        self.assertIsNone(weather.describe('bogus'))
+        self.assertIsNone(weather.describe(None))
+        rain = weather.describe('heavyrain')
+        self.assertEqual((rain['precip'], rain['intensity'], rain['clouds'], rain['label']), ('rain', 3, 4, 'Сильный дождь'))
+        showers = weather.describe('lightrainshowers_day')
+        self.assertEqual((showers['showers'], showers['clouds'], showers['label']), (True, 2, 'Кратковременный дождь'))
+        storm = weather.describe('rainandthunder')
+        self.assertTrue(storm['thunder'])
+        self.assertEqual(weather.icon_for(storm, False), 'fa-cloud-bolt')
+        self.assertEqual(weather.icon_for(weather.describe('clearsky_night'), True), 'fa-moon')
+        self.assertIsNotNone(i18n.translate_phrase(weather.CITY))
+        with mock.patch.object(weather, 'download', side_effect=AssertionError('в демо в интернет не ходим')):
+            for alias in weather.DEMO_ALIASES:
+                self.assertTrue(weather.snapshot(demo=alias, demo_time='night')['demo'], alias)
+
+    def test_parse_and_pick_the_current_hour(self):
+        from . import weather
+        now = 1_790_000_000
+        hour = now - now % 3600
+        series = weather.parse_series(self.payload(hour - 2 * 3600))
+        self.assertEqual([e['t'] for e in series], [hour + (i - 2) * 3600 for i in range(6)])
+        entry = weather.current_entry(series, now)
+        self.assertEqual(entry['t'], hour)
+        self.assertEqual((entry['symbol'], entry['temp'], entry['wind']), ('lightrain', 12.4, 3.4))
+        self.assertIsNone(weather.current_entry(series, hour + 20 * 3600))   # прогноз давно кончился
+        self.assertEqual(weather.current_entry(series, hour - 2 * 3600 - 600)['t'], hour - 2 * 3600)   # начнётся через 10 минут
+        self.assertEqual(weather.parse_series({'properties': {'timeseries': [{'time': 'мусор'}]}}), [])
+        self.assertEqual(weather.parse_series(None), [])
+
+    def test_cache_follows_met_rules(self):
+        from unittest import mock
+        from . import weather
+        from email.utils import formatdate
+        now = 1_790_000_000
+        expires = formatdate(now + 1800, usegmt=True)   # MET разрешает спросить снова через полчаса
+        with mock.patch.object(weather, 'download', return_value=(self.payload(now - now % 3600), expires, 'LM-1')) as download:
+            series, fetched = weather.forecast('UA', now=now)
+            self.assertEqual(download.call_count, 1)
+            self.assertEqual(download.call_args.args, ('UA', None))
+            self.assertEqual((len(series), fetched), (6, now))
+            weather.forecast('UA', now=now + 600)              # Expires ещё не наступил — MET не спрашиваем
+            self.assertEqual(download.call_count, 1)
+            weather.forecast('UA', now=now + 3600)             # наступил — спрашиваем с If-Modified-Since
+            self.assertEqual(download.call_args.args, ('UA', 'LM-1'))
+        with mock.patch.object(weather, 'download', return_value=(None, None, 'LM-1')):   # 304: не изменилось
+            series, fetched = weather.forecast('UA', now=now + 7200)
+            self.assertEqual((len(series), fetched), (6, now + 3600))   # прогноз прежний, время — прошлого ответа
+        with mock.patch.object(weather, 'download', side_effect=weather.WeatherError('нет сети')) as download, \
+                self.assertLogs('dashboard.weather', 'WARNING'):
+            later = now + 4 * 3600
+            series, _ = weather.forecast('UA', now=later)
+            self.assertEqual(len(series), 6)                   # старый прогноз остаётся
+            weather.forecast('UA', now=later + 60)             # и повтор не раньше чем через 5 минут
+            self.assertEqual(download.call_count, 1)
+            self.assertEqual(weather.forecast('UA', fetch=False, now=later + 60)[0], series)
+
+    def test_expires_header_is_respected_within_limits(self):
+        from . import weather
+        now = 1_790_000_000
+        self.assertEqual(weather._expires_at(None, now), now + 30 * 60)
+        self.assertEqual(weather._expires_at('Thu, 01 Jan 2026 00:00:00 GMT', now), now + weather.MIN_FRESH)   # в прошлом
+        self.assertEqual(weather._expires_at('Thu, 01 Jan 2099 00:00:00 GMT', now), now + weather.MAX_FRESH)
+
+    def test_sun_and_moon_over_almaty(self):
+        from datetime import date, datetime, timezone as tz
+        from . import weather
+        ts = lambda *a: datetime(*a, tzinfo=tz.utc).timestamp()
+        noon_alt, noon_az = weather.sun_position(ts(2026, 10, 17, 7, 0))   # полдень по Алматы
+        self.assertAlmostEqual(noon_alt, 37.23, delta=0.1)
+        self.assertGreater(noon_az, 150)
+        self.assertLess(weather.sun_position(ts(2026, 10, 16, 21, 30))[0], -35)   # половина третьего ночи
+        sunrise, sunset = weather.sun_times(date(2026, 10, 17))
+        self.assertAlmostEqual(sunrise, ts(2026, 10, 17, 1, 8), delta=120)
+        self.assertAlmostEqual(sunset, ts(2026, 10, 17, 12, 6), delta=120)
+        self.assertLess(weather.moon_position(ts(2026, 10, 10, 15, 50))[2], 0.01)    # новолуние
+        self.assertGreater(weather.moon_position(ts(2026, 10, 26, 4, 12))[2], 0.99)  # полнолуние
+        quarter = weather.moon_position(ts(2026, 10, 18, 16, 13))                     # первая четверть
+        self.assertAlmostEqual(quarter[2], 0.5, delta=0.02)
+        self.assertTrue(quarter[3])
+        self.assertFalse(weather.moon_position(ts(2026, 11, 1, 0, 0))[3])            # после полнолуния убывает
+
+    def test_feels_like(self):
+        from . import weather
+        self.assertAlmostEqual(weather.feels_like(12, 70, 3.4), 8.85, delta=0.1)
+        self.assertLess(weather.feels_like(-10, 80, 5), -15)
+        self.assertIsNone(weather.feels_like(None, 50, 1))
+
+    def test_api_and_page(self):
+        from unittest import mock
+        from . import weather
+        self.assertEqual(self.client.get('/api/weather/').status_code, 302)   # только для вошедших
+        self.client.force_login(make_user('norole'))
+        self.assertEqual(self.client.get('/api/weather/').status_code, 403)
+        self.login(self.teacher)
+        start = timezone.now().timestamp() // 3600 * 3600
+        with mock.patch.object(weather, 'download', return_value=(self.payload(start, symbol='heavysnow'), None, None)) as download:
+            data = self.client.get('/api/weather/').json()
+            self.assertEqual(download.call_args.args[0], 'EnjoyEnglishCRM/1.0 (+https://testserver)')
+        self.assertTrue(data['ok'])
+        self.assertEqual((data['label'], data['icon'], data['temp'], data['scene']['precip'], data['scene']['intensity']),
+                         ('Сильный снег', 'fa-snowflake', 10, 'snow', 3))
+        self.assertTrue(data['sunrise'] and data['sunset'] and data['updated'])
+        for key in ('alt', 'az', 'rising'):
+            self.assertIn(key, data['scene']['sun'])
+        # Страница сама в интернет не ходит: берёт кэш
+        with mock.patch.object(weather, 'download', side_effect=AssertionError('страница не должна ждать MET')):
+            page = self.client.get('/dashboard/')
+        self.assertContains(page, 'id="weather-data"')
+        self.assertContains(page, 'data-wx-card="hero"')
+        self.assertContains(page, '\\u0421\\u0438\\u043b\\u044c\\u043d\\u044b\\u0439 \\u0441\\u043d\\u0435\\u0433')   # «Сильный снег» в json_script
+        # Пример погоды
+        demo = self.client.get('/api/weather/?demo=storm&time=night').json()
+        self.assertTrue(demo['demo'] and demo['scene']['thunder'])
+        self.assertEqual(demo['scene']['sun']['alt'], -35)
+        self.assertContains(self.client.get('/dashboard/?weather=fog&time=dusk'), '\\u0422\\u0443\\u043c\\u0430\\u043d')   # «Туман»
+        self.assertFalse(self.client.get('/api/weather/?demo=tornado').json()['demo'])   # такой погоды нет — настоящая
+        # В английской версии подписи переведены
+        self.client.cookies['ee_lang'] = 'en'
+        self.assertEqual(self.client.get('/api/weather/').json()['label'], 'Heavy snow')
+
+    def test_no_internet_page_still_works(self):
+        from unittest import mock
+        from . import weather
+        self.login(self.admin)
+        with mock.patch.object(weather, 'download', side_effect=weather.WeatherError('нет сети')), \
+                self.assertLogs('dashboard.weather', 'WARNING'):
+            data = self.client.get('/api/weather/').json()
+        self.assertFalse(data['ok'])
+        self.assertIsNone(data['temp'])
+        self.assertIn('alt', data['scene']['sun'])   # небо по солнцу всё равно рисуется
+        self.assertEqual(self.client.get('/dashboard/').status_code, 200)
+
+
 class BackupTests(TransactionTestCase):
     """Без обёртки-транзакции TestCase: SQLite не даёт снять копию посреди открытой записи"""
     def setUp(self):

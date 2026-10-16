@@ -1,0 +1,944 @@
+{% comment %}
+Погода в Алматы — живой фон панелей приветствия и часов на главной.
+Данные и расчёт солнца с луной — dashboard/weather.py. Здесь — рисование:
+небо по высоте солнца (рассвет, день, закат, ночь), солнце, луна в своей фазе, звёзды,
+облака, дождь и ливень, снег, мокрый снег, туман, гроза, горы Алатау и башня на Кок-Тобе.
+Текст не страдает: под буквами частицы бледнеют, а фон чуть светлеет или темнеет ровно настолько,
+чтобы надписи читались. Посмотреть любую погоду: /dashboard/?weather=storm&time=night
+{% endcomment %}
+<style>
+    @property --wx-top { syntax: '<color>'; inherits: false; initial-value: #ffffff; }
+    @property --wx-mid { syntax: '<color>'; inherits: false; initial-value: #ffffff; }
+    @property --wx-bot { syntax: '<color>'; inherits: false; initial-value: #ffffff; }
+    /* Цвета текста плавно меняются вместе с небом (днём тёмный текст, ночью белый) */
+    @property --ink { syntax: '<color>'; inherits: true; initial-value: #1f1c1a; }
+    @property --ink-2 { syntax: '<color>'; inherits: true; initial-value: #44403c; }
+    @property --muted { syntax: '<color>'; inherits: true; initial-value: #78716c; }
+    @property --faint { syntax: '<color>'; inherits: true; initial-value: #a8a29e; }
+    @property --surface { syntax: '<color>'; inherits: true; initial-value: #ffffff; }
+    @property --surface-3 { syntax: '<color>'; inherits: true; initial-value: #efedea; }
+    @property --line-strong { syntax: '<color>'; inherits: true; initial-value: #d7d3ce; }
+
+    /* Ряд панелей — над следующими блоками, чтобы подсказка погоды не пряталась под ними */
+    .wx-row { position: relative; z-index: 2; }
+    .wx-card { position: relative; isolation: isolate;
+        transition: --wx-top 2.4s ease, --wx-mid 2.4s ease, --wx-bot 2.4s ease, --ink 2s ease, --ink-2 2s ease, --muted 2s ease,
+            --faint 2s ease, --surface 2s ease, --surface-3 2s ease, --line-strong 2s ease, border-color 1.2s ease; }
+    .wx-card.wx-instant { transition: none; }
+    .wx-card.wx-on { background: linear-gradient(180deg, var(--wx-top) 0%, var(--wx-mid) 58%, var(--wx-bot) 100%); }
+    .wx-card.wx-on.wx-light { border-color: rgba(255, 255, 255, .6); }
+    .wx-card.wx-on.wx-dark { border-color: rgba(255, 255, 255, .09); }
+    .wx-card > .wx-canvas, .wx-card > .wx-scrim { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;
+        border-radius: inherit; opacity: 0; transition: opacity 1.4s ease; }
+    .wx-card > .wx-canvas { -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; }
+    .wx-card.wx-on > .wx-canvas, .wx-card.wx-on > .wx-scrim { opacity: 1; }
+    .wx-card > :where(:not(.wx-canvas, .wx-scrim)) { position: relative; z-index: 1; }
+    .wx-card > .wx-top { z-index: 3; }
+
+    /* Светлое небо: текст темнее обычного, кнопки — матовое стекло */
+    .wx-card.wx-on.wx-light {
+        --ink: #15120f; --ink-2: #29241f; --muted: #3e3832; --faint: #5b544d;
+        --surface: rgba(255, 255, 255, .6); --surface-3: rgba(255, 255, 255, .55); --line-strong: rgba(255, 255, 255, .85);
+    }
+    /* Тёмное небо (ночь, гроза): белый текст и светлый акцент */
+    .wx-card.wx-on.wx-dark {
+        --ink: #ffffff; --ink-2: rgba(255, 255, 255, .9); --muted: rgba(234, 238, 255, .8); --faint: rgba(234, 238, 255, .56);
+        --surface: rgba(255, 255, 255, .1); --surface-3: rgba(255, 255, 255, .2); --line-strong: rgba(255, 255, 255, .24);
+        --accent: var(--accent-300); --accent-ink: var(--accent-300);
+    }
+    .wx-card.wx-on.wx-light .grad-text { color: var(--accent-ink); }
+    .wx-card.wx-on .chip-btn { backdrop-filter: blur(8px) saturate(130%); -webkit-backdrop-filter: blur(8px) saturate(130%); }
+
+    /* ---------- Подпись погоды в углу ---------- */
+    .wx-top { display: flex; align-items: center; justify-content: space-between; gap: 10px 14px; flex-wrap: wrap; }
+    .wx-chip-wrap { position: relative; margin: -8px -8px -8px auto; }
+    .wx-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 13px 6px 11px; border-radius: 9999px; white-space: nowrap;
+        font-size: 13px; font-weight: 700; color: var(--ink-2); cursor: default;
+        background: rgba(255, 255, 255, .5); border: 1px solid rgba(255, 255, 255, .75);
+        backdrop-filter: blur(10px) saturate(140%); -webkit-backdrop-filter: blur(10px) saturate(140%);
+        box-shadow: 0 6px 20px -12px rgba(15, 23, 42, .45); animation: wx-chip-in .8s var(--spring) both; }
+    .wx-chip[hidden] { display: none; }
+    .wx-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .wx-chip b { font-size: 15px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+    .wx-chip i { font-size: 15px; color: var(--muted); }
+    .wx-chip i[data-kind="sun"] { color: #f59e0b; }
+    .wx-chip i[data-kind="moon"] { color: #6366f1; }
+    .wx-chip i[data-kind="rain"] { color: #2563eb; }
+    .wx-chip i[data-kind="snow"] { color: #3b82f6; }
+    .wx-chip i[data-kind="bolt"] { color: #d97706; }
+    .wx-dark .wx-chip { background: rgba(255, 255, 255, .1); border-color: rgba(255, 255, 255, .2); box-shadow: none; }
+    .wx-dark .wx-chip i[data-kind="sun"] { color: #fcd34d; }
+    .wx-dark .wx-chip i[data-kind="moon"] { color: #e0e7ff; }
+    .wx-dark .wx-chip i[data-kind="rain"] { color: #93c5fd; }
+    .wx-dark .wx-chip i[data-kind="snow"] { color: #dbeafe; }
+    .wx-dark .wx-chip i[data-kind="bolt"] { color: #fde047; }
+    @keyframes wx-chip-in { from { opacity: 0; transform: translateY(-6px) scale(.92); } to { opacity: 1; transform: none; } }
+
+    .wx-pop { position: absolute; right: 0; top: calc(100% + 8px); width: 244px; padding: 14px 16px; border-radius: 16px; text-align: left;
+        background: #ffffff; color: #1f1c1a; border: 1px solid #e8e5e1; box-shadow: 0 2px 4px rgba(31, 28, 26, .05), 0 24px 50px -24px rgba(31, 28, 26, .35);
+        opacity: 0; visibility: hidden; transform: translateY(-4px); pointer-events: none;
+        transition: opacity .2s ease, transform .3s var(--spring-soft), visibility .2s; }
+    .wx-chip-wrap:hover .wx-pop, .wx-chip-wrap:focus-within .wx-pop, .wx-chip-wrap.open .wx-pop { opacity: 1; visibility: visible; transform: none; pointer-events: auto; }
+    .wx-pop-title { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #78716c; }
+    .wx-pop-now { margin: 4px 0 8px; font-size: 16px; font-weight: 800; color: #1f1c1a; }
+    .wx-pop-row { display: flex; justify-content: space-between; gap: 12px; margin-top: 5px; font-size: 13px; color: #57534e; }
+    .wx-pop-row b { color: #1f1c1a; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .wx-pop-row[hidden] { display: none; }
+    .wx-pop-src { margin-top: 10px; padding-top: 9px; border-top: 1px solid #efedea; font-size: 11px; line-height: 1.5; color: #a8a29e; }
+    .wx-pop-src a { color: #78716c; text-decoration: underline; text-underline-offset: 2px; }
+
+    @media (max-width: 479px) {
+        .wx-chip-label { display: none; }
+        .wx-chip { padding: 5px 11px 5px 10px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .wx-chip { animation: none; }
+        .wx-card, .wx-card > .wx-canvas, .wx-card > .wx-scrim { transition: none; }
+    }
+</style>
+
+{{ weather|json_script:"weather-data" }}
+<script>
+(function () {
+    const source = document.getElementById('weather-data');
+    const cards = Array.from(document.querySelectorAll('[data-wx-card]'));
+    if (!source || !cards.length || !document.createElement('canvas').getContext) return;
+
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let DPR = Math.min(2, window.devicePixelRatio || 1), quality = true;   // слабое устройство — проще картинка
+    const VEIL = 0.5;   // маска под текстом — в половинном разрешении, она всё равно размытая
+    const TAU = Math.PI * 2;
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const smooth = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+    const rand = (a, b) => a + Math.random() * (b - a);
+    // Повторяемые случайные числа: горы и облака одинаковые при каждом обновлении
+    function seeded(seed) {
+        return function () {
+            seed = seed + 0x6D2B79F5 | 0;
+            let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+            t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+            return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        };
+    }
+
+    /* ---------- Цвета ---------- */
+    const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+    const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+    const rgba = (c, a) => 'rgba(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ',' + (a === undefined ? 1 : +a.toFixed(3)) + ')';
+    const toHex = c => '#' + c.map(v => Math.round(clamp(v, 0, 255)).toString(16).padStart(2, '0')).join('');
+    function lum(c) {
+        const f = v => (v /= 255) <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+        return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
+    }
+    const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+    const WHITE = [255, 255, 255];
+    const css = getComputedStyle(document.documentElement);
+    const cssColor = (name, fallback) => { const v = css.getPropertyValue(name).trim(); return /^#[0-9a-f]{6}$/i.test(v) ? hex(v) : hex(fallback); };
+    const ACCENT_INK = cssColor('--accent-ink', '#c2410c'), ACCENT_LIGHT = cssColor('--accent-300', '#fdba74');
+
+    // Небо по высоте солнца: [высота, верх, середина, низ]. Утром прохладнее и розовее, вечером теплее
+    const MORNING = [
+        [-90, '#060a1c', '#0b1230', '#151d3f'], [-12, '#0a1230', '#141d45', '#232a58'],
+        [-6, '#1c2a62', '#47498a', '#9a7ba6'], [-2, '#33498f', '#a58bb6', '#f5b2a2'],
+        [2, '#5a80c6', '#e2b4b4', '#ffd6ad'], [8, '#72a4e2', '#c0d7f1', '#fff1db'],
+        [20, '#68a2e7', '#a8cdf3', '#e7f1fb'], [90, '#5597e5', '#9cc7f4', '#dcebfb'],
+    ];
+    const EVENING = [
+        [-90, '#060a1c', '#0b1230', '#151d3f'], [-12, '#0a1230', '#141d45', '#232a58'],
+        [-6, '#18245a', '#3b3f80', '#7f5b8e'], [-2, '#2c3f86', '#8b6aa2', '#f08c6c'],
+        [2, '#4f73bd', '#d99b90', '#ffbe7c'], [8, '#6c9edf', '#b9cfee', '#ffe3c2'],
+        [20, '#68a2e7', '#a8cdf3', '#e7f1fb'], [90, '#5597e5', '#9cc7f4', '#dcebfb'],
+    ];
+    const OVERCAST = [
+        [-90, '#0c1018', '#131821', '#1c222c'], [-12, '#10151e', '#191f2a', '#242a36'],
+        [-6, '#222937', '#343a4a', '#4b4e5d'], [-2, '#3a4355', '#5a5d6d', '#7b737f'],
+        [2, '#677284', '#888d99', '#a6a0a1'], [8, '#8b97a6', '#a9b2bd', '#c3c7cb'],
+        [20, '#98a5b4', '#b7c0ca', '#d2d7dd'], [90, '#9fadbc', '#bdc6d0', '#d7dce2'],
+    ];
+    function sky(table, alt) {
+        let i = 0;
+        while (i < table.length - 2 && alt > table[i + 1][0]) i++;
+        const a = table[i], b = table[i + 1], t = clamp((alt - a[0]) / (b[0] - a[0]), 0, 1);
+        return [1, 2, 3].map(k => mix(hex(a[k]), hex(b[k]), t));
+    }
+
+    /* ---------- Сцена: что и каким цветом рисовать ---------- */
+    let data = JSON.parse(source.textContent), scene = null, T = 0;
+
+    function buildScene(d) {
+        const s = d.scene, alt = s.sun.alt;
+        const day = smooth(-7, 4, alt);                               // 0 — ночь, 1 — день
+        const stars = 1 - smooth(-13, -5, alt);                       // когда видно звёзды
+        const golden = (1 - smooth(3, 13, alt)) * smooth(-8, -1, alt); // золотой час и розовые сумерки
+        const cover = [0, 0.1, 0.3, 0.6, 0.86][s.clouds] || 0;
+        const wet = s.precip ? [0, 0.1, 0.2, 0.34][s.intensity] + (s.thunder ? 0.16 : 0) : 0;
+        let colors = sky(s.sun.rising ? MORNING : EVENING, alt);
+        const gray = sky(OVERCAST, alt);
+        colors = colors.map((c, i) => mix(c, gray[i], cover));
+        if (wet) {
+            const storm = mix(hex('#0b0f18'), hex('#1e2633'), day);
+            colors = colors.map(c => mix(c, storm, wet * (s.precip === 'snow' ? 0.45 : 1)));
+        }
+        if (s.precip === 'snow') colors = colors.map(c => mix(c, hex('#dde4ec'), 0.2 * day));
+        if (s.fog) colors = colors.map(c => mix(c, mix(hex('#2a2f37'), hex('#d4d9df'), day), 0.62));
+
+        // Текст: тёмный на светлом небе, белый на тёмном. Подложка под буквами — ровно такая, чтобы читалось
+        const behind = mix(colors[0], colors[1], 0.6);
+        const dark = contrast(WHITE, behind) > contrast(hex('#15120f'), behind);
+        const ink = dark ? WHITE : hex('#15120f');
+        const mutedOn = bg => dark ? mix(bg, hex('#eaeeff'), 0.8) : hex('#3e3832');
+        const accent = dark ? ACCENT_LIGHT : ACCENT_INK;
+        const scrimColor = dark ? hex('#070b1a') : WHITE;
+        let scrim = 0;
+        for (; scrim < 0.85; scrim += 0.03) {
+            const ok = [colors[0], colors[1], behind].every(c => {
+                const bg = mix(c, scrimColor, scrim);
+                return contrast(ink, bg) >= 7 && contrast(mutedOn(bg), bg) >= 4.6 && contrast(accent, bg) >= 3.1;
+            });
+            if (ok) break;
+        }
+        // Ветер: откуда дует → куда сносит облака и капли (смотрим на юг, на горы: восток слева, запад справа)
+        const windDir = Math.sin((s.wind_dir || 0) * Math.PI / 180) || 0.35;
+        const windSign = windDir >= 0 ? 1 : -1;
+        const wind = clamp(s.wind || 0, 0, 20);
+        return {
+            d, s, alt, day, stars, golden, cover, wet, colors, dark, scrimColor, scrim: clamp(scrim + 0.02, 0, 0.75),
+            veil: s.precip ? 0.72 : 0.55,
+            windSign, wind, slant: windSign * (0.05 + Math.min(wind, 14) * 0.022 * Math.abs(windDir)),
+            drift: windSign * (1 + wind / 5),
+            rainLight: lum(colors[1]) < 0.42,
+        };
+    }
+
+    /* ---------- Панели ---------- */
+    const views = cards.map(el => {
+        const canvas = el.querySelector('.wx-canvas'), scrim = document.createElement('canvas');
+        scrim.className = 'wx-scrim'; scrim.setAttribute('aria-hidden', 'true');
+        canvas.after(scrim);
+        return { el, hero: el.dataset.wxCard === 'hero', canvas, scrim, seen: true };
+    });
+    let sceneKey = 0;
+
+    function textBoxes(v) {
+        const base = v.el.getBoundingClientRect(), ox = base.left + v.el.clientLeft, oy = base.top + v.el.clientTop, boxes = [];
+        const add = r => { if (r.width > 1 && r.height > 1) boxes.push({ x: r.left - ox, y: r.top - oy, w: r.width, h: r.height }); };
+        const walker = document.createTreeWalker(v.el, NodeFilter.SHOW_TEXT, {
+            acceptNode: n => n.nodeValue.trim() && !n.parentElement.closest('.wx-pop') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT,
+        });
+        const range = document.createRange();
+        while (walker.nextNode()) {
+            range.selectNodeContents(walker.currentNode);
+            Array.from(range.getClientRects()).forEach(add);
+        }
+        v.el.querySelectorAll('.chip-btn, .wx-chip, .sec-ring, .fas, .far').forEach(el => {
+            if (!el.closest('.wx-pop') && el.getClientRects().length) add(el.getBoundingClientRect());
+        });
+        return boxes;
+    }
+
+    function roundRect(g, x, y, w, h, r) {
+        g.beginPath();
+        g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+        g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+    }
+
+    // Мягкие пятна под текстом: из них — маска для частиц (под буквами бледнее) и подложка,
+    // которая чуть светлит или темнит небо ровно настолько, чтобы текст читался. Обе неподвижны —
+    // их накладывает сам браузер, на каждом кадре их не рисуем
+    function measure(v) {
+        v.boxes = textBoxes(v);
+        const sig = sceneKey + ':' + v.w + 'x' + v.h + ':' + v.boxes.map(b => [b.x, b.y, b.w, b.h].map(Math.round).join(',')).join(';');
+        if (sig === v.sig) return;
+        v.sig = sig;
+        const k = DPR * VEIL, W = Math.max(1, Math.round(v.w * k)), H = Math.max(1, Math.round(v.h * k));
+        const veil = document.createElement('canvas');
+        veil.width = W; veil.height = H;
+        const g = veil.getContext('2d');
+        const far = 5000;
+        g.setTransform(k, 0, 0, k, 0, 0);
+        g.shadowColor = '#000'; g.shadowBlur = 30 * k; g.shadowOffsetX = far * k; g.fillStyle = '#000';
+        v.boxes.forEach(b => { roundRect(g, b.x - 14 - far, b.y - 9, b.w + 28, b.h + 18, 16); g.fill(); });
+        // Маска: везде непрозрачно, под текстом — частично
+        const mask = document.createElement('canvas');
+        mask.width = W; mask.height = H;
+        const m = mask.getContext('2d');
+        m.fillStyle = '#000'; m.fillRect(0, 0, W, H);
+        m.globalCompositeOperation = 'destination-out'; m.globalAlpha = scene.veil;
+        m.drawImage(veil, 0, 0);
+        const url = 'url(' + mask.toDataURL() + ')';
+        v.canvas.style.webkitMaskImage = url; v.canvas.style.maskImage = url;
+        // Подложка
+        v.scrim.width = W; v.scrim.height = H;
+        const sg = v.scrim.getContext('2d');
+        sg.globalAlpha = scene.scrim; sg.drawImage(veil, 0, 0);
+        sg.globalAlpha = 1; sg.globalCompositeOperation = 'source-in';
+        sg.fillStyle = rgba(scene.scrimColor); sg.fillRect(0, 0, W, H);
+    }
+
+    // Ближайшее к желаемому место, где круг радиуса r не задевает текст (можно чуть выглянуть из-за края)
+    function freeSpot(v, x, y, r, xMin, peek) {
+        let best = null, bestD = Infinity;
+        const pad = 14, edge = peek ? -r * 0.25 : r + 6;
+        for (let cy = peek ? -r * 0.25 : r + 8; cy <= v.h * 0.86; cy += 6) {
+            for (let cx = xMin; cx <= v.w - edge; cx += 6) {
+                if (v.boxes.some(b => cx + r + pad > b.x && cx - r - pad < b.x + b.w && cy + r + pad > b.y && cy - r - pad < b.y + b.h)) continue;
+                const dist = (cx - x) * (cx - x) + 9 * (cy - y) * (cy - y);
+                if (dist < bestD) { bestD = dist; best = [cx, cy]; }
+            }
+        }
+        return best;
+    }
+
+    function placeSky(v) {
+        // Солнце и луна — в панели приветствия справа от текста; не нашлось места — в панели часов
+        v.sun = v.moon = null;
+        const S = scene, s = S.s;
+        v.bodyR = clamp(Math.min(v.w, v.h) * 0.09, 14, 24);
+        const xWant = v.w - clamp(v.w * 0.13, 56, 150);
+        const yFor = alt => lerp(v.h * 0.8, v.h * 0.24, smooth(-3, 52, alt));
+        const xMin = v.w * (v.hero ? 0.35 : 0.2);
+        const hero = views[0] !== v && views[0].hero ? views[0] : null;   // панель приветствия уже разложена
+        if (s.sun.alt > -2 && !(hero && hero.sun)) v.sun = freeSpot(v, xWant, yFor(s.sun.alt), v.bodyR * 1.15, xMin, true);
+        if (s.moon.alt > -1 && S.day < 0.85 && !(hero && hero.moon)) v.moon = freeSpot(v, xWant, yFor(s.moon.alt), v.bodyR * 0.8, xMin, false);
+    }
+
+    /* ---------- Горы Алатау ---------- */
+    // Хребет методом смещения середины: опорные вершины, потом всё более мелкие изломы
+    function ridge(r, w, base, amp, env, step, rough) {
+        let pts = [];
+        for (let x = -step; x <= w + step * 2; x += step) pts.push([x, 0.25 + r() * 0.75]);
+        let disp = 0.55;
+        for (let level = 0; level < 6; level++) {
+            const next = [];
+            for (let i = 0; i < pts.length - 1; i++) {
+                const a = pts[i], b = pts[i + 1];
+                next.push(a, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + (r() - 0.5) * disp]);
+            }
+            next.push(pts[pts.length - 1]);
+            pts = next; disp *= rough;
+        }
+        return pts.map(([x, y]) => [x, base - amp * env(x) * clamp(y, 0, 1.15)]);
+    }
+    function snowcap(g, pts, base, amp, env, line, color, under, w) {
+        g.save(); g.clip();
+        g.beginPath(); g.moveTo(-10, -10);
+        for (let x = -10; x <= w + 10; x += 4) g.lineTo(x, base - amp * env(x) * (line + Math.sin(x * 0.05) * 0.05 + Math.sin(x * 0.17 + 2) * 0.03));
+        g.lineTo(w + 10, -10); g.closePath();
+        const sg = g.createLinearGradient(0, base - amp, 0, base - amp * line * 0.7);
+        sg.addColorStop(0, rgba(color)); sg.addColorStop(1, rgba(mix(color, under, 0.4)));
+        g.fillStyle = sg; g.fill();
+        g.restore();
+    }
+    function fillRidge(g, pts, h) {
+        g.beginPath(); g.moveTo(0, h + 2);
+        pts.forEach(p => g.lineTo(p[0], p[1]));
+        g.lineTo(pts[pts.length - 1][0], h + 2); g.closePath();
+    }
+
+    function land(v) {
+        const S = scene, w = v.w, h = v.h;
+        const c = v.land || (v.land = document.createElement('canvas'));
+        c.width = v.canvas.width; c.height = v.canvas.height;
+        const g = c.getContext('2d');
+        g.setTransform(DPR, 0, 0, DPR, 0, 0); g.clearRect(0, 0, w, h);
+        const r = seeded(v.hero ? 7 : 19);
+        const env = v.hero ? x => 0.3 + 0.7 * smooth(w * 0.1, w * 0.92, x) : () => 0.82;
+        const moonlit = S.s.moon.alt > 0 ? S.s.moon.lit : 0;
+
+        let far = mix(mix(hex('#1b2346'), hex('#2a3560'), moonlit * 0.6), hex('#8ea6c2'), S.day);
+        let near = mix(hex('#0e1430'), hex('#6a83a3'), S.day);
+        far = mix(far, mix(S.colors[2], hex('#4e4a78'), 0.5), S.golden * 0.6);
+        near = mix(near, hex('#3a3962'), S.golden * 0.55);
+        const flat = col => { const l = (col[0] + col[1] + col[2]) / 3; return mix(col, [l, l, l], S.cover * 0.5); };
+        far = mix(flat(far), S.colors[2], 0.22 + S.cover * 0.12);   // дальние горы тонут в дымке
+        near = flat(near);
+        let snow = mix(mix(hex('#3b4672'), hex('#5c6a9c'), moonlit), hex('#f6f8fc'), S.day);
+        snow = mix(snow, hex('#ffc6b0'), S.golden * 0.75);           // розовый отсвет зари на снегу
+        snow = mix(flat(snow), far, S.cover * 0.25);
+
+        // Дальний хребет — выше, светлее, в снегу; средний — темнее, снег только на вершинах
+        const base = h * 1.0;
+        const layers = [
+            { amp: Math.min(h * (v.hero ? 0.52 : 0.33), 150), step: v.hero ? 200 : 150, rough: 0.56, line: 0.56,
+              color: mix(far, S.colors[2], 0.3), alpha: S.s.fog ? 0.22 : 0.9 },
+            { amp: Math.min(h * (v.hero ? 0.34 : 0.24), 100), step: v.hero ? 120 : 100, rough: 0.6, line: 0.74,
+              color: mix(far, near, 0.4), alpha: S.s.fog ? 0.35 : 1 },
+        ];
+        layers.forEach(L => {
+            const pts = ridge(r, w, base, L.amp, env, L.step, L.rough);
+            g.globalAlpha = L.alpha;
+            fillRidge(g, pts, h);
+            const fg = g.createLinearGradient(0, base - L.amp, 0, h);
+            fg.addColorStop(0, rgba(L.color)); fg.addColorStop(1, rgba(mix(L.color, S.colors[2], 0.4)));
+            g.fillStyle = fg; g.fill();
+            snowcap(g, pts, base, L.amp, env, L.line, snow, L.color, w);
+        });
+
+        // Предгорья с ельником
+        const nearAmp = h * (v.hero ? 0.13 : 0.11), nearBase = h * 1.02;
+        const np = [];
+        for (let x = 0; x <= w + 4; x += 4) {
+            const y = 0.55 + 0.25 * Math.sin(x * 0.011 + 1.3) + 0.14 * Math.sin(x * 0.029 + 0.4) + 0.05 * Math.sin(x * 0.083);
+            np.push([x, nearBase - nearAmp * (v.hero ? 0.7 + 0.3 * env(x) : 1) * y]);
+        }
+        g.globalAlpha = S.s.fog ? 0.55 : 1;
+        fillRidge(g, np, h);
+        const ng = g.createLinearGradient(0, nearBase - nearAmp, 0, h);
+        ng.addColorStop(0, rgba(near)); ng.addColorStop(1, rgba(mix(near, hex('#05070f'), 0.25 + 0.2 * (1 - S.day))));
+        g.fillStyle = ng; g.fill();
+        g.fillStyle = rgba(mix(near, hex('#05070f'), 0.12));
+        g.beginPath();
+        for (let i = 2; i < np.length - 2; i += 2 + Math.floor(r() * 3)) {
+            const [x, y] = np[i], th = 4 + r() * 6, tw = th * 0.42;
+            g.moveTo(x - tw, y + 2); g.lineTo(x, y + 2 - th); g.lineTo(x + tw, y + 2);
+        }
+        g.fill();
+
+        // Телебашня на Кок-Тобе — на предгорье, где не мешает тексту
+        v.tower = null;
+        if (v.hero || !views[0].tower) {
+            const th = clamp(h * 0.19, 30, 52);
+            for (const f of v.hero ? [0.9, 0.8, 0.7, 0.6] : [0.82, 0.7, 0.9]) {
+                const x = w * f, base = np[Math.round(x / 4)] ? np[Math.round(x / 4)][1] + 2 : h;
+                const box = { x: x - 8, y: base - th - 6, w: 16, h: th + 6 };
+                const hit = v.boxes.some(b => box.x < b.x + b.w + 8 && box.x + box.w > b.x - 8 && box.y < b.y + b.h + 6 && box.y + box.h > b.y - 6);
+                if (!hit) { v.tower = { x, base, th }; break; }
+            }
+        }
+        if (v.tower) {
+            const { x, base, th } = v.tower;
+            g.fillStyle = rgba(mix(near, hex('#05070f'), 0.18));
+            g.beginPath();
+            g.moveTo(x - 4, base); g.lineTo(x - 1.1, base - th * 0.62); g.lineTo(x + 1.1, base - th * 0.62); g.lineTo(x + 4, base); g.closePath(); g.fill();
+            g.beginPath(); g.ellipse(x, base - th * 0.64, 4.2, 2.6, 0, 0, TAU); g.fill();
+            g.fillRect(x - 0.8, base - th * 0.98, 1.6, th * 0.36);
+            g.fillRect(x - 0.35, base - th * 1.12, 0.7, th * 0.16);
+        }
+        g.globalAlpha = 1;
+    }
+
+    /* ---------- Облака ---------- */
+    function cloudColors() {
+        const S = scene;
+        let light = mix(hex('#323d60'), WHITE, S.day), shade = mix(hex('#1a2238'), hex('#d5dee9'), S.day);
+        light = mix(light, mix(S.colors[2], WHITE, 0.35), S.golden * 0.65);
+        shade = mix(shade, mix(S.colors[1], hex('#4c4f78'), 0.4), S.golden * 0.5);
+        const heavy = S.wet + (S.s.clouds >= 4 ? 0.12 : 0) + (S.s.fog ? 0.1 : 0);
+        light = mix(light, mix(hex('#252c3b'), hex('#7a8494'), S.day), clamp(heavy * 1.2, 0, 0.85));
+        shade = mix(shade, mix(hex('#141922'), hex('#4b5462'), S.day), clamp(heavy * 1.2, 0, 0.85));
+        return [light, shade];
+    }
+
+    function cloudSprite(w, h, r) {
+        const [light, shade] = cloudColors();
+        const c = document.createElement('canvas');
+        c.width = Math.ceil(w * DPR); c.height = Math.ceil(h * DPR);
+        const g = c.getContext('2d'); g.scale(DPR, DPR);
+        const n = 18 + Math.floor(r() * 10);
+        for (let i = 0; i < n; i++) {
+            const t = 0.1 + 0.8 * r(), dome = Math.sin(Math.PI * t);
+            const pr = h * (0.16 + 0.24 * dome) * (0.75 + r() * 0.5);
+            const px = w * t, py = h * 0.74 - dome * h * 0.3 * (0.35 + r() * 0.75);
+            const grad = g.createRadialGradient(px - pr * 0.1, py - pr * 0.45, pr * 0.05, px, py, pr);
+            grad.addColorStop(0, rgba(light, 0.55));
+            grad.addColorStop(0.55, rgba(mix(light, shade, 0.5), 0.3));
+            grad.addColorStop(1, rgba(shade, 0));
+            g.fillStyle = grad; g.beginPath(); g.arc(px, py, pr, 0, TAU); g.fill();
+        }
+        g.globalCompositeOperation = 'destination-in';   // ровное основание
+        const cut = g.createLinearGradient(0, h * 0.6, 0, h * 0.92);
+        cut.addColorStop(0, 'rgba(0,0,0,1)'); cut.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = cut; g.fillRect(0, 0, w, h);
+        return c;
+    }
+
+    function makeClouds(v) {
+        const S = scene, r = seeded((v.hero ? 101 : 202) + S.s.clouds * 7);
+        const plan = [[0, 0, 0], [2, 0, 0], [2, 2, 0], [3, 3, 1], [3, 4, 3]][S.s.clouds] || [0, 0, 0];
+        const scale = v.hero ? 1 : 0.8, k = clamp(v.w / 760, 0.55, 1.6);
+        const list = [];
+        const add = (layer, w, h, y, speed, alpha) => list.push({
+            layer, w, h, y, alpha, img: cloudSprite(w, h, r),
+            x0: r() * (v.w + w), vx: S.drift * speed,
+        });
+        for (let i = 0; i < Math.round(plan[2] * k); i++) add('far', v.w * (0.55 + r() * 0.35), 90 + r() * 40, -40 + r() * 24, 3 + r() * 2, 0.95);
+        for (let i = 0; i < Math.max(plan[0] ? 1 : 0, Math.round(plan[0] * k)); i++) {
+            const w = (80 + r() * 70) * scale;
+            add('far', w, w * 0.42, v.h * (0.06 + r() * 0.28), 2.5 + r() * 3, 0.85);
+        }
+        for (let i = 0; i < Math.round(plan[1] * k); i++) {
+            const w = (130 + r() * 120) * scale;
+            add('near', w, w * 0.46, v.h * (0.02 + r() * 0.36), 6 + r() * 6, 0.92);
+        }
+        v.clouds = list;
+    }
+
+    /* ---------- Звёзды, осадки, туман ---------- */
+    function populate(v) {
+        const S = scene, s = S.s, area = v.w * v.h / (800 * 260);
+        const n = Math.round(clamp(v.w * v.h / 1600, 24, 180)), r = seeded(v.hero ? 31 : 47);
+        const between = (a, b) => a + r() * (b - a);
+        v.stars = Array.from({ length: n }, () => ({
+            x: r() * v.w, y: Math.pow(r(), 1.4) * v.h * 0.8,
+            r: r() < 0.07 ? between(1.15, 1.6) : between(0.35, 1),
+            a: between(0.35, 1), f: between(0.5, 2.2), p: between(0, TAU),
+            c: r() < 0.15 ? [255, 228, 196] : r() < 0.25 ? [205, 222, 255] : WHITE,
+        }));
+        makeClouds(v);
+        v.drops = []; v.flakes = []; v.splashes = [];
+        const level = s.intensity || 0;
+        if (s.precip === 'rain' || s.precip === 'sleet') {
+            const count = Math.round([0, 55, 130, 290][level] * area * (s.precip === 'sleet' ? 0.5 : 1));
+            for (let i = 0; i < count; i++) v.drops.push(newDrop(v, true));
+        }
+        if (s.precip === 'snow' || s.precip === 'sleet') {
+            const count = Math.round([0, 80, 150, 260][level] * area * (s.precip === 'sleet' ? 0.6 : 1));
+            for (let i = 0; i < count; i++) v.flakes.push(newFlake(v, true));
+        }
+        v.fog = s.fog ? Array.from({ length: 5 }, (_, i) => ({
+            x0: i * v.w * 0.37, y: v.h * (0.35 + i * 0.14), w: v.w * (1.1 + (i % 3) * 0.25), h: 36 + (i % 3) * 14,
+            vx: (4 + i) * (i % 2 ? 1 : -1) * 0.7, a: 0.34 + (i % 3) * 0.09,
+        })) : [];
+    }
+
+    function newDrop(v, anywhere) {
+        const S = scene, heavy = S.s.intensity === 3, sleet = S.s.precip === 'sleet';
+        const layer = Math.random() < 0.45 ? 0 : Math.random() < 0.6 ? 1 : 2;
+        const speed = [480, 700, 950][layer] * (heavy ? 1.18 : S.s.intensity === 1 ? 0.8 : 1) * (sleet ? 0.75 : 1) * rand(0.9, 1.1);
+        return { layer, speed, len: [9, 14, 20][layer] * (heavy ? 1.3 : S.s.intensity === 1 ? 0.65 : 1) * (sleet ? 0.6 : 1),
+            x: rand(-40, v.w + 40), y: anywhere ? rand(-v.h, v.h) : rand(-60, -10) };
+    }
+    function newFlake(v, anywhere) {
+        const S = scene, z = Math.random(), big = S.s.intensity === 3 ? 1.3 : S.s.intensity === 1 ? 0.85 : 1;
+        return { z, r: lerp(1.1, 3.5, z * z) * big * (S.s.precip === 'sleet' ? 0.7 : 1), vy: lerp(16, 52, z) * (S.s.precip === 'sleet' ? 1.6 : 1),
+            amp: lerp(8, 22, z), f: rand(0.5, 1.3), p: rand(0, TAU),
+            x: rand(-20, v.w + 20), y: anywhere ? rand(-10, v.h) : rand(-30, -6) };
+    }
+
+    /* ---------- Рисование ---------- */
+    function drawStars(v, g) {
+        const S = scene, vis = S.stars * (1 - S.cover * 0.95) * (S.s.fog ? 0.15 : 1) * (S.s.precip ? 0.25 : 1);
+        if (vis < 0.02) return;
+        const moonGlare = S.s.moon.alt > 0 ? S.s.moon.lit * 0.35 : 0;
+        // Пачками по яркости — восемь заливок вместо сотни
+        const LEVELS = 8, buckets = Array.from({ length: LEVELS }, () => []);
+        for (const st of v.stars) {
+            const tw = reduce ? 0.85 : 0.62 + 0.38 * Math.sin(T * st.f + st.p);
+            st.now = st.a * tw * vis * (st.r < 0.7 ? 1 - moonGlare : 1);
+            if (st.now >= 0.03) buckets[Math.min(LEVELS - 1, Math.floor(st.now * LEVELS))].push(st);
+        }
+        buckets.forEach((list, i) => {
+            if (!list.length) return;
+            const a = (i + 0.5) / LEVELS;
+            g.fillStyle = rgba(WHITE, a);
+            g.beginPath();
+            for (const st of list) { g.moveTo(st.x + st.r, st.y); g.arc(st.x, st.y, st.r, 0, TAU); }
+            g.fill();
+            g.fillStyle = rgba(WHITE, a * 0.35);   // яркие — с лучиками
+            for (const st of list) {
+                if (st.r <= 1.1) continue;
+                g.fillRect(st.x - st.r * 3.2, st.y - 0.3, st.r * 6.4, 0.6);
+                g.fillRect(st.x - 0.3, st.y - st.r * 3.2, 0.6, st.r * 6.4);
+            }
+        });
+        for (const st of v.stars) {   // немного тёплых и голубоватых
+            if (st.c === WHITE || st.r < 0.8 || st.now < 0.03) continue;
+            g.fillStyle = rgba(st.c, st.now * 0.8); g.beginPath(); g.arc(st.x, st.y, st.r * 0.9, 0, TAU); g.fill();
+        }
+    }
+
+    const shooting = { next: rand(6, 14), star: null };
+    function drawShooting(v, g, dt) {
+        const S = scene, st = shooting.star;
+        if (!st || st.view !== v) return;
+        st.t += dt;
+        const p = st.t / st.life;
+        if (p >= 1) { shooting.star = null; return; }
+        const x = st.x + st.vx * st.t, y = st.y + st.vy * st.t;
+        const len = 110, n = Math.hypot(st.vx, st.vy);
+        const tx = x - st.vx / n * len, ty = y - st.vy / n * len;
+        const a = Math.sin(Math.PI * p) * S.stars * (1 - S.cover);
+        const grad = g.createLinearGradient(x, y, tx, ty);
+        grad.addColorStop(0, rgba(WHITE, 0.9 * a)); grad.addColorStop(1, rgba(WHITE, 0));
+        g.strokeStyle = grad; g.lineWidth = 1.4; g.lineCap = 'round';
+        g.beginPath(); g.moveTo(x, y); g.lineTo(tx, ty); g.stroke();
+    }
+
+    function drawSun(v, g) {
+        if (!v.sun) return;
+        const S = scene, s = S.s, [x, y] = v.sun, R = v.bodyR;
+        const vis = [1, 1, 0.92, 0.45, 0.18][s.clouds] * (s.fog ? 0.45 : 1) * (s.precip && !s.showers ? 0.4 : 1) * smooth(-2.5, 1.5, s.sun.alt);
+        if (vis < 0.02) return;
+        const low = 1 - smooth(2, 18, s.sun.alt);
+        const glowR = R * (4.4 + low * 2.4);
+        const gl = g.createRadialGradient(x, y, R * 0.5, x, y, glowR);
+        const glow = mix(hex('#fff1c2'), hex('#ffad72'), low);
+        const bright = vis < 0.5 ? 0.9 : 0.6;
+        gl.addColorStop(0, rgba(glow, bright * vis)); gl.addColorStop(0.35, rgba(glow, 0.22 * vis)); gl.addColorStop(1, rgba(glow, 0));
+        g.fillStyle = gl; g.fillRect(x - glowR, y - glowR, glowR * 2, glowR * 2);
+        if (vis < 0.5) return;   // за тучами — только светлое пятно, без диска
+        if (s.clouds <= 2 && !s.precip) {   // медленно вращающиеся лучи
+            g.save(); g.translate(x, y); g.rotate(T * 0.035);
+            g.fillStyle = rgba(mix(hex('#fff6d8'), hex('#ffc28a'), low), 0.2 * vis);
+            for (let i = 0; i < 12; i++) {
+                g.rotate(TAU / 12);
+                g.beginPath(); g.moveTo(R * 1.3, -R * 0.09); g.lineTo(R * (i % 2 ? 2.2 : 2.8), 0); g.lineTo(R * 1.3, R * 0.09); g.fill();
+            }
+            g.restore();
+        }
+        const pulse = reduce ? 1 : 1 + 0.018 * Math.sin(T * 1.2);
+        const disc = g.createRadialGradient(x - R * 0.3, y - R * 0.3, R * 0.1, x, y, R * pulse);
+        disc.addColorStop(0, rgba(mix(hex('#fffbe8'), hex('#ffe3b5'), low), vis));
+        disc.addColorStop(1, rgba(mix(hex('#ffcf52'), hex('#ff8448'), low), vis));
+        g.fillStyle = disc; g.beginPath(); g.arc(x, y, R * pulse, 0, TAU); g.fill();
+    }
+
+    function drawMoon(v, g) {
+        if (!v.moon) return;
+        const S = scene, s = S.s, [x, y] = v.moon, R = v.bodyR * 0.8, m = s.moon;
+        const vis = [1, 0.95, 0.75, 0.3, 0][s.clouds] * (s.precip && !s.showers ? 0 : 1) * (s.fog ? 0.4 : 1) * (1 - S.day * 0.9) * smooth(-1, 2, m.alt);
+        if (vis < 0.03) return;
+        const haloR = R * (s.clouds >= 2 ? 7 : 5.5);
+        const halo = g.createRadialGradient(x, y, R * 0.8, x, y, haloR);
+        halo.addColorStop(0, rgba([214, 224, 255], (0.16 + m.lit * 0.16) * vis)); halo.addColorStop(1, rgba([214, 224, 255], 0));
+        g.fillStyle = halo; g.fillRect(x - haloR, y - haloR, haloR * 2, haloR * 2);
+        // Пепельный свет: тёмная часть диска чуть видна
+        g.fillStyle = rgba([60, 70, 105], 0.45 * vis);
+        g.beginPath(); g.arc(x, y, R, 0, TAU); g.fill();
+        // Освещённая часть: половина диска + эллипс терминатора (растёт — светится справа)
+        const k = 2 * m.lit - 1, rx = R * Math.abs(k);
+        g.save();
+        g.beginPath();
+        if (m.waxing) {
+            g.arc(x, y, R, -Math.PI / 2, Math.PI / 2, false);
+            g.ellipse(x, y, rx, R, 0, Math.PI / 2, -Math.PI / 2, k < 0);
+        } else {
+            g.arc(x, y, R, Math.PI / 2, Math.PI * 1.5, false);
+            g.ellipse(x, y, rx, R, 0, Math.PI * 1.5, Math.PI / 2, k < 0);
+        }
+        g.closePath();
+        const lit = g.createRadialGradient(x - R * 0.3, y - R * 0.3, R * 0.1, x, y, R);
+        lit.addColorStop(0, rgba([255, 252, 240], vis)); lit.addColorStop(1, rgba([226, 222, 205], vis));
+        g.fillStyle = lit; g.fill();
+        g.clip();
+        g.fillStyle = rgba([170, 160, 140], 0.22 * vis);   // моря и кратеры
+        [[-0.3, -0.2, 0.28], [0.25, 0.15, 0.2], [-0.05, 0.4, 0.16], [0.35, -0.35, 0.12]].forEach(([dx, dy, rr]) => {
+            g.beginPath(); g.arc(x + dx * R, y + dy * R, rr * R, 0, TAU); g.fill();
+        });
+        g.restore();
+    }
+
+    function drawRainbow(v, g) {
+        const S = scene, s = S.s;
+        if (!v.hero || !(s.showers && s.precip === 'rain' && s.intensity <= 2 && s.clouds <= 2 && s.sun.alt > 3 && s.sun.alt < 42)) return;
+        const cx = v.w * 0.98, cy = v.h * 1.35, R0 = v.h * 0.98;
+        const colors = ['#ff5a5a', '#ff9f43', '#ffe066', '#5ad17a', '#4aa3ff', '#7c6cff'];
+        g.lineWidth = 3.2;
+        colors.forEach((col, i) => {
+            g.strokeStyle = rgba(hex(col), 0.2);
+            g.beginPath(); g.arc(cx, cy, R0 - i * 3.2, Math.PI * 1.05, Math.PI * 1.55); g.stroke();
+        });
+    }
+
+    function drawClouds(v, g, layer) {
+        for (const c of v.clouds) {
+            if (c.layer !== layer) continue;
+            const span = v.w + c.w + 20;
+            const x = ((c.x0 + c.vx * T) % span + span) % span - c.w - 10;
+            g.globalAlpha = c.alpha;
+            g.drawImage(c.img, x, c.y, c.w, c.h);
+        }
+        g.globalAlpha = 1;
+    }
+
+    function drawFog(v, g) {
+        if (!v.fog.length) return;
+        const S = scene, col = mix(hex('#8e97aa'), hex('#f4f6f8'), S.day);
+        for (const f of v.fog) {
+            const span = v.w + f.w;
+            const cx = ((f.x0 + f.vx * T) % span + span) % span - f.w / 2, cy = f.y;
+            g.save(); g.translate(cx, cy); g.scale(f.w / 2, f.h / 2);
+            const grad = g.createRadialGradient(0, 0, 0, 0, 0, 1);
+            grad.addColorStop(0, rgba(col, f.a)); grad.addColorStop(1, rgba(col, 0));
+            g.fillStyle = grad; g.beginPath(); g.arc(0, 0, 1, 0, TAU); g.fill();
+            g.restore();
+        }
+        const haze = g.createLinearGradient(0, v.h * 0.45, 0, v.h);
+        haze.addColorStop(0, rgba(col, 0)); haze.addColorStop(1, rgba(col, 0.5));
+        g.fillStyle = haze; g.fillRect(0, v.h * 0.45, v.w, v.h * 0.55);
+    }
+
+    function drawRain(v, g, dt) {
+        if (!v.drops.length) return;
+        const S = scene, slant = S.slant;
+        const color = S.rainLight ? [214, 226, 246] : [62, 82, 112];
+        g.lineCap = 'round';
+        for (let layer = 0; layer < 3; layer++) {
+            g.beginPath();
+            for (const p of v.drops) {
+                if (p.layer !== layer) continue;
+                if (!reduce) { p.y += p.speed * dt; p.x += p.speed * slant * dt; }
+                if (p.y - p.len > v.h) {
+                    if (layer === 2 && S.s.intensity >= 2 && v.splashes.length < 60) v.splashes.push({ x: p.x, y: v.h - rand(1, 10), t: 0 });
+                    Object.assign(p, newDrop(v, false));
+                }
+                if (p.x > v.w + 40) p.x -= v.w + 80; else if (p.x < -40) p.x += v.w + 80;
+                g.moveTo(p.x, p.y); g.lineTo(p.x - p.len * slant, p.y - p.len);
+            }
+            g.strokeStyle = rgba(color, [0.26, 0.4, 0.58][layer] * (S.rainLight ? 1 : 0.85));
+            g.lineWidth = [0.7, 1, 1.35][layer];
+            g.stroke();
+        }
+        if (!v.splashes.length) return;
+        g.beginPath();
+        v.splashes = v.splashes.filter(s => (s.t += dt) < 0.28);
+        for (const s of v.splashes) {
+            const k = s.t / 0.28, rr = 1.5 + k * 6;
+            g.moveTo(s.x + rr, s.y); g.ellipse(s.x, s.y, rr, rr * 0.32, 0, 0, Math.PI, true);
+        }
+        g.strokeStyle = rgba(color, 0.35); g.lineWidth = 0.8; g.stroke();
+    }
+
+    function drawSnow(v, g, dt) {
+        if (!v.flakes.length) return;
+        const S = scene, drift = S.windSign * (8 + S.wind * 3);
+        const fill = [[255, 255, 255, 0.7], [255, 255, 255, 0.96]];
+        for (let layer = 0; layer < 2; layer++) {
+            g.beginPath();
+            for (const f of v.flakes) {
+                if ((f.z > 0.55 ? 1 : 0) !== layer) continue;
+                if (!reduce) {
+                    f.y += f.vy * dt;
+                    f.x += (Math.cos(T * f.f + f.p) * f.amp * 0.9 + drift * (0.4 + f.z)) * dt;
+                }
+                if (f.y - f.r > v.h) Object.assign(f, newFlake(v, false));
+                if (f.x > v.w + 20) f.x -= v.w + 40; else if (f.x < -20) f.x += v.w + 40;
+                g.moveTo(f.x + f.r, f.y); g.arc(f.x, f.y, f.r, 0, TAU);
+            }
+            const [r0, g0, b0, a0] = fill[layer];
+            g.fillStyle = rgba([r0, g0, b0], a0); g.fill();
+            if (!S.dark) { g.strokeStyle = rgba([92, 110, 140], 0.28 * (layer + 1)); g.lineWidth = 0.6; g.stroke(); }
+        }
+    }
+
+    // Гроза: вспышка освещает обе панели, молния бьёт в одной
+    const storm = { t: -1, next: rand(2, 5), view: null, bolt: null };
+    function makeBolt(v) {
+        const x0 = v.hero ? rand(v.w * 0.6, v.w * 0.95) : rand(v.w * 0.25, v.w * 0.85);
+        const end = v.h * rand(0.5, 0.82), main = [[x0, -6]];
+        let x = x0, y = -6;
+        while (y < end) { y += rand(9, 20); x += rand(-13, 13); main.push([x, y]); }
+        const k = Math.floor(main.length * rand(0.3, 0.6)), dir = Math.random() < 0.5 ? -1 : 1, branch = [main[k].slice()];
+        let bx = main[k][0], by = main[k][1];
+        for (let i = 0; i < 5; i++) { by += rand(7, 15); bx += dir * rand(5, 13); branch.push([bx, by]); }
+        return [main, branch];
+    }
+    function flashLevel(t) {
+        if (t < 0) return 0;
+        if (t < 0.05) return t / 0.05;
+        if (t < 0.11) return 1 - (t - 0.05) / 0.06 * 0.75;
+        if (t < 0.17) return 0.25 + (t - 0.11) / 0.06 * 0.55;
+        return 0.8 * Math.exp(-(t - 0.17) * 7);
+    }
+    function weatherClock(dt) {
+        const S = scene;
+        if (S.s.thunder && !reduce) {
+            if (storm.t < 0 && T >= storm.next) {
+                storm.t = 0;
+                const pool = views.filter(v => v.seen && v.ctx);
+                storm.view = pool.length ? pool[Math.random() < 0.7 ? 0 : pool.length - 1] : null;
+                storm.bolt = storm.view ? makeBolt(storm.view) : null;
+            } else if (storm.t >= 0) {
+                storm.t += dt;
+                if (storm.t > 0.8) { storm.t = -1; storm.next = T + [0, rand(7, 15), rand(5, 11), rand(3, 8)][S.s.intensity || 2]; }
+            }
+        }
+        if (!reduce && S.stars > 0.6 && S.cover < 0.15 && !S.s.precip && !shooting.star && T >= shooting.next) {
+            const pool = views.filter(v => v.seen && v.ctx);
+            const v = pool[Math.floor(Math.random() * pool.length)];
+            if (v) {
+                const dir = Math.random() < 0.5 ? -1 : 1, speed = rand(520, 760), ang = rand(0.25, 0.5);
+                shooting.star = { view: v, t: 0, life: rand(0.6, 0.9), x: rand(v.w * 0.3, v.w * 0.9), y: rand(4, v.h * 0.3),
+                    vx: dir * speed * Math.cos(ang), vy: speed * Math.sin(ang) };
+            }
+            shooting.next = T + rand(9, 24);
+        }
+    }
+    function drawLightning(v, g) {
+        const level = flashLevel(storm.t);
+        if (level <= 0.01) return;
+        g.fillStyle = rgba([222, 230, 255], level * 0.26);
+        g.fillRect(0, 0, v.w, v.h);
+        if (storm.view !== v || !storm.bolt) return;
+        g.lineCap = 'round'; g.lineJoin = 'round';
+        storm.bolt.forEach((line, i) => {
+            for (const [width, alpha] of [[5, 0.25], [1.6, 0.95]]) {
+                g.strokeStyle = rgba([235, 240, 255], alpha * level * (i ? 0.7 : 1));
+                g.lineWidth = width * (i ? 0.6 : 1);
+                g.beginPath(); line.forEach((p, j) => j ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke();
+            }
+        });
+    }
+
+    function drawTowerLight(v, g) {
+        if (!v.tower || scene.day > 0.6) return;
+        const on = reduce ? 1 : Math.max(0, Math.sin(T * 3.1)) ** 2;
+        const { x, base, th } = v.tower, y = base - th * 1.12;
+        const glow = g.createRadialGradient(x, y, 0, x, y, 7);
+        glow.addColorStop(0, rgba([255, 80, 70], 0.9 * on)); glow.addColorStop(1, rgba([255, 80, 70], 0));
+        g.fillStyle = glow; g.fillRect(x - 7, y - 7, 14, 14);
+    }
+
+    function draw(v, dt) {
+        const g = v.ctx;
+        if (!g || !v.land) return;
+        g.setTransform(DPR, 0, 0, DPR, 0, 0);
+        g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+        g.clearRect(0, 0, v.w, v.h);
+        drawStars(v, g); drawShooting(v, g, dt);
+        drawMoon(v, g); drawSun(v, g); drawRainbow(v, g);
+        drawClouds(v, g, 'far');
+        g.drawImage(v.land, 0, 0, v.w, v.h);
+        drawTowerLight(v, g);
+        drawClouds(v, g, 'near');
+        drawFog(v, g);
+        drawRain(v, g, dt); drawSnow(v, g, dt);
+        drawLightning(v, g);
+    }
+
+    function layout(v) {
+        v.w = v.el.clientWidth; v.h = v.el.clientHeight;
+        if (!v.w || !v.h || !scene) return;
+        DPR = quality ? Math.min(2, window.devicePixelRatio || 1) : 1;
+        v.canvas.width = Math.round(v.w * DPR); v.canvas.height = Math.round(v.h * DPR);
+        v.ctx = v.canvas.getContext('2d');
+        measure(v);
+        placeSky(v);
+        land(v);
+        populate(v);
+        if (reduce || !running) draw(v, 0);
+    }
+
+    /* ---------- Подпись погоды ---------- */
+    const $ = id => document.getElementById(id);
+    const degrees = t => (t > 0 ? '+' : t < 0 ? '−' : '') + Math.abs(t) + '°';
+    const KIND = { 'fa-sun': 'sun', 'fa-cloud-sun': 'sun', 'fa-cloud-sun-rain': 'rain', 'fa-moon': 'moon', 'fa-cloud-moon': 'moon',
+        'fa-cloud-moon-rain': 'rain', 'fa-cloud-rain': 'rain', 'fa-cloud-showers-heavy': 'rain', 'fa-cloud-bolt': 'bolt', 'fa-snowflake': 'snow' };
+    function caption(d) {
+        const chip = $('wxChip');
+        if (!chip) return;
+        chip.hidden = !d.ok || d.temp === null;
+        if (chip.hidden) return;
+        const icon = $('wxIcon');
+        icon.className = 'fas ' + d.icon;
+        icon.dataset.kind = KIND[d.icon] || 'cloud';
+        $('wxTemp').textContent = degrees(d.temp);
+        $('wxLabel').textContent = d.label;
+        chip.setAttribute('aria-label', d.city + ': ' + d.label + ', ' + degrees(d.temp));
+        $('wxPopNow').textContent = d.label + ', ' + degrees(d.temp);
+        $('wxFeelsRow').hidden = d.feels === null;
+        if (d.feels !== null) $('wxFeels').textContent = degrees(d.feels);
+        $('wxWindRow').hidden = d.wind === null;
+        if (d.wind !== null) $('wxWind').textContent = d.wind;
+        $('wxHumRow').hidden = d.humidity === null;
+        if (d.humidity !== null) $('wxHum').textContent = d.humidity;
+        $('wxSunRow').hidden = !d.sunrise;
+        $('wxSunrise').textContent = d.sunrise; $('wxSunset').textContent = d.sunset;
+        $('wxUpdatedWrap').hidden = !d.updated;
+        $('wxUpdated').textContent = d.updated;
+        $('wxDemo').hidden = !d.demo;
+    }
+    const wrap = document.querySelector('.wx-chip-wrap');
+    if (wrap) {
+        $('wxChip').addEventListener('click', e => { e.stopPropagation(); wrap.classList.toggle('open'); });
+        document.addEventListener('click', e => { if (!wrap.contains(e.target)) wrap.classList.remove('open'); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') wrap.classList.remove('open'); });
+    }
+
+    /* ---------- Запуск ---------- */
+    function apply(d, instant) {
+        data = d;
+        scene = buildScene(d);
+        sceneKey++;
+        views.forEach(v => {
+            v.el.classList.toggle('wx-instant', !!instant);
+            v.el.classList.add('wx-on');
+            v.el.classList.toggle('wx-dark', scene.dark);
+            v.el.classList.toggle('wx-light', !scene.dark);
+            v.el.style.setProperty('--wx-top', toHex(scene.colors[0]));
+            v.el.style.setProperty('--wx-mid', toHex(scene.colors[1]));
+            v.el.style.setProperty('--wx-bot', toHex(scene.colors[2]));
+        });
+        caption(d);
+        views.forEach(layout);
+        if (instant) requestAnimationFrame(() => requestAnimationFrame(() => views.forEach(v => v.el.classList.remove('wx-instant'))));
+        setRunning();
+    }
+
+    // Частота кадров подстраивается: не успевает 60 — рисуем 30; совсем тяжело — меньше чёткости
+    let running = false, lastTs = 0, gap = 15, pace = 16, frames = 0;
+    function loop(ts) {
+        if (!running) return;
+        if (!lastTs || ts - lastTs >= gap) {
+            const dt = lastTs ? Math.min(0.05, (ts - lastTs) / 1000) : 0.016;
+            if (lastTs) pace = pace * 0.95 + (ts - lastTs) * 0.05;
+            lastTs = ts; T += dt; frames++;
+            weatherClock(dt);
+            views.forEach(v => { if (v.seen) draw(v, dt); });
+            if (frames > 90) {
+                if (gap < 30 && pace > 24) { gap = 31; frames = 0; }
+                else if (quality && gap >= 30 && pace > 48) { quality = false; frames = 0; views.forEach(layout); }
+            }
+        }
+        requestAnimationFrame(loop);
+    }
+    function setRunning() {
+        const want = !!scene && !reduce && !document.hidden && views.some(v => v.seen);
+        if (want && !running) { running = true; lastTs = 0; frames = 0; requestAnimationFrame(loop); }
+        if (!want) running = false;
+    }
+
+    if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver(entries => {
+            entries.forEach(e => { const v = views.find(x => x.el === e.target); if (v) v.seen = e.isIntersecting; });
+            setRunning();
+        });
+        views.forEach(v => io.observe(v.el));
+    }
+    document.addEventListener('visibilitychange', () => {
+        setRunning();
+        if (!document.hidden && !data.demo && Date.now() - fetchedAt > 10 * 60 * 1000) refresh();
+    });
+    // Размер и текст меняются (окно, шрифт, «следующее через…») — пересчитать место под текст
+    let relayout = 0;
+    const later = () => { clearTimeout(relayout); relayout = setTimeout(() => views.forEach(layout), 120); };
+    if ('ResizeObserver' in window) {
+        const sizes = new Map();
+        const ro = new ResizeObserver(entries => entries.forEach(e => {
+            const key = Math.round(e.contentRect.width) + 'x' + Math.round(e.contentRect.height);
+            if (sizes.get(e.target) !== key) { sizes.set(e.target, key); later(); }
+        }));
+        views.forEach(v => ro.observe(v.el));
+    } else {
+        window.addEventListener('resize', later);
+    }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(later);
+    setInterval(() => { if (running || reduce) views.forEach(v => { if (v.ctx) { measure(v); if (reduce) draw(v, 0); } }); }, 5000);
+
+    let fetchedAt = Date.now();
+    function refresh() {
+        fetchedAt = Date.now();
+        fetch('{% url "weather_api" %}', { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d && d.scene) apply(d, false); })
+            .catch(() => {});
+    }
+
+    apply(data, true);
+    if (!data.demo) {
+        if (data.stale || !data.ok) refresh();
+        setInterval(() => { if (!document.hidden) refresh(); }, 10 * 60 * 1000);
+    }
+})();
+</script>

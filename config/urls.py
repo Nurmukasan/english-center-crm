@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path, re_path
 from django.contrib.staticfiles.views import serve as static_serve
 from django.conf import settings
-from dashboard import broadcasts, inbox, security, views
+from dashboard import broadcasts, inbox, security, views, weather
 
 # Вход в /admin/ — с паузой после неудачных попыток и записью в журнал входов
 admin.site.login = security.throttled_admin_login(admin.site.login)
@@ -54,6 +54,7 @@ urlpatterns = [
     path('group/<int:group_id>/stars/', views.give_stars, name='give_stars'),
     path('star-rating/', views.star_rating, name='star_rating'),
     path('api/search/', views.search_api, name='search_api'),
+    path('api/weather/', weather.weather_api, name='weather_api'),
     path('broadcast/', broadcasts.broadcast_page, name='broadcast_page'),
     path('broadcast/recipients/', broadcasts.broadcast_recipients, name='broadcast_recipients'),
     path('broadcast/create/', broadcasts.broadcast_create, name='broadcast_create'),
