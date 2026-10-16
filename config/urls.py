@@ -1,7 +1,8 @@
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, re_path
+from django.views.static import serve
+from django.contrib.staticfiles.views import serve as static_serve
 from django.conf import settings
-from django.conf.urls.static import static
 from dashboard import broadcasts, inbox, views
 
 urlpatterns = [
@@ -23,6 +24,7 @@ urlpatterns = [
     path('individual/add/', views.add_individual, name='add_individual'),
     path('individual/split/<int:group_id>/', views.split_individual_group, name='split_individual_group'),
     path('export/', views.export_excel, name='export_excel'),
+    path('backup/download/', views.download_backup, name='download_backup'),
     path('payments-management/', views.payment_management, name='payment_management'),
     path('accountant-stats/', views.accountant_stats, name='accountant_stats'),
     path('accountant-stats/export/', views.export_income_excel, name='export_income_excel'),
@@ -66,5 +68,9 @@ urlpatterns = [
     path('messages/<int:message_id>/read/', inbox.toggle_read, name='inbox_toggle_read'),
     path('messages/<int:message_id>/resolve/', inbox.resolve_calibration, name='inbox_resolve'),
 ]
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Фото, PDF книг и логотип раздаёт сам Django — и с выключенной отладкой (DJANGO_DEBUG=0),
+# иначе они пропали бы со страниц. Если когда-нибудь их начнёт раздавать nginx — это можно убрать.
+urlpatterns += [
+    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+    re_path(r'^static/(?P<path>.*)$', static_serve, {'insecure': True}),
+]

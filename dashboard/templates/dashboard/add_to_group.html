@@ -58,7 +58,7 @@
                             <input type="checkbox" name="groups" value="{{ group.id }}" class="w-5 h-5 text-indigo-600">
                             <div>
                                 <p class="font-medium text-gray-800 dark:text-white">{{ group.name }}</p>
-                                <p class="text-sm text-gray-400">{{ group.get_schedule_display }} • {{ group.price }} ₸</p>
+                                <p class="text-sm text-gray-400">{{ group.get_schedule_display|default:"расписание не задано" }}</p>
                             </div>
                         </label>
                         {% empty %}

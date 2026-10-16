@@ -203,7 +203,10 @@
                                 </p>
                                 {% endif %}
                             </td>
-                            <td class="px-6 py-4 text-gray-600 dark:text-gray-300">{{ data.student.phone|default:"—" }}</td>
+                            <td class="px-6 py-4 text-gray-600 dark:text-gray-300">
+                                {% if data.student.phone or not data.student.parent_phone %}{% include 'dashboard/partials/phone.html' with phone=data.student.phone %}{% endif %}
+                                {% if data.student.parent_phone %}<p class="text-xs text-gray-400 mt-1">родитель: {% include 'dashboard/partials/phone.html' with phone=data.student.parent_phone %}</p>{% endif %}
+                            </td>
                             <td class="px-6 py-4">
                                 <div class="flex flex-wrap gap-1">
                                     {% for group_name in data.groups %}

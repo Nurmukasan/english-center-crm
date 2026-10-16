@@ -679,12 +679,31 @@
             document.getElementById('infoGrade').textContent = btn.dataset.grade || '—';
             document.getElementById('infoAge').textContent = btn.dataset.age ? btn.dataset.age + ' лет' : '—';
             document.getElementById('infoSchool').textContent = btn.dataset.school || '—';
-            document.getElementById('infoPhone').textContent = btn.dataset.phone || '—';
-            document.getElementById('infoParent').textContent =
-                (btn.dataset.parentName || '—') + (btn.dataset.parentPhone ? ' • ' + btn.dataset.parentPhone : '');
+            setPhone(document.getElementById('infoPhone'), btn.dataset.phone);
+            const parentBox = document.getElementById('infoParent');
+            parentBox.textContent = (btn.dataset.parentName || (btn.dataset.parentPhone ? '' : '—'));
+            if (btn.dataset.parentPhone) { const p = document.createElement('span'); setPhone(p, btn.dataset.parentPhone); parentBox.append(btn.dataset.parentName ? ' ' : '', p); }
             const deleteForm = document.getElementById('deleteFromGroupForm');
             if (deleteForm) deleteForm.action = deleteForm.dataset.urlTemplate.replace('999999999', btn.dataset.studentId);
             document.getElementById('studentInfoModal').classList.remove('hidden');
+        }
+        /* Телефон: «позвонить» и WhatsApp (номер приводим к 7XXXXXXXXXX, как на сервере) */
+        function phoneDigits(raw) {
+            let d = String(raw || '').replace(/\D/g, '');
+            if (d.length === 11 && d[0] === '8') d = '7' + d.slice(1);
+            else if (d.length === 10 && d[0] === '7') d = '7' + d;
+            return d.length >= 11 && d.length <= 15 ? d : '';
+        }
+        function setPhone(box, raw) {
+            box.textContent = '';
+            const digits = phoneDigits(raw);
+            if (!digits) { box.textContent = raw || '—'; return; }
+            const wrap = document.createElement('span'); wrap.className = 'ee-phone';
+            const call = document.createElement('a'); call.className = 'ee-phone-link notranslate'; call.href = 'tel:+' + digits; call.textContent = raw;
+            const wa = document.createElement('a'); wa.className = 'ee-phone-wa'; wa.href = 'https://wa.me/' + digits; wa.target = '_blank'; wa.rel = 'noopener';
+            wa.setAttribute('aria-label', 'WhatsApp'); wa.innerHTML = '<i class="fab fa-whatsapp"></i>';
+            wrap.append(call, wa);
+            box.append(wrap);
         }
         function closeStudentInfo() { document.getElementById('studentInfoModal').classList.add('hidden'); }
         function openProfile() { if (currentStudent) window.location.href = '/students/' + currentStudent.id + '/'; }

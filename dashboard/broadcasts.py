@@ -17,7 +17,7 @@ from django.views.decorators.http import require_POST
 
 from .models import Broadcast, BroadcastMessage, Group, Payment, WhatsAppSettings
 from .views import (
-    MONTHS_RU, crm_view, get_current_period, get_period, get_user_role, money, month_rows,
+    MONTHS_RU, crm_view, get_current_period, get_period, get_user_role, money, month_rows, to_int,
 )
 from .whatsapp import (
     WhatsAppError, chat_id_for_phone, client, connection_status, format_phone, normalize_phone, wa_link, waha_status,
@@ -581,7 +581,7 @@ def bind_group_chat(request):
     """Привязать группу CRM к чату WhatsApp (или отвязать)"""
     if get_user_role(request.user) not in SETUP_ROLES:
         return JsonResponse({'success': False, 'error': 'Нет доступа'}, status=403)
-    group = get_object_or_404(Group, id=request.POST.get('group_id') or 0)
+    group = get_object_or_404(Group, id=to_int(request.POST.get('group_id'), 0))
     chat_id = request.POST.get('chat_id', '').strip()
     if chat_id and not re.fullmatch(r'[\w.-]+@g\.us', chat_id):
         return JsonResponse({'success': False, 'error': 'Это не групповой чат WhatsApp'}, status=400)
