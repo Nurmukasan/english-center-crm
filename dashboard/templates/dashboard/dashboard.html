@@ -335,7 +335,7 @@
                 const t = nowMin();
                 const live = lessons.filter(l => l.start <= t && t < l.end);
                 const upcoming = lessons.filter(l => l.start > t);
-                if (live.length) next.innerHTML = '<span class="text-orange-600 font-bold">● Идёт:</span> ' + live.map(l => l.group).join(', ');
+                if (live.length) next.innerHTML = '<span class="text-orange-600 font-bold">● Идёт:</span> ' + live.map(l => esc(l.group)).join(', ');
                 else if (upcoming.length) next.innerHTML = 'Следующее через <b class="text-white">' + until(upcoming[0].start - t) + '</b>';
                 else next.textContent = lessons.length ? 'На сегодня всё 🎉' : 'Хорошего дня ✨';
             }

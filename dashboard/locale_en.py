@@ -973,6 +973,32 @@ PHRASES = {
     '{d} {n}-{n}, {d} {n}-{n}': '{d} {n}-{n}, {d} {n}-{n}',
     '{d} {n}-{n}, {d} {n}-{n}, {d} {n}-{n}': '{d} {n}-{n}, {d} {n}-{n}, {d} {n}-{n}',
     '{d} {n}-{n}, {d} {n}-{n}, {d} {n}-{n}, {d} {n}-{n}': '{d} {n}-{n}, {d} {n}-{n}, {d} {n}-{n}, {d} {n}-{n}',
+
+    # ---------------- Проверка ввода, копии базы, страницы ошибок ----------------
+    'Администратор': 'Administrator',
+    'Бухгалтер': 'Accountant',
+    'Менеджер': 'Manager',
+    'Разработчик': 'Developer',
+    'родитель:': 'parent:',
+    'Позвонить': 'Call',
+    'Возраст — число от {n} до {n}': 'Age is a number from {n} to {n}',
+    'Название группы не может быть пустым': 'The group name cannot be empty',
+    'Напишите имя ученика': "Enter the student's name",
+    'Имя ученика не может быть пустым': "The student's name cannot be empty",
+    'Цена за урок — число, например {n}': 'Price per lesson is a number, for example {n}',
+    'Цена за урок — число от {n} до {n} {n} {n}': 'Price per lesson is a number from {n} to {n} {n} {n}',
+    'Резервная копия базы': 'Database backup',
+    'Скачать копию базы': 'Download a database backup',
+    'Все ученики, группы, уроки и оплаты одним файлом. Скачивайте раз в неделю и храните у себя — на случай, если с сервером что-то случится.': 'All students, groups, lessons and payments in one file. Download it once a week and keep it — in case something happens to the server.',
+    'Слишком много неудачных попыток — подождите {n} минут': 'Too many failed attempts — wait {n} minutes',
+    'Файл больше {n} МБ — выберите фото поменьше': 'The file is larger than {n} MB — choose a smaller photo',
+    'Это не картинка — загрузите фото в JPG или PNG': 'This is not an image — upload a JPG or PNG photo',
+    'Подойдёт фото в JPG, PNG или WEBP': 'Use a JPG, PNG or WEBP photo',
+    'Страница не найдена': 'Page not found',
+    'Что-то сломалось': 'Something went wrong',
+    'Такой страницы нет — возможно, ссылка устарела или ученик, группа уже удалены.': 'There is no such page — the link may be outdated, or the student or group was removed.',
+    'На сервере произошла ошибка. Попробуйте ещё раз через минуту; если повторится — напишите разработчику, что вы делали.': 'A server error occurred. Try again in a minute; if it happens again, tell the developer what you were doing.',
+    'У вашей роли нет доступа к этой странице. Если он нужен — попросите администратора.': 'Your role has no access to this page. If you need it, ask the administrator.',
 }
 
 # Фразы с именами учеников, групп и учителей: регулярное выражение → перевод

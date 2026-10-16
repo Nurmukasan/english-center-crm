@@ -10,22 +10,36 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
+def _load_env(path):
+    """Настройки сервера из файла .env рядом с manage.py (в git он не попадает): КЛЮЧ=значение"""
+    try:
+        with open(path, encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+    except FileNotFoundError:
+        pass
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-fz%bp8-lpzybk5_0*x=(wsez7-7d-9f&f8op6lhp*fcs2n+j*s'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+_load_env(BASE_DIR / '.env')
+
+# Секретный ключ и режим отладки задаются на сервере в .env (см. docs/server.md).
+# Без .env всё работает как раньше — со старым ключом и включённой отладкой.
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY') or 'django-insecure-fz%bp8-lpzybk5_0*x=(wsez7-7d-9f&f8op6lhp*fcs2n+j*s'
+
+DEBUG = os.environ.get('DJANGO_DEBUG', '1').lower() not in ('0', 'false', 'no', 'off')
 
 ALLOWED_HOSTS = ['enjoy-english.space', 'www.enjoy-english.space', '201.51.26.233', 'localhost', '127.0.0.1']
+CSRF_TRUSTED_ORIGINS = ['https://enjoy-english.space', 'https://www.enjoy-english.space']
 
 
 # Application definition
@@ -131,8 +145,6 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
-import os
-
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 

@@ -388,6 +388,13 @@ Tailwind «светлый / dark:» — тёмный режим больше н�
     .ee-palette-foot kbd { margin-right: 3px; }
     @media (max-width: 640px) { .ee-palette-foot { display: none; } .ee-palette { padding-top: 8vh; } }
 
+    /* ---------- Телефон: позвонить и написать в WhatsApp ---------- */
+    .ee-phone { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+    .ee-phone-link { color: inherit; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+    .ee-phone-link:hover { color: var(--accent-ink); text-decoration-color: currentColor; }
+    .ee-phone-wa { width: 26px; height: 26px; border-radius: 8px; display: inline-grid; place-items: center; font-size: 14px; color: #128c4a; background: #e9f9ef; }
+    .ee-phone-wa:hover { color: #fff; background: #25d366; }
+
     /* ---------- Скроллбар ---------- */
     html.ee ::-webkit-scrollbar { width: 10px; height: 10px; }
     html.ee ::-webkit-scrollbar-track { background: transparent; }

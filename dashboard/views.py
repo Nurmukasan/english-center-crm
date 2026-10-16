@@ -60,6 +60,32 @@ def landing_stats():
     return [s for s in stats if s['value']]
 
 
+LOGIN_LIMITS = (('user', 10), ('ip', 30))   # неудачных попыток за LOGIN_WINDOW
+LOGIN_WINDOW = 15 * 60
+
+
+def login_keys(request, username):
+    ip = (request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() or request.META.get('REMOTE_ADDR', ''))
+    return {'user': f'login-fail:u:{(username or "").strip().lower()[:150]}', 'ip': f'login-fail:ip:{ip}'}
+
+
+def login_blocked(request, username):
+    """Защита от подбора пароля: после серии неудачных входов — пауза 15 минут"""
+    from django.core.cache import cache
+    keys = login_keys(request, username)
+    return any(cache.get(keys[kind], 0) >= limit for kind, limit in LOGIN_LIMITS)
+
+
+def login_failed(request, username):
+    from django.core.cache import cache
+    for key in login_keys(request, username).values():
+        cache.add(key, 0, LOGIN_WINDOW)
+        try:
+            cache.incr(key)
+        except ValueError:
+            cache.set(key, 1, LOGIN_WINDOW)
+
+
 def login_view(request):
     """Лендинг центра + вход для сотрудников"""
     if request.user.is_authenticated:
@@ -72,15 +98,23 @@ def login_view(request):
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
-        user = authenticate(request, username=username, password=password)
+        user = None
+        if login_blocked(request, username):
+            messages.error(request, 'Слишком много неудачных попыток — подождите 15 минут')
+        else:
+            user = authenticate(request, username=username, password=password)
+            if user is None:
+                login_failed(request, username)
+                messages.error(request, 'Неверный логин или пароль')
         
         if user is not None:
+            from django.core.cache import cache
+            cache.delete(login_keys(request, username)['user'])
             login(request, user)
             if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
                 return redirect(next_url)
             return redirect('dashboard')
         else:
-            messages.error(request, 'Неверный логин или пароль')
             show_login = True
     
     contacts = {k: v for k, v in LANDING_CONTACTS.items() if v}
@@ -130,6 +164,77 @@ def crm_view(view):
 MANAGE_ROLES = ('admin', 'developer', 'manager')
 # оплаты — страница оплат и отметки об оплате
 MONEY_ROLES = ('admin', 'accountant', 'developer', 'manager')
+
+
+# ---------------- Ввод из форм: числа, цена, телефон ----------------
+
+def to_int(value, default=None):
+    """«12» → 12; пусто, буквы, мусор → default (а не ошибка 500)"""
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def to_ids(values):
+    """Список id из формы: только числа"""
+    return [i for i in (to_int(v) for v in values) if i is not None]
+
+
+class FormError(Exception):
+    pass
+
+
+def parse_age(value):
+    value = (value or '').strip()
+    if not value:
+        return None
+    age = to_int(value)
+    if age is None or not 1 <= age <= 99:
+        raise FormError('Возраст — число от 1 до 99')
+    return age
+
+
+def parse_price(value, default=None):
+    """«3 000», «3000,50» → Decimal; пусто → default"""
+    value = (value or '').replace(' ', '').replace('\u00a0', '').replace(',', '.').strip()
+    if not value:
+        return default
+    try:
+        price = Decimal(value)
+    except ArithmeticError:
+        raise FormError('Цена за урок — число, например 3000')
+    if not price.is_finite() or price < 0 or price > 10_000_000:
+        raise FormError('Цена за урок — число от 0 до 10 000 000')
+    return price.quantize(Decimal('0.01'))
+
+
+def clean_text(value, limit):
+    return (value or '').strip()[:limit]
+
+
+IMAGE_FORMATS = {'JPEG': 'jpg', 'PNG': 'png', 'WEBP': 'webp', 'GIF': 'gif'}
+
+
+def check_image(upload, max_mb=5):
+    """Загруженный файл — настоящая картинка (а не HTML со скриптом под видом фото). Ошибка или None."""
+    if upload.size > max_mb * 1024 * 1024:
+        return f'Файл больше {max_mb} МБ — выберите фото поменьше'
+    try:
+        from PIL import Image
+        with Image.open(upload) as image:
+            fmt = image.format
+            image.verify()
+    except Exception:
+        return 'Это не картинка — загрузите фото в JPG или PNG'
+    finally:
+        upload.seek(0)
+    if fmt not in IMAGE_FORMATS:
+        return 'Подойдёт фото в JPG, PNG или WEBP'
+    # Расширение — по настоящему формату, чтобы файл не открылся как страница
+    base = (upload.name.rsplit('.', 1)[0] or 'photo')[:60]
+    upload.name = f'{base}.{IMAGE_FORMATS[fmt]}'
+    return None
 
 
 # Уровень группы по названию — тот же порядок слов, что в миграции 0027
@@ -569,8 +674,8 @@ def students_list(request):
     if group_filter == 'none':
         # Ученики без группы
         students = students.filter(enrollments__isnull=True)
-    elif group_filter:
-        students = students.filter(enrollments__group_id=group_filter)
+    elif to_int(group_filter):
+        students = students.filter(enrollments__group_id=to_int(group_filter))
 
     # ===== Фильтр: класс =====
     grade_filter = request.GET.get('grade', '').strip()
@@ -645,35 +750,39 @@ def add_student(request):
         messages.error(request, 'У вас нет доступа')
         return redirect('students_list')
     
+    form = {}
     if request.method == 'POST':
-        name = request.POST.get('name')
-        phone = request.POST.get('phone', '')
-        parent_name = request.POST.get('parent_name', '')
-        parent_phone = request.POST.get('parent_phone', '')
-        group_ids = request.POST.getlist('groups')
-        
-        if name:
-            student = Student.objects.create(
-                name=name,
-                phone=phone,
-                parent_name=parent_name,
-                parent_phone=parent_phone,
-                school=request.POST.get('school', ''),
-                grade=request.POST.get('grade', ''),
-                age=request.POST.get('age') or None,
-                price_per_lesson=request.POST.get('price_per_lesson') or 3000,
-            )
-            
-            for group_id in group_ids:
-                group = Group.objects.get(id=group_id)
-                Enrollment.objects.get_or_create(student=student, group=group)
-            
+        form = request.POST
+        name = clean_text(request.POST.get('name'), 100)
+        try:
+            if not name:
+                raise FormError('Напишите имя ученика')
+            age = parse_age(request.POST.get('age'))
+            price = parse_price(request.POST.get('price_per_lesson'), default=Decimal('3000'))
+        except FormError as e:
+            messages.error(request, str(e))
+        else:
+            with transaction.atomic():
+                student = Student.objects.create(
+                    name=name,
+                    phone=clean_text(request.POST.get('phone'), 20),
+                    parent_name=clean_text(request.POST.get('parent_name'), 100),
+                    parent_phone=clean_text(request.POST.get('parent_phone'), 20),
+                    school=clean_text(request.POST.get('school'), 200),
+                    grade=clean_text(request.POST.get('grade'), 20),
+                    age=age,
+                    price_per_lesson=price,
+                )
+                for group in Group.objects.filter(id__in=to_ids(request.POST.getlist('groups')), is_active=True):
+                    Enrollment.objects.get_or_create(student=student, group=group)
             messages.success(request, f'Ученик {name} добавлен!')
             return redirect('students_list')
     
     groups = Group.objects.filter(is_active=True)
     context = {
         'groups': groups,
+        'form': form,
+        'checked_groups': [str(i) for i in to_ids(form.getlist('groups'))] if form else [],
     }
     
     return render(request, 'dashboard/add_student.html', context)
@@ -1035,8 +1144,8 @@ def add_individual(request):
         return redirect('individual_lessons')
 
     if request.method == 'POST':
-        student = Student.objects.filter(id=request.POST.get('student'), is_active=True).first()
-        teacher = User.objects.filter(id=request.POST.get('teacher'), profile__role='teacher').first()
+        student = Student.objects.filter(id=to_int(request.POST.get('student'), 0), is_active=True).first()
+        teacher = User.objects.filter(id=to_int(request.POST.get('teacher'), 0), profile__role='teacher').first()
         if not student or not teacher:
             messages.error(request, 'Выберите ученика и учителя')
         else:
@@ -1204,8 +1313,11 @@ def weekly_schedule(request):
             })
     
     # Видимый диапазон часов: по занятиям, но не уже 9:00–19:00
-    first_hour = min([l['start'] // 60 for l in lessons] + [9])
-    last_hour = max([-(-l['end'] // 60) for l in lessons] + [19])
+    # Сетка — от первого занятия недели до последнего (а не всегда с 9 утра), но не меньше 4 часов
+    first_hour = min([l['start'] // 60 for l in lessons] or [9])
+    last_hour = max([-(-l['end'] // 60) for l in lessons] or [19])
+    if last_hour - first_hour < 4:
+        last_hour = min(24, first_hour + 4)
     
     now = timezone.localtime()
     context = {
@@ -1254,7 +1366,7 @@ def profile(request):
                 update_session_auth_hash(request, request.user)
         
         elif action == 'change_phone':
-            phone = request.POST.get('phone')
+            phone = clean_text(request.POST.get('phone'), 20)
             profile_obj, created = Profile.objects.get_or_create(user=request.user, defaults={'role': role})
             profile_obj.phone = phone
             profile_obj.save()
@@ -1262,13 +1374,14 @@ def profile(request):
         
         elif action == 'change_photo':
             photo = request.FILES.get('photo')
-            if photo:
+            problem = check_image(photo) if photo else 'Выберите файл'
+            if problem:
+                messages.error(request, problem)
+            else:
                 profile_obj, created = Profile.objects.get_or_create(user=request.user, defaults={'role': role})
                 profile_obj.photo = photo
                 profile_obj.save()
                 messages.success(request, 'Фото обновлено!')
-            else:
-                messages.error(request, 'Выберите файл')
     
     try:
         user_profile = request.user.profile
@@ -1511,6 +1624,29 @@ def export_excel(request):
     
     wb.save(response)
     return response
+
+
+@crm_view
+def download_backup(request):
+    """Админ скачивает свежую копию базы — на всякий случай держать у себя"""
+    if get_user_role(request.user) not in ('admin', 'developer'):
+        messages.error(request, 'У вас нет доступа')
+        return redirect('dashboard')
+    import tempfile
+    from pathlib import Path
+    from django.http import FileResponse
+    from .management.commands.backup_db import make_backup
+    tmp = Path(tempfile.mkdtemp()) / 'db.sqlite3'
+    make_backup(tmp)
+    name = f'enjoy-english-{timezone.localtime():%Y-%m-%d-%H%M}.sqlite3'
+    # Файл удалится сам, когда закроется (на Linux — сразу после открытия)
+    handle = open(tmp, 'rb')
+    try:
+        tmp.unlink()
+        tmp.parent.rmdir()
+    except OSError:
+        pass
+    return FileResponse(handle, as_attachment=True, filename=name, content_type='application/octet-stream')
 
 
 @crm_view
@@ -1883,9 +2019,11 @@ def add_group(request):
         return redirect('dashboard')
     
     if request.method == 'POST':
-        name = request.POST.get('name')
-        group_type = request.POST.get('group_type', 'group')
-        teacher_id = request.POST.get('teacher')
+        name = clean_text(request.POST.get('name'), 100)
+        group_type = request.POST.get('group_type') if request.POST.get('group_type') in ('group', 'individual') else 'group'
+        teacher_id = to_int(request.POST.get('teacher'))
+        if teacher_id and not User.objects.filter(id=teacher_id).exists():
+            teacher_id = None
         
         if name and teacher_id:
             try:
@@ -1906,10 +2044,9 @@ def add_group(request):
             
             save_schedule(request, group)
             
-            additional_teacher_ids = request.POST.getlist('additional_teachers', [])
-            additional_teacher_ids = [tid for tid in additional_teacher_ids if int(tid) != int(teacher_id)]
-            if additional_teacher_ids:
-                group.teachers.set(additional_teacher_ids)
+            additional = User.objects.filter(id__in=to_ids(request.POST.getlist('additional_teachers'))).exclude(id=teacher_id)
+            if additional:
+                group.teachers.set(additional)
             messages.success(request, f'Группа "{name}" создана!')
             return redirect('individual_lessons' if group_type == 'individual' else 'dashboard')
         else:
@@ -2056,7 +2193,7 @@ def add_existing_student_to_group(request, student_id):
     student = get_object_or_404(Student, id=student_id)
     
     if request.method == 'POST':
-        group_ids = request.POST.getlist('groups')
+        group_ids = to_ids(request.POST.getlist('groups'))
         
         for group in Group.objects.filter(id__in=group_ids, is_active=True):
             Enrollment.objects.get_or_create(student=student, group=group)
@@ -2212,25 +2349,47 @@ def edit_student(request, student_id):
     student = get_object_or_404(Student, id=student_id)
     
     if request.method == 'POST':
-        student.name = request.POST.get('name', student.name)
-        student.phone = request.POST.get('phone', '')
-        student.parent_name = request.POST.get('parent_name', '')
-        student.parent_phone = request.POST.get('parent_phone', '')
-        student.school = request.POST.get('school', '')
-        student.grade = request.POST.get('grade', '')
-        student.age = request.POST.get('age') or None
-        student.price_per_lesson = request.POST.get('price_per_lesson') or 0
-        student.save()
-        
-        group_ids = request.POST.getlist('groups')
-        Enrollment.objects.filter(student=student).delete()
-        for group_id in group_ids:
-            group = Group.objects.get(id=group_id)
-            Enrollment.objects.create(student=student, group=group)
+        name = clean_text(request.POST.get('name'), 100)
+        try:
+            if not name:
+                raise FormError('Имя ученика не может быть пустым')
+            age = parse_age(request.POST.get('age'))
+            price = parse_price(request.POST.get('price_per_lesson'), default=Decimal('0'))
+        except FormError as e:
+            # Показываем форму снова с тем, что ввели (в базу ничего не пишем)
+            messages.error(request, str(e))
+            for field in ('phone', 'parent_name', 'parent_phone', 'school', 'grade'):
+                setattr(student, field, request.POST.get(field, ''))
+            student.name = name or student.name
+            return render(request, 'dashboard/edit_student.html', {
+                'student': student,
+                'groups': Group.objects.filter(is_active=True),
+                'student_groups': to_ids(request.POST.getlist('groups')),
+            })
+        student.name = name
+        student.phone = clean_text(request.POST.get('phone'), 20)
+        student.parent_name = clean_text(request.POST.get('parent_name'), 100)
+        student.parent_phone = clean_text(request.POST.get('parent_phone'), 20)
+        student.school = clean_text(request.POST.get('school'), 200)
+        student.grade = clean_text(request.POST.get('grade'), 20)
+        student.age = age
+        student.price_per_lesson = price
+        with transaction.atomic():
+            student.save()
+            # Записи в группы меняем точечно: у оставшихся сохраняются дата записи
+            # (по ней считаются оплаты прошлых месяцев) и отметки о книгах
+            wanted = set(Group.objects.filter(id__in=to_ids(request.POST.getlist('groups')), is_active=True)
+                         .values_list('id', flat=True))
+            current = Enrollment.objects.filter(student=student)
+            # Архивные группы в форме не показываются — их записи не трогаем
+            current.filter(group__is_active=True).exclude(group_id__in=wanted).delete()
+            have = set(current.values_list('group_id', flat=True))
+            for group_id in wanted - have:
+                Enrollment.objects.create(student=student, group_id=group_id)
         
         messages.success(request, f'Ученик {student.name} обновлён!')
         return_url = request.POST.get('return_url', '')
-        if return_url:
+        if return_url and url_has_allowed_host_and_scheme(return_url, allowed_hosts={request.get_host()}):
             return redirect(return_url)
         return redirect('students_list')
     
@@ -2258,12 +2417,19 @@ def edit_group(request, group_id):
     group = get_object_or_404(Group, id=group_id)
     
     if request.method == 'POST':
-        group.name = request.POST.get('name', group.name)
-        group.group_type = request.POST.get('group_type', group.group_type)
-        group.teacher_id = request.POST.get('teacher', group.teacher_id)
-        additional_teacher_ids = request.POST.getlist('additional_teachers', [])
-        additional_teacher_ids = [tid for tid in additional_teacher_ids if int(tid) != group.teacher_id]
-        group.teachers.set(additional_teacher_ids)
+        name = clean_text(request.POST.get('name'), 100)
+        if not name:
+            messages.error(request, 'Название группы не может быть пустым')
+            return redirect('edit_group', group_id=group.id)
+        group.name = name
+        if request.POST.get('group_type') in ('group', 'individual'):
+            group.group_type = request.POST['group_type']
+        teacher_id = to_int(request.POST.get('teacher'))
+        if teacher_id and User.objects.filter(id=teacher_id).exists():
+            group.teacher_id = teacher_id
+        # Основной учитель не дублируется в дополнительных
+        additional = User.objects.filter(id__in=to_ids(request.POST.getlist('additional_teachers'))).exclude(id=group.teacher_id)
+        group.teachers.set(additional)
         try:
             cycle_start_day = int(request.POST.get('cycle_start_day', group.cycle_start_day))
             if not (2 <= cycle_start_day <= 28):
@@ -2520,7 +2686,7 @@ def toggle_student_payment(request, group_id):
         return JsonResponse({'success': False, 'error': 'Нет доступа'})
 
     group = get_object_or_404(Group, id=group_id)
-    student = get_object_or_404(Student, id=request.POST.get('student_id') or 0)
+    student = get_object_or_404(Student, id=to_int(request.POST.get('student_id'), 0))
     try:
         year = int(request.POST.get('year'))
         month = int(request.POST.get('month'))
@@ -2587,7 +2753,7 @@ def set_payment_method(request, group_id):
         cycle = int(request.POST.get('year')) * 100 + int(request.POST.get('month'))
     except (TypeError, ValueError):
         return JsonResponse({'success': False, 'error': 'Неверный месяц'}, status=400)
-    payment = Payment.objects.filter(group_id=group_id, student_id=request.POST.get('student_id') or 0,
+    payment = Payment.objects.filter(group_id=group_id, student_id=to_int(request.POST.get('student_id'), 0),
                                      cycle_number=cycle, is_paid=True).first()
     if not payment:
         return JsonResponse({'success': False, 'error': 'Сначала примите оплату'})
@@ -2648,8 +2814,8 @@ def create_calibration(request):
     if direction not in ['up', 'down']:
         return JsonResponse({'success': False, 'error': 'Неверное направление'})
 
-    student = get_object_or_404(Student, id=request.POST.get('student_id'))
-    group = get_object_or_404(Group, id=request.POST.get('group_id'))
+    student = get_object_or_404(Student, id=to_int(request.POST.get('student_id'), 0))
+    group = get_object_or_404(Group, id=to_int(request.POST.get('group_id'), 0))
     if not can_manage_group(request.user, role, group):
         return JsonResponse({'success': False, 'error': 'Нет доступа'})
     if student.id not in group_student_ids(group):

@@ -42,7 +42,7 @@
                     <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
                         <i class="fas fa-user text-indigo-500 mr-1"></i>Имя ученика *
                     </label>
-                    <input type="text" name="name" required
+                    <input type="text" name="name" value="{{ form.name|default:'' }}" required
                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                            placeholder="Например: Алия Маратова">
                 </div>
@@ -51,7 +51,7 @@
                     <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
                         <i class="fas fa-phone text-indigo-500 mr-1"></i>Телефон
                     </label>
-                    <input type="text" name="phone"
+                    <input type="text" name="phone" value="{{ form.phone|default:'' }}"
                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                            placeholder="+7 777 123 4567">
                 </div>
@@ -59,17 +59,17 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                     <div>
                         <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Школа</label>
-                        <input type="text" name="school"
+                        <input type="text" name="school" value="{{ form.school|default:'' }}"
                                class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
                     </div>
                     <div>
                         <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Класс</label>
-                        <input type="text" name="grade"
+                        <input type="text" name="grade" value="{{ form.grade|default:'' }}"
                                class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
                     </div>
                     <div>
                         <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Возраст</label>
-                        <input type="number" name="age"
+                        <input type="number" name="age" value="{{ form.age|default:'' }}"
                                class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
                     </div>
                 </div>
@@ -78,7 +78,7 @@
                     <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
                         <i class="fas fa-money-bill text-emerald-500 mr-1"></i>Цена за 1 урок (₸)
                     </label>
-                    <input type="number" name="price_per_lesson" step="0.01" min="0" value="3000"
+                    <input type="number" name="price_per_lesson" step="0.01" min="0" value="{{ form.price_per_lesson|default:'3000' }}"
                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                            placeholder="Например: 3000">
                     <p class="text-xs text-gray-400 mt-1">Сумма за цикл = цена × количество уроков в периоде</p>
@@ -87,12 +87,12 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>
                         <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Родитель</label>
-                        <input type="text" name="parent_name"
+                        <input type="text" name="parent_name" value="{{ form.parent_name|default:'' }}"
                                class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
                     </div>
                     <div>
                         <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Телефон родителя</label>
-                        <input type="text" name="parent_phone"
+                        <input type="text" name="parent_phone" value="{{ form.parent_phone|default:'' }}"
                                class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
                     </div>
                 </div>
@@ -104,7 +104,7 @@
                     <div class="space-y-2">
                         {% for group in groups %}
                         <label class="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                            <input type="checkbox" name="groups" value="{{ group.id }}" class="w-5 h-5 text-indigo-600">
+                            <input type="checkbox" name="groups" value="{{ group.id }}" class="w-5 h-5 text-indigo-600" {% if group.id|stringformat:"s" in checked_groups %}checked{% endif %}>
                             <div>
                                 <p class="font-medium text-gray-800 dark:text-white">{{ group.name }}</p>
                                 <p class="text-sm text-gray-400">{{ group.get_schedule_display }}</p>

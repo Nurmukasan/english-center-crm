@@ -177,6 +177,7 @@
     pages.push({ name: 'Выйти', url: '{% url "logout" %}', icon: 'fas fa-arrow-right-from-bracket' });
     {% if role != 'teacher' %}pages.push({ name: 'Скачать Excel', url: '{% url "export_excel" %}', icon: 'fas fa-file-excel' });{% endif %}
     {% if role == 'admin' or role == 'accountant' or role == 'developer' %}pages.push({ name: 'Напомнить об оплате в WhatsApp', url: '{% url "broadcast_page" %}?kind=payment', icon: 'fab fa-whatsapp' });{% endif %}
+    {% if role == 'admin' or role == 'developer' %}pages.push({ name: 'Скачать копию базы', url: '{% url "download_backup" %}', icon: 'fas fa-database' });{% endif %}
     {% if role == 'admin' or role == 'developer' or role == 'manager' %}
     pages.push({ name: 'Создать группу', url: '{% url "add_group" %}', icon: 'fas fa-users-rectangle' });
     pages.push({ name: 'Добавить ученика', url: '{% url "add_student" %}', icon: 'fas fa-user-plus' });

@@ -3,7 +3,7 @@ from datetime import time, timedelta
 from decimal import Decimal
 
 from django.contrib.auth.models import User
-from django.test import TestCase, override_settings
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -1122,3 +1122,131 @@ class CalibrationMoveTests(CRMTestCase):
         cases = {'Pre-Intermediate': 4, 'Upper-Intermediate B2': 6, 'Intermediate B1': 5, 'Beginner A1': 2,
                  'Elementary': 3, 'Kids Starters': 1, 'Advanced': 7, 'Speaking club': None}
         self.assertEqual({name: guess_level(name) for name in cases}, cases)
+
+
+class AuditFixTests(CRMTestCase):
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+        cache.clear()
+        self.login(self.admin)
+
+    def test_edit_student_keeps_enrollment_history_and_books(self):
+        old = timezone.now() - timedelta(days=300)
+        Enrollment.objects.filter(id=self.enrollment.id).update(enrolled_at=old, book_needed=True, book_comment='Нужна Unit 2')
+        extra = Group.objects.create(name='Speaking', teacher=self.teacher)
+        archived = Group.objects.create(name='Old', teacher=self.teacher, is_active=False)
+        Enrollment.objects.create(student=self.student, group=archived)
+        self.client.post(f'/student/{self.student.id}/edit/', {
+            'name': 'Алия', 'phone': '+7 700 111 22 33', 'price_per_lesson': '4 500', 'groups': [self.group.id, extra.id]})
+        kept = Enrollment.objects.get(student=self.student, group=self.group)
+        self.assertEqual((kept.enrolled_at, kept.book_needed, kept.book_comment), (old, True, 'Нужна Unit 2'))
+        self.assertTrue(Enrollment.objects.filter(student=self.student, group=extra).exists())
+        self.assertTrue(Enrollment.objects.filter(student=self.student, group=archived).exists())
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.price_per_lesson, Decimal('4500'))
+        # Сняли галочку — запись убрана
+        self.client.post(f'/student/{self.student.id}/edit/', {'name': 'Алия', 'groups': [extra.id]})
+        self.assertFalse(Enrollment.objects.filter(student=self.student, group=self.group).exists())
+
+    def test_bad_input_does_not_crash(self):
+        response = self.client.post('/students/add/', {'name': 'Новый', 'age': 'abc'})
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Student.objects.filter(name='Новый').exists())
+        self.assertContains(response, 'value="Новый"')       # введённое не пропало
+        self.client.post('/students/add/', {'name': 'Новый', 'price_per_lesson': 'дорого'})
+        self.assertFalse(Student.objects.filter(name='Новый').exists())
+        self.client.post('/students/add/', {'name': 'Новый', 'groups': ['abc', '999999', str(self.group.id)]})
+        self.assertEqual(Student.objects.get(name='Новый').enrollments.get().group, self.group)
+        response = self.client.post(f'/student/{self.student.id}/edit/', {'name': '', 'age': '12a'})
+        self.assertEqual(response.status_code, 200)
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.name, 'Алия')
+        for method, url, data in [
+            ('post', f'/payments/group/{self.group.id}/toggle/', {'student_id': 'abc', 'year': '2026', 'month': '10'}),
+            ('post', '/calibration/create/', {'student_id': 'abc', 'group_id': 'abc', 'direction': 'up'}),
+            ('post', f'/student/{self.student.id}/add-to-group/', {'groups': ['abc']}),
+            ('post', '/groups/add/', {'name': 'G', 'teacher': 'abc'}),
+            ('post', f'/group/{self.group.id}/edit/', {'name': 'G', 'teacher': 'abc'}),
+            ('get', '/students/?group=abc&age=abc', None),
+        ]:
+            response = getattr(self.client, method)(url, data) if data else self.client.get(url)
+            self.assertLess(response.status_code, 500, url)
+
+    def test_edit_group_validation(self):
+        self.client.post(f'/group/{self.group.id}/edit/', {'name': '  ', 'teacher': self.teacher.id})
+        self.group.refresh_from_db()
+        self.assertEqual(self.group.name, 'Beginner')
+        self.client.post(f'/group/{self.group.id}/edit/', {'name': 'Beginner', 'teacher': self.teacher.id,
+                                                          'additional_teachers': [self.teacher.id, self.other_teacher.id]})
+        self.assertEqual(list(self.group.teachers.all()), [self.other_teacher])
+
+    def test_no_redirect_to_other_sites(self):
+        response = self.client.post(f'/student/{self.student.id}/edit/', {'name': 'Алия', 'return_url': 'https://evil.example/'})
+        self.assertRedirects(response, '/students/', fetch_redirect_response=False)
+
+    def test_profile_photo_must_be_image(self):
+        import io
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+        fake = SimpleUploadedFile('photo.html', b'<script>alert(1)</script>', content_type='image/png')
+        self.client.post('/profile/', {'action': 'change_photo', 'photo': fake})
+        self.assertFalse(Profile.objects.get(user=self.admin).photo)
+        buf = io.BytesIO()
+        Image.new('RGB', (8, 8), 'orange').save(buf, 'PNG')
+        real = SimpleUploadedFile('me.html', buf.getvalue(), content_type='image/png')
+        with self.settings(MEDIA_ROOT=self._tmp_media()):
+            self.client.post('/profile/', {'action': 'change_photo', 'photo': real})
+            photo = Profile.objects.get(user=self.admin).photo
+            self.assertTrue(photo.name.endswith('.png'), photo.name)
+
+    def _tmp_media(self):
+        import tempfile
+        path = tempfile.mkdtemp()
+        self.addCleanup(__import__('shutil').rmtree, path, True)
+        return path
+
+    def test_login_throttle(self):
+        self.client.logout()
+        for _ in range(10):
+            self.client.post('/', {'username': 'admin', 'password': 'wrong'})
+        response = self.client.post('/', {'username': 'admin', 'password': 'pass'})
+        self.assertEqual(response.status_code, 200)               # вход не пустили даже с верным паролем
+        self.assertNotIn('_auth_user_id', self.client.session)
+        self.assertContains(response, 'Слишком много неудачных попыток')
+
+
+def mock_attr(obj, name, value):
+    from unittest import mock
+    return mock.patch.object(obj, name, value)
+
+
+
+class BackupTests(TransactionTestCase):
+    """Без обёртки-транзакции TestCase: SQLite не даёт снять копию посреди открытой записи"""
+    def setUp(self):
+        self.admin = make_user('admin', 'admin')
+        self.teacher = make_user('teacher', 'teacher')
+
+    def test_backup_command_and_download(self):
+        import sqlite3
+        import tempfile
+        from pathlib import Path
+        from django.core.management import call_command
+        from dashboard.management.commands import backup_db
+        target = Path(tempfile.mkdtemp())
+        self.addCleanup(__import__('shutil').rmtree, target, True)
+        with mock_attr(backup_db, 'BACKUP_DIR', target):
+            call_command('backup_db', '--keep', '1', stdout=open('/dev/null', 'w'))
+            call_command('backup_db', '--keep', '1', stdout=open('/dev/null', 'w'))
+        files = list(target.glob('db-*.sqlite3'))
+        self.assertEqual(len(files), 1)
+        sqlite3.connect(str(files[0])).execute('select count(*) from sqlite_master').fetchone()
+        self.client.force_login(self.admin)
+        response = self.client.get('/backup/download/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('attachment', response['Content-Disposition'])
+        self.assertEqual(b''.join(response.streaming_content)[:15], b'SQLite format 3')
+        self.client.force_login(self.teacher)
+        self.assertRedirects(self.client.get('/backup/download/'), '/dashboard/', fetch_redirect_response=False)
+

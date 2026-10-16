@@ -32,3 +32,6 @@ staticfiles/
 
 # Media backup
 media_backup/
+
+# Резервные копии базы
+backups/

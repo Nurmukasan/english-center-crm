@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .models import Enrollment, Group, InboxMessage, LevelCalibration, Payment, Student
-from .views import MANAGE_ROLES, can_manage_group, crm_view, get_current_period, get_user_role
+from .views import MANAGE_ROLES, can_manage_group, crm_view, get_current_period, get_user_role, to_int
 
 # Кому приходят сообщения
 INBOX_ROLES = ('admin', 'developer')
@@ -180,7 +180,7 @@ def send_message(request):
         return answer(False, 'Напишите, что случилось')
     if len(text) > 2000:
         return answer(False, 'Слишком длинное сообщение — до 2000 символов')
-    student = Student.objects.filter(id=request.POST.get('student_id') or 0).first()
+    student = Student.objects.filter(id=to_int(request.POST.get('student_id'), 0)).first()
     if not student:
         return answer(False, 'Выберите ученика')
     # Группа — та, в которой учитель видит ученика (и есть доступ)
@@ -253,7 +253,7 @@ def resolve_calibration(request, message_id):
         return back(request)
     now = timezone.now()
     if request.POST.get('action') == 'move':
-        target = get_object_or_404(Group, id=request.POST.get('group_id') or 0, is_active=True)
+        target = get_object_or_404(Group, id=to_int(request.POST.get('group_id'), 0), is_active=True)
         moved_payment = move_student(message.student, message.group, target, request.user)
         message.resolution = f'Переведён в «{target.name}»'
         note = ' Оплата за текущий месяц перенесена в новую группу.' if moved_payment else ''

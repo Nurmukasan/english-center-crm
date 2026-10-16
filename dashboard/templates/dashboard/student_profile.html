@@ -108,7 +108,7 @@
                         {% if student.phone %}
                         <div class="bg-white dark:bg-gray-700 rounded-lg px-3 py-2">
                             <span class="text-gray-500 dark:text-gray-400 text-xs">Телефон</span>
-                            <p class="font-bold text-gray-800 dark:text-white">{{ student.phone }}</p>
+                            <p class="font-bold text-gray-800 dark:text-white">{% include 'dashboard/partials/phone.html' with phone=student.phone %}</p>
                         </div>
                         {% endif %}
                         {% if student.parent_name %}
@@ -120,7 +120,7 @@
                         {% if student.parent_phone %}
                         <div class="bg-white dark:bg-gray-700 rounded-lg px-3 py-2">
                             <span class="text-gray-500 dark:text-gray-400 text-xs">Тел. родителя</span>
-                            <p class="font-bold text-gray-800 dark:text-white">{{ student.parent_phone }}</p>
+                            <p class="font-bold text-gray-800 dark:text-white">{% include 'dashboard/partials/phone.html' with phone=student.parent_phone %}</p>
                         </div>
                         {% endif %}
                     </div>

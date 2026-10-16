@@ -67,9 +67,9 @@
                             <input type="checkbox" name="day_{{ i }}" value="1" class="w-5 h-5" onchange="this.closest('.day-row').classList.toggle('on', this.checked)">
                             <span class="font-bold text-white">{{ d }}</span>
                         </label>
-                        <input type="time" name="start_{{ i }}" value="16:00" class="flex-1 px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
+                        <input type="time" name="start_{{ i }}" value="16:00" class="flex-1 min-w-0 w-0 px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
                         <span class="text-gray-500">—</span>
-                        <input type="time" name="end_{{ i }}" value="17:00" class="flex-1 px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
+                        <input type="time" name="end_{{ i }}" value="17:00" class="flex-1 min-w-0 w-0 px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
                     </div>
                     {% endfor %}
                 </div>
