@@ -13,7 +13,7 @@ from django.utils import timezone
 from django.http import JsonResponse
 from datetime import datetime, timedelta, date
 import json
-from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book, ScheduleSlot, LevelCalibration
+from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book, ScheduleSlot, LevelCalibration, InboxMessage
 from users.models import Profile
 from decimal import Decimal
 import re
@@ -130,6 +130,33 @@ def crm_view(view):
 MANAGE_ROLES = ('admin', 'developer', 'manager')
 # оплаты — страница оплат и отметки об оплате
 MONEY_ROLES = ('admin', 'accountant', 'developer', 'manager')
+
+
+# Уровень группы по названию — тот же порядок слов, что в миграции 0027
+LEVEL_WORDS = [
+    (6, ('upper', 'b2')),
+    (4, ('pre-int', 'pre int', 'preint', 'pre-inter', 'a2+')),
+    (8, ('proficiency', 'c2')),
+    (7, ('advanced', 'c1')),
+    (5, ('intermediate', 'b1')),
+    (3, ('elementary', 'a2')),
+    (2, ('beginner', 'a1')),
+    (1, ('starter', 'kids', 'kid ')),
+]
+
+
+def guess_level(name):
+    name = (name or '').lower() + ' '
+    return next((level for level, words in LEVEL_WORDS if any(w in name for w in words)), None)
+
+
+def read_level(request, name):
+    """Уровень из формы группы; «определить по названию» — пусто"""
+    try:
+        level = int(request.POST.get('level') or 0)
+    except (TypeError, ValueError):
+        level = 0
+    return level if level in dict(Group.LEVEL_CHOICES) else guess_level(name)
 
 
 def can_manage_group(user, role, group):
@@ -442,6 +469,8 @@ def group_detail(request, group_id):
         'today_slot': today_slot,
         'can_mark_attendance': can_manage_group(request.user, role, group),
         'can_manage': role in MANAGE_ROLES,
+        # Написать админу про ученика (сам админ пишет не себе)
+        'can_write': role in ('teacher', 'manager') and can_manage_group(request.user, role, group),
         'can_money': can_money,
         'lesson_active': bool(lesson and not lesson.is_cancelled),
         'week': [{'short': d, 'times': [f'{sl.start_time:%H:%M}' for sl in slots if sl.day_of_week == i],
@@ -1538,7 +1567,7 @@ def income_stats(months, group_type='all'):
     groups = list(groups.select_related('teacher').prefetch_related('schedule_slots', 'enrollments__student'))
 
     def empty():
-        return {'expected': 0, 'collected': 0, 'paid': 0, 'total': 0, 'debt': 0}
+        return {'expected': 0, 'collected': 0, 'paid': 0, 'total': 0, 'debt': 0, 'cash': 0}
 
     month_totals = {y * 100 + m: empty() for y, m in all_cycles}
     has_data = {y * 100 + m: bool(first_cycle) and y * 100 + m >= first_cycle for y, m in all_cycles}
@@ -1564,6 +1593,8 @@ def income_stats(months, group_type='all'):
                 if r['is_paid']:
                     t['collected'] += amount
                     t['paid'] += 1
+                    if r['method'] == 'cash':
+                        t['cash'] += amount
                 elif amount and cycle < current:
                     t['debt'] += amount
                     if cycle in range_set:
@@ -1640,6 +1671,7 @@ def income_stats(months, group_type='all'):
             'is_current': cycle == current, 'has_data': has_data[cycle],
             'rate': round(t['collected'] / t['expected'] * 100) if t['expected'] else None,
             'collected_str': money(t['collected']), 'expected_str': money(t['expected']), 'debt_str': money(t['debt']),
+            'cash_str': money(t['cash']),
             **t,
         })
     done = [c for c in chart if not c['is_current'] and c['has_data']]
@@ -1669,6 +1701,10 @@ def income_stats(months, group_type='all'):
         t['collected_str'] = money(t['collected'])
         t['share'] = round(t['collected'] / total * 100) if total else 0
         t['bar'] = round(t['collected'] / top_teacher * 100)
+
+    # Банк и наличные за период
+    cash = sum(c['cash'] for c in chart)
+    cash_share = round(cash / total * 100) if total else 0
 
     first_label = ''
     if first_cycle and first_cycle > range_cycles[0][0] * 100 + range_cycles[0][1]:
@@ -1703,6 +1739,11 @@ def income_stats(months, group_type='all'):
         'individual_total_str': money(by_type['individual']),
         'first_label': first_label,
         'has_data': bool(first_cycle),
+        'cash': cash,
+        'cash_str': money(cash),
+        'bank_str': money(total - cash),
+        'cash_share': cash_share,
+        'bank_share': 100 - cash_share if total else 0,
     }
 
 
@@ -1746,10 +1787,11 @@ def accountant_stats(request):
         'paid': [c['paid'] for c in stats['chart']],
         'total': [c['total'] for c in stats['chart']],
         'debt': [c['debt'] for c in stats['chart']],
+        'cash': [c['cash'] for c in stats['chart']],
         'current': [c['is_current'] for c in stats['chart']],
         'text': {
             'collected': 'Собрано', 'expected': 'Ожидалось', 'paid': 'Оплатили', 'total': 'Всего учеников',
-            'debt': 'Не оплатили', 'current': 'месяц ещё идёт', 'students': 'уч.', 'tenge': '₸',
+            'debt': 'Не оплатили', 'cash': 'Из них наличными', 'current': 'месяц ещё идёт', 'students': 'уч.', 'tenge': '₸',
             'thousand': 'тыс', 'million': 'млн',
         },
     }
@@ -1798,10 +1840,10 @@ def export_income_excel(request):
         ws.freeze_panes = 'A2'
 
     wb = openpyxl.Workbook()
-    sheet(wb.active, ['Месяц', 'Ожидалось, ₸', 'Собрано, ₸', 'Собрано, %', 'Оплатили', 'Учеников', 'Не оплатили, ₸'],
-          [[c['name'] + (' (идёт)' if c['is_current'] else ''), c['expected'], c['collected'], c['rate'],
-            c['paid'], c['total'], c['debt']] for c in stats['chart']],
-          [20, 16, 16, 12, 12, 12, 16])
+    sheet(wb.active, ['Месяц', 'Ожидалось, ₸', 'Собрано, ₸', 'Банк, ₸', 'Наличные, ₸', 'Собрано, %', 'Оплатили', 'Учеников', 'Не оплатили, ₸'],
+          [[c['name'] + (' (идёт)' if c['is_current'] else ''), c['expected'], c['collected'], c['collected'] - c['cash'], c['cash'],
+            c['rate'], c['paid'], c['total'], c['debt']] for c in stats['chart']],
+          [20, 16, 16, 14, 14, 12, 12, 12, 16])
     wb.active.title = 'По месяцам'
     sheet(wb.create_sheet('По группам'), ['Группа', 'Учитель', 'Тип', 'Учеников', 'Собрано, ₸', 'Доля, %', 'Собрано вовремя, %', 'Долг, ₸'],
           [[x['group'].name, x['group'].teacher.username if x['group'].teacher else '', x['group'].get_group_type_display(),
@@ -1816,12 +1858,12 @@ def export_income_excel(request):
         .select_related('student', 'group', 'marked_by').order_by('cycle_number', 'group__name', 'student__name')
     if group_type in ('group', 'individual'):
         paid = paid.filter(group__group_type=group_type)
-    sheet(wb.create_sheet('Оплаты'), ['Месяц', 'Ученик', 'Группа', 'Сумма, ₸', 'Дата оплаты', 'Кто отметил'],
+    sheet(wb.create_sheet('Оплаты'), ['Месяц', 'Ученик', 'Группа', 'Сумма, ₸', 'Способ', 'Дата оплаты', 'Кто отметил'],
           [[f'{MONTHS_RU[p.cycle_number % 100 - 1]} {p.cycle_number // 100}', p.student.name, p.group.name,
-            int(p.paid_amount or p.amount),
+            int(p.paid_amount or p.amount), p.get_method_display(),
             timezone.localtime(p.paid_at).strftime('%d.%m.%Y') if p.paid_at else '',
             p.marked_by.username if p.marked_by else ''] for p in paid],
-          [18, 26, 26, 14, 14, 18])
+          [18, 26, 26, 14, 12, 14, 18])
 
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -1859,6 +1901,7 @@ def add_group(request):
                 teacher_id=teacher_id,
                 cycle_start_day=cycle_start_day,
                 is_active=True,
+                level=read_level(request, name) if group_type == 'group' else None,
             )
             
             save_schedule(request, group)
@@ -1876,6 +1919,7 @@ def add_group(request):
     
     context = {
         'teachers': teachers,
+        'levels': Group.LEVEL_CHOICES,
     }
     
     return render(request, 'dashboard/add_group.html', context)
@@ -2227,6 +2271,7 @@ def edit_group(request, group_id):
         except (ValueError, TypeError):
             cycle_start_day = group.cycle_start_day
         group.cycle_start_day = cycle_start_day
+        group.level = read_level(request, group.name) if group.group_type == 'group' else None
         group.save()
         
         save_schedule(request, group)
@@ -2244,6 +2289,7 @@ def edit_group(request, group_id):
         'group': group,
         'teachers': teachers,
         'schedule_slots': schedule_slots,
+        'levels': Group.LEVEL_CHOICES,
     }
     
     return render(request, 'dashboard/edit_group.html', context)
@@ -2321,6 +2367,7 @@ def month_rows(group, year, month, cycle_payments):
         amount = (payment.paid_amount or payment.amount) if is_paid else price * lessons
         rows.append({'student': student, 'payment': payment, 'is_paid': is_paid, 'amount': amount,
                      'price': price, 'left': left, 'paid_label': paid_label(payment),
+                     'method': payment.method if is_paid else 'bank',
                      'amount_int': int(amount), 'amount_str': money(amount), 'price_str': money(price),
                      # Цена могла поменяться после оплаты — тогда формулу «цена × уроки» не показываем
                      'formula_ok': bool(price) and amount == price * lessons})
@@ -2424,6 +2471,7 @@ def payments_page(request):
     all_rows = [r for c in cards for r in c['rows']]
     expected = sum(r['amount'] for r in all_rows)
     collected = sum(r['amount'] for r in all_rows if r['is_paid'])
+    cash = sum(r['amount'] for r in all_rows if r['is_paid'] and r['method'] == 'cash')
     prev_year, prev_month = (year - 1, 12) if month == 1 else (year, month - 1)
     next_year, next_month = (year + 1, 1) if month == 12 else (year, month + 1)
     period_start, period_end = get_period(year, month)
@@ -2448,6 +2496,8 @@ def payments_page(request):
         'expected_str': money(expected),
         'collected_str': money(collected),
         'left_str': money(expected - collected),
+        'cash': int(cash),
+        'cash_str': money(cash),
         'share': round(collected / expected * 100) if expected else 0,
         'students_total': len(all_rows),
         'paid_total': sum(1 for r in all_rows if r['is_paid']),
@@ -2483,6 +2533,7 @@ def toggle_student_payment(request, group_id):
     period_start, period_end = get_period(year, month, group.cycle_start_day)
     amount = calculate_cycle_amount(student, group, period_start, period_end)
 
+    method = request.POST.get('method') if request.POST.get('method') in ('bank', 'cash') else 'bank'
     payment, created = Payment.objects.get_or_create(
         student=student,
         group=group,
@@ -2495,6 +2546,7 @@ def toggle_student_payment(request, group_id):
             'paid_amount': amount,
             'paid_at': timezone.now(),
             'marked_by': request.user,
+            'method': method,
         }
     )
 
@@ -2505,10 +2557,12 @@ def toggle_student_payment(request, group_id):
             payment.paid_amount = amount
             payment.paid_at = timezone.now()
             payment.marked_by = request.user
+            payment.method = method
         else:
             payment.paid_amount = 0
             payment.paid_at = None
             payment.marked_by = None
+            payment.method = 'bank'
         payment.save()
 
     return JsonResponse({
@@ -2516,7 +2570,30 @@ def toggle_student_payment(request, group_id):
         'is_paid': payment.is_paid,
         'amount': int(payment.paid_amount if payment.is_paid else amount),
         'paid_label': paid_label(payment),
+        'method': payment.method,
     })
+
+
+@crm_view
+@require_POST
+def set_payment_method(request, group_id):
+    """AJAX: оплачено банком или наличными (у уже принятой оплаты)"""
+    if get_user_role(request.user) not in MONEY_ROLES:
+        return JsonResponse({'success': False, 'error': 'Нет доступа'})
+    method = request.POST.get('method')
+    if method not in ('bank', 'cash'):
+        return JsonResponse({'success': False, 'error': 'Неверный способ оплаты'}, status=400)
+    try:
+        cycle = int(request.POST.get('year')) * 100 + int(request.POST.get('month'))
+    except (TypeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Неверный месяц'}, status=400)
+    payment = Payment.objects.filter(group_id=group_id, student_id=request.POST.get('student_id') or 0,
+                                     cycle_number=cycle, is_paid=True).first()
+    if not payment:
+        return JsonResponse({'success': False, 'error': 'Сначала примите оплату'})
+    payment.method = method
+    payment.save(update_fields=['method'])
+    return JsonResponse({'success': True, 'method': method})
 
 
 @crm_view
@@ -2578,13 +2655,17 @@ def create_calibration(request):
     if student.id not in group_student_ids(group):
         return JsonResponse({'success': False, 'error': 'Ученик не из этой группы'})
 
-    cal = LevelCalibration.objects.create(
-        student=student,
-        group=group,
-        direction=direction,
-        comment=comment,
-        created_by=request.user,
-    )
+    with transaction.atomic():
+        cal = LevelCalibration.objects.create(
+            student=student,
+            group=group,
+            direction=direction,
+            comment=comment,
+            created_by=request.user,
+        )
+        # Админ увидит её во «Сообщениях» и сможет сразу перевести ученика
+        InboxMessage.objects.create(category='calibration', calibration=cal, student=student, group=group,
+                                    text=comment, author=request.user)
 
     return JsonResponse({'success': True, 'id': cal.id})
 

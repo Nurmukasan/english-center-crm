@@ -54,6 +54,15 @@
                         <option value="individual" {% if group.group_type == 'individual' %}selected{% endif %}>Индивидуальная</option>
                     </select>
                 </div>
+
+                <div class="mb-6">
+                    <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Уровень</label>
+                    <select name="level" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
+                        <option value="">Определить по названию</option>
+                        {% for value, label in levels %}<option value="{{ value }}" {% if group.level == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                    </select>
+                    <p class="text-xs text-gray-400 mt-1">По уровню калибровка подскажет группу сильнее или слабее. Для индивидуальных не нужен.</p>
+                </div>
                 
                 <div class="mb-6">
                     <label class="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">Учитель</label>

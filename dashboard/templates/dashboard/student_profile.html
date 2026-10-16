@@ -46,6 +46,11 @@
                 </div>
             </div>
             <div class="flex items-center gap-2">
+                {% if role == 'teacher' or role == 'manager' %}
+                <a href="{% url 'inbox_page' %}?student={{ student.id }}" class="chip-btn" title="Комментарий или жалоба — придёт админу">
+                    <i class="fas fa-comment-dots"></i><span class="hidden sm:inline">Написать админу</span>
+                </a>
+                {% endif %}
                 <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
                     <i class="fas fa-moon dark:hidden text-gray-300"></i>
                     <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
@@ -255,7 +260,7 @@
                             {% endif %}
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ cal.group.name }}</p>
                             {% if cal.comment %}
-                            <p class="text-sm text-gray-700 dark:text-gray-300 mt-2 italic">"{{ cal.comment }}"</p>
+                            <p class="text-sm text-gray-700 dark:text-gray-300 mt-2 italic notranslate">"{{ cal.comment }}"</p>
                             {% endif %}
                         </div>
                         <span class="text-xs text-gray-400 whitespace-nowrap">{{ cal.created_at|date:"d.m.Y" }}</span>

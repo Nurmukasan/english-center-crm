@@ -72,6 +72,14 @@
         .act-ok:hover { background: #dcf7e6; }
         .act-ghost { color: var(--ink-2); background: var(--surface); border-color: var(--line); }
         .act-ghost:hover { color: var(--ink); background: var(--surface-2); }
+        /* Комментарий / жалоба в окне «Написать админу» */
+        .msg-cat { cursor: pointer; }
+        .msg-cat input { position: absolute; opacity: 0; pointer-events: none; }
+        .msg-cat span { display: flex; align-items: center; justify-content: center; gap: 7px; height: 42px; border-radius: 12px; font-size: 13px; font-weight: 800;
+            color: var(--muted); border: 1px solid var(--line-strong); transition: all .2s ease; }
+        .msg-cat input:checked + span { color: var(--accent-ink); background: var(--accent-soft); border-color: var(--accent); }
+        .msg-cat.is-complaint input:checked + span { color: var(--bad-ink); background: var(--bad-soft); border-color: var(--bad); }
+        .msg-cat input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
         .act:disabled { opacity: .55; cursor: progress; }
 
         .srow { display: flex; align-items: center; gap: 14px; padding: 14px 22px; transition: background .2s ease; }
@@ -302,6 +310,9 @@
                         {% if role == 'teacher' or role == 'developer' %}
                         <button type="button" class="act act-ghost" onclick="toggleBookRequest()"><i class="fas fa-book-medical"></i>Книга</button>
                         {% endif %}
+                        {% if can_write and student_data %}
+                        <button type="button" class="act act-ghost" onclick="openMessage()" title="Комментарий или жалоба про ученика — придёт админу"><i class="fas fa-comment-dots"></i>Написать админу</button>
+                        {% endif %}
                         {% if lesson and can_mark_attendance %}
                         <form method="POST" action="{% url 'toggle_lesson_cancel' lesson.id %}"
                               {% if lesson_active %}data-confirm="Отменить сегодняшний урок? Отметки удалятся, в статистику он не попадёт." onsubmit="return confirm(this.dataset.confirm)"{% endif %}>
@@ -477,6 +488,9 @@
                 <button onclick="openProfile()" class="flex-1 bg-indigo-500 text-white py-2.5 rounded-xl text-sm font-bold"><i class="fas fa-user mr-1"></i>Профиль</button>
                 <button onclick="openCalibration()" class="flex-1 bg-gray-100 text-gray-800 py-2.5 rounded-xl text-sm font-bold"><i class="fas fa-scale-balanced mr-1"></i>Калибровка</button>
             </div>
+            {% if can_write %}
+            <button onclick="openMessage(currentStudent && currentStudent.id)" class="block w-full mt-2 bg-gray-100 text-gray-800 py-2.5 rounded-xl text-sm font-bold"><i class="fas fa-comment-dots mr-1"></i>Написать админу</button>
+            {% endif %}
             {% if can_manage %}
             <form id="deleteFromGroupForm" method="POST"
                   data-url-template="{% url 'remove_student_from_group' 999999999 group.id %}"
@@ -513,6 +527,7 @@
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-300 mb-2">Комментарий</label>
                 <textarea id="calibComment" rows="3" class="w-full px-3 py-2 border rounded-xl text-sm" placeholder="Что заметили на занятиях..."></textarea>
+                <p class="text-xs text-gray-400 mt-2"><i class="fas fa-inbox mr-1"></i>Придёт админу во «Сообщения» — там можно сразу перевести ученика в группу сильнее или слабее.</p>
             </div>
             <div class="flex gap-2">
                 <button onclick="submitCalibration()" class="flex-1 bg-indigo-500 text-white py-2.5 rounded-xl text-sm font-bold"><i class="fas fa-check mr-1"></i>Сохранить</button>
@@ -520,6 +535,36 @@
             </div>
         </div>
     </div>
+
+    <!-- Сообщение админу про ученика -->
+    {% if can_write %}
+    <div id="messageModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-white"><i class="fas fa-comment-dots mr-2" style="color: var(--accent)"></i>Написать админу</h3>
+                    <p class="text-xs text-gray-400 mt-0.5">Придёт во вкладку «Сообщения»</p>
+                </div>
+                <button onclick="closeMessage()" class="text-gray-400 hover:text-white" aria-label="Закрыть"><i class="fas fa-times"></i></button>
+            </div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Ученик</label>
+            <select id="msgStudent" class="w-full px-3 py-2.5 border rounded-xl text-sm mb-4">
+                <option value="">— выберите ученика —</option>
+                {% for data in student_data %}<option class="notranslate" value="{{ data.student.id }}">{{ data.student.name }}</option>{% endfor %}
+            </select>
+            <fieldset class="grid grid-cols-2 gap-2 mb-4">
+                <legend class="sr-only">Категория</legend>
+                <label class="msg-cat"><input type="radio" name="msg_category" value="comment" checked><span><i class="fas fa-comment"></i>Комментарий</span></label>
+                <label class="msg-cat is-complaint"><input type="radio" name="msg_category" value="complaint"><span><i class="fas fa-triangle-exclamation"></i>Жалоба</span></label>
+            </fieldset>
+            <textarea id="msgText" rows="4" maxlength="2000" class="w-full px-3 py-2 border rounded-xl text-sm mb-4" placeholder="Что случилось или что заметили…"></textarea>
+            <div class="flex gap-2">
+                <button onclick="submitMessage(this)" class="flex-1 text-white py-2.5 rounded-xl text-sm font-bold" style="background: var(--accent)"><i class="fas fa-paper-plane mr-1"></i>Отправить</button>
+                <button onclick="closeMessage()" class="px-4 py-2.5 bg-gray-100 text-gray-800 rounded-xl text-sm font-bold">Отмена</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Модалка запроса книги -->
     <div id="bookRequestModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -661,17 +706,65 @@
                 comment: document.getElementById('calibComment').value,
             })
             .then(data => {
-                if (data.success) { closeCalibration(); alert('Калибровка сохранена'); }
+                if (data.success) { closeCalibration(); toast('Калибровка отправлена админу'); }
                 else alert('Ошибка: ' + (data.error || 'неизвестно'));
             })
             .catch(err => alert('Ошибка сети: ' + err));
+        }
+        /* ---------- Сообщение админу ---------- */
+        function toast(text) {
+            let box = document.getElementById('eeToasts');
+            if (!box) { box = document.createElement('div'); box.id = 'eeToasts'; box.className = 'ee-toasts'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); }
+            const t = document.createElement('div');
+            t.className = 'ee-toast ee-toast-success'; t.setAttribute('role', 'status');
+            const icon = document.createElement('i'); icon.className = 'fas fa-circle-check';
+            const p = document.createElement('p'); p.textContent = text;
+            const timer = document.createElement('span'); timer.className = 'ee-toast-timer'; t.style.setProperty('--life', '4000ms');
+            t.append(icon, p, timer);
+            box.appendChild(t);
+            setTimeout(() => { t.classList.add('is-leaving'); setTimeout(() => t.remove(), 400); }, 4000);
+        }
+        function openMessage(studentId) {
+            const modal = document.getElementById('messageModal');
+            if (!modal) return;
+            closeStudentInfo();
+            document.getElementById('msgStudent').value = studentId || '';
+            document.getElementById('msgText').value = '';
+            document.querySelector('input[name="msg_category"][value="comment"]').checked = true;
+            modal.classList.remove('hidden');
+            (studentId ? document.getElementById('msgText') : document.getElementById('msgStudent')).focus();
+        }
+        function closeMessage() { document.getElementById('messageModal').classList.add('hidden'); }
+        async function submitMessage(btn) {
+            const studentId = document.getElementById('msgStudent').value;
+            const text = document.getElementById('msgText').value.trim();
+            if (!studentId) { alert('Выберите ученика'); return; }
+            if (text.length < 3) { alert('Напишите, что случилось'); return; }
+            btn.disabled = true;
+            try {
+                const res = await fetch('{% url "send_message" %}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new URLSearchParams({ student_id: studentId, group_id: '{{ group.id }}', text,
+                        category: document.querySelector('input[name="msg_category"]:checked').value }),
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'Не удалось отправить');
+                closeMessage();
+                toast(data.message || 'Отправлено админу');
+            } catch (e) {
+                alert(e.message === 'Failed to fetch' ? 'Нет связи с сервером' : e.message);
+            } finally {
+                btn.disabled = false;
+            }
         }
         function deleteFromGroupConfirm() {
             return confirm('Убрать ' + (currentStudent ? currentStudent.name : 'ученика') + ' из группы? Оплаты и посещаемость останутся в истории.');
         }
         // Окна закрываются кликом по фону и клавишей Esc
-        ['starModal', 'studentInfoModal', 'calibrationModal', 'bookRequestModal'].forEach(id => {
+        ['starModal', 'studentInfoModal', 'calibrationModal', 'bookRequestModal', 'messageModal'].forEach(id => {
             const modal = document.getElementById(id);
+            if (!modal) return;
             modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); });
         });
         document.addEventListener('keydown', e => {

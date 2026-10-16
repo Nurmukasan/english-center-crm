@@ -152,6 +152,14 @@
         .pformula b { color: var(--ink); }
         .pwhen { font-size: 11px; font-weight: 700; color: var(--ok-ink); margin-top: 2px; }
         .pwhen:empty { display: none; }
+        /* Банк или наличные: видно только у оплаченных, нажатие переключает */
+        .pmethod { display: none; align-items: center; gap: 6px; height: 24px; margin-top: 5px; padding: 0 9px; border-radius: 9999px; font-size: 11px; font-weight: 800;
+            color: var(--muted); background: var(--surface); border: 1px solid var(--line); transition: background .2s ease, color .2s ease, border-color .2s ease; }
+        .pmethod:hover { border-color: var(--line-strong); color: var(--ink); }
+        .prow.is-paid .pmethod { display: inline-flex; }
+        .prow[data-method="cash"] .pmethod { color: var(--ink); background: var(--surface-3); border-color: var(--line-strong); }
+        .prow[data-method="cash"] .m-bank, .prow:not([data-method="cash"]) .m-cash { display: none; }
+        .pmethod:disabled { opacity: .6; cursor: progress; }
         .noprice { color: var(--bad-ink); font-weight: 700; }
         .noprice:hover { text-decoration: underline; }
 
@@ -264,6 +272,10 @@
                             <i class="fas fa-hourglass-half"></i>
                             <div><b id="statWait">{{ wait_total }}</b><span>ждём оплату</span></div>
                         </div>
+                        <div class="stat" title="Сколько из собранного принято наличными">
+                            <i class="fas fa-money-bill-wave"></i>
+                            <div><b class="notranslate whitespace-nowrap"><span id="statCash">{{ cash_str }}</span> ₸</b><span>наличными</span></div>
+                        </div>
                         {% if no_price %}
                         <button type="button" class="stat is-bad text-left" onclick="setStatus('noprice')">
                             <i class="fas fa-triangle-exclamation"></i>
@@ -365,7 +377,7 @@
                     <ul class="rows">
                         {% for r in c.rows %}
                         <li class="prow{% if r.is_paid %} is-paid{% endif %}" data-name="{{ r.student.name|lower }}" data-amount="{{ r.amount_int }}"
-                            data-noprice="{% if not r.price %}1{% endif %}">
+                            data-noprice="{% if not r.price %}1{% endif %}" data-method="{{ r.method }}">
                             <span class="pav notranslate">{{ r.student.name|slice:":1"|upper }}</span>
                             <div class="min-w-0 flex-1">
                                 <p class="truncate">
@@ -377,6 +389,11 @@
                                     {% else %}<a href="{% url 'edit_student' r.student.id %}" class="noprice"><i class="fas fa-triangle-exclamation"></i> Задать цену за урок</a>{% endif %}
                                 </p>
                                 <p class="pwhen" data-role="when">{% if r.paid_label %}<i class="fas fa-check"></i> {{ r.paid_label }}{% endif %}</p>
+                                <button type="button" class="pmethod" onclick="toggleMethod(this)" data-url="{% url 'set_payment_method' c.group.id %}"
+                                        title="Нажмите, чтобы сменить: банк или наличные">
+                                    <span class="m-bank"><i class="fas fa-building-columns"></i> Банк</span>
+                                    <span class="m-cash"><i class="fas fa-money-bill-wave"></i> Наличные</span>
+                                </button>
                             </div>
                             <button type="button" class="stamp" aria-pressed="{{ r.is_paid|yesno:'true,false' }}" onclick="togglePay(this)"
                                     data-url="{% url 'toggle_student_payment' c.group.id %}" data-student="{{ r.student.id }}"
@@ -420,14 +437,14 @@
 
         /* ---------- Пересчёт всех итогов по строкам на странице ---------- */
         function recalc() {
-            let expected = 0, collected = 0, paid = 0, wait = 0, noprice = 0;
+            let expected = 0, collected = 0, paid = 0, wait = 0, noprice = 0, cash = 0;
             document.querySelectorAll('.gcard').forEach(card => {
                 const rows = card.querySelectorAll('.prow');
                 let cPaid = 0, cCollected = 0;
                 rows.forEach((row, i) => {
                     const amount = Number(row.dataset.amount), isPaid = row.classList.contains('is-paid');
                     expected += amount;
-                    if (isPaid) { collected += amount; paid++; cPaid++; cCollected += amount; }
+                    if (isPaid) { collected += amount; paid++; cPaid++; cCollected += amount; if (row.dataset.method === 'cash') cash += amount; }
                     else { wait++; if (row.dataset.noprice) noprice++; }
                     card.querySelectorAll('.segbar i')[i].classList.toggle('on', isPaid);
                 });
@@ -443,6 +460,7 @@
             document.getElementById('heroMeter').parentElement.setAttribute('aria-valuenow', share);
             document.getElementById('statPaid').textContent = paid;
             document.getElementById('statWait').textContent = wait;
+            document.getElementById('statCash').textContent = fmt(cash);
             document.getElementById('cPaid').textContent = paid;
             document.getElementById('cWait').textContent = wait;
             const np = document.getElementById('cNoPrice'); if (np) np.textContent = noprice;
@@ -473,6 +491,7 @@
                 if (!data.success) throw new Error(data.error || 'Не удалось сохранить');
                 row.classList.toggle('is-paid', data.is_paid);
                 row.dataset.amount = data.amount;
+                row.dataset.method = data.method || 'bank';
                 btn.setAttribute('aria-pressed', data.is_paid ? 'true' : 'false');
                 const when = row.querySelector('[data-role="when"]');
                 when.textContent = '';
@@ -488,6 +507,29 @@
                 recalc();
                 applyFilters();
                 if (!silent) undoToast(btn, data.is_paid ? `${name} — оплата ${fmt(data.amount)} ₸ принята` : `${name} — оплата снята`);
+            } catch (e) {
+                alert(e.message === 'Failed to fetch' ? 'Нет связи с сервером' : e.message);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        /* ---------- Банк ↔ наличные у принятой оплаты ---------- */
+        async function toggleMethod(btn) {
+            const row = btn.closest('.prow');
+            const method = row.dataset.method === 'cash' ? 'bank' : 'cash';
+            btn.disabled = true;
+            try {
+                const response = await fetch(btn.dataset.url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': CSRF },
+                    body: new URLSearchParams({ student_id: row.querySelector('.stamp').dataset.student, year: YEAR, month: MONTH, method }),
+                });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'Не удалось сохранить');
+                row.dataset.method = data.method;
+                row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash');
+                recalc();
             } catch (e) {
                 alert(e.message === 'Failed to fetch' ? 'Нет связи с сервером' : e.message);
             } finally {

@@ -70,3 +70,13 @@ class BroadcastAdmin(admin.ModelAdmin):
     list_display = ['title', 'kind', 'audience', 'mode', 'created_by', 'created_at']
     list_filter = ['kind', 'audience', 'mode']
     inlines = [BroadcastMessageInline]
+
+
+from .models import InboxMessage
+
+
+@admin.register(InboxMessage)
+class InboxMessageAdmin(admin.ModelAdmin):
+    list_display = ['category', 'student', 'group', 'author', 'created_at', 'read_at', 'resolution']
+    list_filter = ['category']
+    search_fields = ['student__name', 'text']

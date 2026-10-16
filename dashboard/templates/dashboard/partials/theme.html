@@ -267,6 +267,11 @@ Tailwind «светлый / dark:» — тёмный режим больше н�
         transition: opacity .15s ease, transform .2s ease;
     }
     .ee-rail-item:hover > span:last-child { opacity: 1; transform: translate(0, -50%); }
+    /* Счётчик новых сообщений на значке, как в мессенджерах */
+    .ee-rail-badge { position: absolute; top: 4px; right: 3px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9999px;
+        display: grid; place-items: center; font-size: 10px; font-weight: 800; line-height: 1; color: #fff; background: var(--bad);
+        box-shadow: 0 0 0 2px var(--surface); animation: ee-badge-pop .5s var(--spring) both; }
+    @keyframes ee-badge-pop { from { transform: scale(0); } }
     .ee-rail-glow {
         position: absolute; left: 0; top: 0; width: 48px; height: 48px; border-radius: 14px; pointer-events: none;
         background: var(--accent); box-shadow: 0 6px 16px -8px rgba(var(--accent-rgb), .7);

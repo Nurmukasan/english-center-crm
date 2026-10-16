@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from users.models import Profile
 from .models import (
-    Attendance, Book, Enrollment, Group, LevelCalibration, Lesson, Payment, ScheduleSlot, Student,
+    Attendance, Book, Enrollment, Group, InboxMessage, LevelCalibration, Lesson, Payment, ScheduleSlot, Student,
 )
 from .views import get_current_period
 
@@ -979,3 +979,134 @@ class IncomeStatsTests(CRMTestCase):
         self.assertEqual(wb.sheetnames, ['По месяцам', 'По группам', 'Должники', 'Оплаты'])
         self.assertEqual(wb['Должники']['A2'].value, 'Алия')
         self.assertEqual(wb['Оплаты'].max_row, 4)
+
+
+class CashPaymentTests(CRMTestCase):
+    def setUp(self):
+        super().setUp()
+        ScheduleSlot.objects.create(group=self.group, day_of_week=0, start_time=time(10), end_time=time(11))
+        self.year, self.month = get_current_period()
+        self.login(self.manager)
+
+    def toggle(self, **extra):
+        return self.client.post(f'/payments/group/{self.group.id}/toggle/',
+                                {'student_id': self.student.id, 'year': self.year, 'month': self.month, **extra}).json()
+
+    def method(self, method):
+        return self.client.post(f'/payments/group/{self.group.id}/method/',
+                                {'student_id': self.student.id, 'year': self.year, 'month': self.month, 'method': method}).json()
+
+    def test_mark_cash_and_back(self):
+        self.assertFalse(self.method('cash')['success'])          # оплаты ещё нет
+        self.assertEqual(self.toggle()['method'], 'bank')         # по умолчанию — банк
+        self.assertTrue(self.method('cash')['success'])
+        payment = Payment.objects.get()
+        self.assertEqual(payment.method, 'cash')
+        response = self.client.get(f'/payments/?year={self.year}&month={self.month}')
+        self.assertEqual(response.context['cash'], int(payment.paid_amount))
+        # Сняли оплату — способ сбрасывается, повторно приняли наличными сразу
+        self.toggle()
+        self.assertEqual(Payment.objects.get().method, 'bank')
+        self.assertEqual(self.toggle(method='cash')['method'], 'cash')
+        self.assertEqual(self.client.post(f'/payments/group/{self.group.id}/method/', {'method': 'card'}).status_code, 400)
+
+    def test_cash_share_in_stats(self):
+        self.toggle(method='cash')
+        self.login(self.admin)
+        stats = self.client.get('/accountant-stats/?months=6').context['stats']
+        self.assertEqual((stats['cash_share'], stats['bank_share']), (100, 0))
+        self.assertEqual(stats['cash'], stats['total'])
+
+
+class InboxTests(CRMTestCase):
+    def send(self, user, student, **extra):
+        self.login(user)
+        data = {'student_id': student.id, 'category': 'comment', 'text': 'Стал пропускать домашку', **extra}
+        return self.client.post('/messages/send/', data, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+
+    def test_teacher_writes_about_own_student_only(self):
+        self.assertTrue(self.send(self.teacher, self.student, category='complaint').json()['success'])
+        message = InboxMessage.objects.get()
+        self.assertEqual((message.category, message.group, message.author), ('complaint', self.group, self.teacher))
+        self.assertEqual(self.send(self.teacher, self.other_student).status_code, 403)
+        self.assertFalse(self.send(self.teacher, self.student, text='').json()['success'])
+        self.assertEqual(self.send(self.teacher, self.student, category='spam').status_code, 400)
+        self.assertEqual(self.send(self.accountant, self.student).status_code, 403)
+        self.assertEqual(InboxMessage.objects.count(), 1)
+        # Учитель видит отправленное и что оно ещё не прочитано
+        self.login(self.teacher)
+        sent = self.client.get('/messages/').context
+        self.assertFalse(sent['is_inbox'])
+        self.assertEqual([m.id for m in sent['sent']], [message.id])
+
+    def test_admin_inbox_counter_and_read(self):
+        self.send(self.teacher, self.student)
+        self.send(self.manager, self.other_student, category='complaint')
+        self.login(self.admin)
+        response = self.client.get('/dashboard/')
+        self.assertEqual(response.context['inbox_unread'], 2)
+        self.assertContains(response, 'class="ee-rail-badge')
+        page = self.client.get('/messages/?cat=complaint').context
+        self.assertEqual((page['unread_total'], len(page['new'])), (2, 1))
+        first = InboxMessage.objects.filter(category='comment').get()
+        data = self.client.post(f'/messages/{first.id}/read/').json()
+        self.assertEqual((data['read'], data['unread']), (True, 1))
+        self.client.post('/messages/read-all/', {'next': 'https://evil.example/'})
+        self.assertFalse(InboxMessage.objects.filter(read_at__isnull=True).exists())
+        response = self.client.get('/dashboard/')
+        self.assertEqual(response.context['inbox_unread'], 0)
+        self.assertNotContains(response, 'class="ee-rail-badge')
+        # Учителю чужие входящие недоступны
+        self.login(self.teacher)
+        self.assertEqual(self.client.post(f'/messages/{first.id}/read/').status_code, 403)
+        self.assertNotIn('inbox_unread', self.client.get('/dashboard/').context)
+
+
+class CalibrationMoveTests(CRMTestCase):
+    def setUp(self):
+        super().setUp()
+        self.group.level = 2
+        self.group.save()
+        self.stronger = Group.objects.create(name='Elementary A2', teacher=self.other_teacher, level=3)
+        self.weaker = Group.objects.create(name='Kids Starters', teacher=self.other_teacher, level=1)
+        year, month = get_current_period()
+        self.cycle = year * 100 + month
+        Payment.objects.create(student=self.student, group=self.group, cycle_number=self.cycle, amount=8000,
+                               paid_amount=8000, is_paid=True, paid_at=timezone.now())
+
+    def calibrate(self, direction):
+        self.login(self.teacher)
+        self.client.post('/calibration/create/', {'student_id': self.student.id, 'group_id': self.group.id,
+                                                  'direction': direction, 'comment': 'Тянет сильнее'})
+        return InboxMessage.objects.get(category='calibration', calibration__direction=direction)
+
+    def test_calibration_suggests_and_moves(self):
+        message = self.calibrate('up')
+        self.assertEqual(message.text, 'Тянет сильнее')
+        self.login(self.admin)
+        item = next(m for m in self.client.get('/messages/').context['new'] if m.id == message.id)
+        self.assertEqual([g.name for g in item.suggestions], ['Elementary A2'])
+        self.client.post(f'/messages/{message.id}/resolve/', {'action': 'move', 'group_id': self.stronger.id})
+        self.assertFalse(Enrollment.objects.filter(student=self.student, group=self.group).exists())
+        self.assertTrue(Enrollment.objects.filter(student=self.student, group=self.stronger).exists())
+        # Оплата за текущий месяц переехала вместе с учеником
+        self.assertEqual(Payment.objects.get(student=self.student, cycle_number=self.cycle).group, self.stronger)
+        message.refresh_from_db()
+        self.assertEqual(message.resolution, 'Переведён в «Elementary A2»')
+        self.assertIsNotNone(message.read_at)
+
+    def test_calibration_down_and_keep(self):
+        message = self.calibrate('down')
+        self.login(self.admin)
+        item = next(m for m in self.client.get('/messages/').context['new'] if m.id == message.id)
+        self.assertEqual([g.name for g in item.suggestions], ['Kids Starters'])
+        self.client.post(f'/messages/{message.id}/resolve/', {'action': 'keep'})
+        message.refresh_from_db()
+        self.assertEqual(message.resolution, 'Оставлен в группе')
+        self.assertTrue(Enrollment.objects.filter(student=self.student, group=self.group).exists())
+
+    def test_guess_level_from_name(self):
+        from .views import guess_level
+        cases = {'Pre-Intermediate': 4, 'Upper-Intermediate B2': 6, 'Intermediate B1': 5, 'Beginner A1': 2,
+                 'Elementary': 3, 'Kids Starters': 1, 'Advanced': 7, 'Speaking club': None}
+        self.assertEqual({name: guess_level(name) for name in cases}, cases)
