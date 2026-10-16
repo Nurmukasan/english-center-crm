@@ -898,6 +898,21 @@ PHRASES = {
     '{d}: начало': '{d}: start',
     '{d}: конец': '{d}: end',
     'Начать занятия': 'Start lessons',
+    # Расписание
+    'Групп': 'Groups',
+    'Учителей': 'Teachers',
+    'Накладки': 'Overlaps',
+    'Новая группа': 'New group',
+    # Рейтинг звёзд
+    'Зал славы': 'Hall of fame',
+    'Учеников в рейтинге: {n}': 'Students in the ranking: {n}',
+    # Книги
+    'Запросы книг': 'Book requests',
+    'Не хватает {n} шт.': 'Short by {n} pcs',
+    'Есть книга': 'Has the book',
+    'Требуется книга': 'Needs the book',
+    'Читать': 'Read',
+    'На весь экран': 'Full screen',
     'Добавлен': 'Added',
     'Добавлен {n} в {n}': 'Added {n} at {n}',
     'новый': 'new',

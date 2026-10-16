@@ -6,194 +6,159 @@
     <title>Рейтинг звёзд — Enjoy English</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
-        * { font-family: 'Inter', sans-serif; }
-        .fade-in { animation: fadeIn 0.5s ease; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(15px); }
-            to { opacity: 1; transform: translateY(0); }
+        :root {
+            --gold: #f59e0b; --gold-soft: #fff6e0; --gold-line: #fcdc8c;
+            --silver: #a8a29e; --silver-soft: #f3f2f0; --silver-line: #dcd8d4;
+            --bronze: #c2773d; --bronze-soft: #fbefe5; --bronze-line: #efcaa9;
         }
-        .podium-item { animation: podium 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) backwards; }
-        .podium-item:nth-child(1) { animation-delay: 0.3s; }
-        .podium-item:nth-child(2) { animation-delay: 0.1s; }
-        .podium-item:nth-child(3) { animation-delay: 0.5s; }
-        @keyframes podium {
-            from { opacity: 0; transform: translateY(40px) scale(0.8); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        .crown-bounce { animation: crown 2s ease-in-out infinite; }
-        @keyframes crown {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-6px); }
+        .tnum { font-variant-numeric: tabular-nums; }
+
+        /* ---------- Пьедестал ---------- */
+        .podium-panel { padding: 28px 24px 0; overflow: hidden; }
+        .podium-title { font-size: 22px; font-weight: 800; color: var(--ink); line-height: 1.25; }
+        .podium-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+        .podium { display: flex; align-items: flex-end; justify-content: center; gap: 14px; max-width: 640px; margin: 30px auto 0; }
+        .place { --tone: var(--silver); --tone-soft: var(--silver-soft); --tone-line: var(--silver-line);
+            flex: 1 1 0; min-width: 0; max-width: 200px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .place.is-2 { order: 1; }
+        .place.is-1 { order: 2; --tone: var(--gold); --tone-soft: var(--gold-soft); --tone-line: var(--gold-line); }
+        .place.is-3 { order: 3; --tone: var(--bronze); --tone-soft: var(--bronze-soft); --tone-line: var(--bronze-line); }
+        .place-crown { color: var(--gold); font-size: 26px; margin-bottom: 6px; }
+        .place-avatar { position: relative; width: 72px; height: 72px; border-radius: 9999px; display: grid; place-items: center; flex-shrink: 0;
+            font-size: 28px; font-weight: 800; color: var(--ink-2); background: var(--tone-soft);
+            box-shadow: 0 0 0 4px var(--surface), 0 0 0 6px var(--tone-line); transition: transform var(--spring-dur) var(--spring); }
+        .place.is-1 .place-avatar { width: 96px; height: 96px; font-size: 38px; color: #fff; background: var(--accent);
+            box-shadow: 0 0 0 4px var(--surface), 0 0 0 7px var(--gold-line), 0 18px 34px -16px rgba(var(--accent-rgb), .7); }
+        .place:hover .place-avatar { transform: translateY(-3px); }
+        .place-medal { position: absolute; right: -4px; bottom: -4px; width: 28px; height: 28px; border-radius: 9999px; display: grid; place-items: center;
+            font-size: 13px; font-weight: 800; font-style: normal; color: #fff; background: var(--tone); box-shadow: 0 0 0 3px var(--surface); }
+        .place.is-1 .place-medal { width: 32px; height: 32px; font-size: 14px; }
+        /* Имя — до двух строк, длинное обрезается многоточием */
+        .place-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; max-width: 100%; margin-top: 14px; overflow: hidden;
+            font-size: 14px; font-weight: 800; color: var(--ink); line-height: 1.3; overflow-wrap: anywhere; transition: color .2s ease; }
+        .place.is-1 .place-name { font-size: 16px; }
+        .place:hover .place-name { color: var(--accent-ink); }
+        .place-stars { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 3px 11px; border-radius: 9999px;
+            font-size: 13px; font-weight: 800; color: var(--warn-ink); background: var(--gold-soft); }
+        .place-stars i { color: var(--gold); font-size: 12px; }
+        .place-step { width: 100%; margin-top: 16px; display: grid; place-items: center; border-radius: 16px 16px 0 0;
+            background: linear-gradient(180deg, var(--tone-soft), var(--surface-2)); border: 1px solid var(--tone-line); border-bottom: 0; }
+        .place-step b { font-size: 34px; font-weight: 800; color: var(--tone); line-height: 1; opacity: .9; }
+        .place.is-1 .place-step { height: 132px; }
+        .place.is-2 .place-step { height: 96px; }
+        .place.is-3 .place-step { height: 70px; }
+        .place.is-1 .place-step b { font-size: 44px; }
+
+        /* ---------- Остальные ---------- */
+        .rank-row { display: flex; align-items: center; gap: 14px; padding: 12px 20px; transition: background-color .2s ease; }
+        .rank-row + .rank-row { border-top: 1px solid var(--line); }
+        .rank-row:hover { background: var(--surface-2); }
+        .rank-num { width: 28px; flex-shrink: 0; text-align: center; font-size: 13px; font-weight: 800; color: var(--faint); }
+        .rank-name { flex: 1; min-width: 0; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color .2s ease; }
+        .rank-row:hover .rank-name { color: var(--accent-ink); }
+        .rank-bar { width: 180px; height: 6px; flex-shrink: 0; border-radius: 9999px; overflow: hidden; background: var(--surface-3); }
+        .rank-bar i { display: block; height: 100%; border-radius: inherit; background: var(--accent-300); }
+        .rank-stars { width: 64px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; font-weight: 800; color: var(--ink); }
+        .rank-stars i { color: var(--gold); font-size: 12px; }
+
+        @media (max-width: 640px) {
+            .podium-panel { padding: 22px 14px 0; }
+            .podium-title { font-size: 19px; }
+            .podium { gap: 8px; margin-top: 24px; }
+            .place-avatar { width: 56px; height: 56px; font-size: 22px; }
+            .place.is-1 .place-avatar { width: 74px; height: 74px; font-size: 30px; }
+            .place-medal { width: 24px; height: 24px; font-size: 11px; }
+            .place.is-1 .place-medal { width: 26px; height: 26px; font-size: 12px; }
+            .place-name { font-size: 13px; }
+            .place.is-1 .place-name { font-size: 14px; }
+            .place-stars { font-size: 12px; padding: 2px 9px; }
+            .place.is-1 .place-step { height: 104px; }
+            .place.is-2 .place-step { height: 76px; }
+            .place.is-3 .place-step { height: 56px; }
+            .place-step b { font-size: 26px; }
+            .place.is-1 .place-step b { font-size: 34px; }
+            .rank-row { gap: 12px; padding: 11px 14px; }
+            .rank-num { width: 22px; }
+            .rank-bar { display: none; }
+            .rank-stars { width: auto; }
         }
     </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
-<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+<body class="min-h-screen">
     {% include 'dashboard/partials/shell.html' %}
 
-
-    <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
-        <div class="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
-            <div class="flex items-center gap-4">
-                <a href="{% url 'dashboard' %}" class="text-gray-300 hover:text-white transition">
-                    <i class="fas fa-arrow-left"></i> Назад
-                </a>
-                <div class="flex items-center gap-2">
-                    <i class="fas fa-star text-2xl text-yellow-400"></i>
-                    <h1 class="text-xl font-bold text-white">Рейтинг звёзд</h1>
+    <header class="sticky top-0 z-40">
+        <div class="ee-head max-w-4xl mx-auto px-4 sm:px-6">
+            <div class="ee-head-main">
+                <a href="{% url 'dashboard' %}" class="head-back" aria-label="Назад"><i class="fas fa-arrow-left"></i></a>
+                <span class="head-icon"><i class="fas fa-trophy"></i></span>
+                <div class="min-w-0">
+                    <h1 class="head-title">Рейтинг звёзд</h1>
+                    {% if has_podium %}<p class="head-sub">Учеников в рейтинге: {{ others|length|add:podium_count }}</p>{% endif %}
                 </div>
-            </div>
-            <div class="flex items-center gap-2">
-                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
-                    <i class="fas fa-moon dark:hidden text-gray-300"></i>
-                    <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
-                </button>
-                <a href="{% url 'logout' %}" class="text-red-400 text-sm">
-                    <i class="fas fa-sign-out-alt"></i> Выйти
-                </a>
             </div>
         </div>
     </header>
 
-    <main class="max-w-5xl mx-auto px-4 py-8 fade-in">
+    <main class="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
         {% if has_podium %}
+        {% with leader=podium.0.stars_count %}
 
-        <!-- ===== ПОДИУМ ===== -->
-        <div class="mb-10">
-            <div class="text-center mb-8">
-                <h2 class="text-3xl font-bold text-gray-800 dark:text-white">🏆 Зал славы</h2>
-                <p class="text-gray-500 dark:text-gray-400 mt-2 text-sm">Лучшие ученики по количеству звёзд</p>
+        <!-- Пьедестал: топ-3 -->
+        <section class="panel podium-panel">
+            <div class="text-center">
+                <h2 class="podium-title">Зал славы</h2>
+                <p class="podium-sub">Лучшие ученики по количеству звёзд</p>
             </div>
 
-            <div class="flex items-end justify-center gap-3 md:gap-8 pt-6">
-
-                <!-- 2 МЕСТО -->
-                {% if podium_count >= 2 %}
-                <div class="podium-item flex flex-col items-center">
-                    {% with s=podium.1 %}
-                    <div class="relative">
-                        <div class="w-20 h-20 md:w-24 md:h-24 rounded-full bg-stone-200 flex items-center justify-center text-stone-700 font-bold text-3xl md:text-4xl shadow-xl ring-4 ring-gray-200 dark:ring-gray-600">
-                            {{ s.name|slice:":1"|upper }}
-                        </div>
-                        <div class="absolute -bottom-2 -right-2 bg-gray-400 text-white w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shadow-lg">
-                            2
-                        </div>
-                    </div>
-                    <div class="mt-4 text-center max-w-[100px] md:max-w-[140px]">
-                        <p class="font-bold text-sm md:text-base text-gray-800 dark:text-white truncate" title="{{ s.name }}">{{ s.name }}</p>
-                        <p class="text-yellow-500 font-bold text-sm mt-1">⭐ {{ s.stars_count }}</p>
-                    </div>
-                    <div class="mt-4 w-24 md:w-32 h-16 md:h-20 bg-stone-100 border border-stone-200 rounded-t-lg shadow-inner flex items-center justify-center">
-                        <span class="text-2xl md:text-3xl">🥈</span>
-                    </div>
-                    {% endwith %}
-                </div>
-                {% endif %}
-
-                <!-- 1 МЕСТО -->
-                {% if podium_count >= 1 %}
-                <div class="podium-item flex flex-col items-center">
-                    {% with s=podium.0 %}
-                    <div class="crown-bounce text-4xl md:text-5xl mb-2">👑</div>
-                    <div class="relative">
-                        <div class="w-28 h-28 md:w-32 md:h-32 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold text-4xl md:text-5xl shadow-2xl ring-4 ring-yellow-300 dark:ring-yellow-500">
-                            {{ s.name|slice:":1"|upper }}
-                        </div>
-                        <div class="absolute -bottom-2 -right-2 bg-yellow-500 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-base shadow-lg">
-                            1
-                        </div>
-                    </div>
-                    <div class="mt-4 text-center max-w-[140px] md:max-w-[180px]">
-                        <p class="font-bold text-base md:text-lg text-gray-800 dark:text-white truncate" title="{{ s.name }}">{{ s.name }}</p>
-                        <p class="text-yellow-500 font-bold text-base mt-1">⭐ {{ s.stars_count }}</p>
-                    </div>
-                    <div class="mt-4 w-28 md:w-40 h-24 md:h-32 bg-orange-50 border border-orange-200 rounded-t-lg shadow-inner flex items-center justify-center">
-                        <span class="text-4xl md:text-5xl">🥇</span>
-                    </div>
-                    {% endwith %}
-                </div>
-                {% endif %}
-
-                <!-- 3 МЕСТО -->
-                {% if podium_count >= 3 %}
-                <div class="podium-item flex flex-col items-center">
-                    {% with s=podium.2 %}
-                    <div class="relative">
-                        <div class="w-20 h-20 md:w-24 md:h-24 rounded-full bg-orange-200 flex items-center justify-center text-orange-800 font-bold text-3xl md:text-4xl shadow-xl ring-4 ring-orange-300 dark:ring-orange-700">
-                            {{ s.name|slice:":1"|upper }}
-                        </div>
-                        <div class="absolute -bottom-2 -right-2 bg-orange-500 text-white w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shadow-lg">
-                            3
-                        </div>
-                    </div>
-                    <div class="mt-4 text-center max-w-[100px] md:max-w-[140px]">
-                        <p class="font-bold text-sm md:text-base text-gray-800 dark:text-white truncate" title="{{ s.name }}">{{ s.name }}</p>
-                        <p class="text-yellow-500 font-bold text-sm mt-1">⭐ {{ s.stars_count }}</p>
-                    </div>
-                    <div class="mt-4 w-24 md:w-32 h-12 md:h-16 bg-stone-100 border border-stone-200 rounded-t-lg shadow-inner flex items-center justify-center">
-                        <span class="text-2xl md:text-3xl">🥉</span>
-                    </div>
-                    {% endwith %}
-                </div>
-                {% endif %}
-
-            </div>
-        </div>
-
-        {% else %}
-
-        <!-- ===== ПУСТО ===== -->
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-2xl shadow-md border border-gray-300 dark:border-gray-600 p-12 text-center transition-colors">
-            <div class="text-6xl mb-4">⭐</div>
-            <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Пока ни у кого нет звёзд</h2>
-            <p class="text-gray-500 dark:text-gray-400 mt-2">Как только ученики начнут получать звёзды за уроки, они появятся здесь</p>
-            <a href="{% url 'dashboard' %}" class="inline-block mt-6 bg-indigo-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-600 transition">
-                <i class="fas fa-arrow-left mr-1"></i> На главную
-            </a>
-        </div>
-
-        {% endif %}
-
-        <!-- ===== ОСТАЛЬНЫЕ ===== -->
-        {% if others %}
-        <div class="mt-8">
-            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">
-                <i class="fas fa-list-ol text-indigo-500 mr-2"></i>Остальные участники
-            </h3>
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-2xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
-                {% for s in others %}
-                <div class="flex items-center gap-4 px-5 py-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0 hover:bg-gray-100 dark:hover:bg-gray-700/40 transition">
-                    <div class="w-10 text-center font-bold text-gray-400 text-sm">
-                        {{ forloop.counter|add:3 }}
-                    </div>
-                    <div class="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center text-stone-700 font-bold text-lg shadow flex-shrink-0">
-                        {{ s.name|slice:":1"|upper }}
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <a href="{% url 'student_profile' s.id %}" class="font-medium text-gray-800 dark:text-white hover:text-indigo-600 transition truncate block" title="{{ s.name }}">
-                            {{ s.name }}
-                        </a>
-                    </div>
-                    <div class="text-yellow-500 font-bold whitespace-nowrap">
-                        ⭐ {{ s.stars_count }}
-                    </div>
-                </div>
+            <div class="podium">
+                {% for s in podium %}
+                <a href="{% url 'student_profile' s.id %}" class="place is-{{ forloop.counter }}">
+                    {% if forloop.first %}<i class="fas fa-crown place-crown" aria-hidden="true"></i>{% endif %}
+                    <span class="place-avatar notranslate" aria-hidden="true">{{ s.name|slice:":1"|upper }}<em class="place-medal">{{ forloop.counter }}</em></span>
+                    <b class="place-name notranslate" title="{{ s.name }}">{{ s.name }}</b>
+                    <span class="place-stars tnum"><i class="fas fa-star" aria-hidden="true"></i>{{ s.stars_count }}</span>
+                    <span class="place-step" aria-hidden="true"><b>{{ forloop.counter }}</b></span>
+                </a>
                 {% endfor %}
             </div>
-        </div>
+        </section>
+
+        <!-- Остальные -->
+        {% if others %}
+        <h2 class="ee-section-title"><i class="fas fa-list-ol" aria-hidden="true"></i>Остальные участники</h2>
+        <section class="panel overflow-hidden">
+            {% for s in others %}
+            <a href="{% url 'student_profile' s.id %}" class="rank-row">
+                <span class="rank-num tnum">{{ forloop.counter|add:3 }}</span>
+                <span class="ee-avatar notranslate" aria-hidden="true">{{ s.name|slice:":1"|upper }}</span>
+                <span class="rank-name notranslate" title="{{ s.name }}">{{ s.name }}</span>
+                <span class="rank-bar" aria-hidden="true"><i style="width: {% widthratio s.stars_count leader 100 %}%"></i></span>
+                <span class="rank-stars tnum"><i class="fas fa-star" aria-hidden="true"></i>{{ s.stars_count }}</span>
+            </a>
+            {% endfor %}
+        </section>
+        {% endif %}
+
+        {% endwith %}
+        {% else %}
+
+        <!-- Пусто -->
+        <section class="panel">
+            <div class="ee-empty">
+                <i class="fas fa-star"></i>
+                <b>Пока ни у кого нет звёзд</b>
+                <p>Как только ученики начнут получать звёзды за уроки, они появятся здесь</p>
+                <a href="{% url 'dashboard' %}" class="ee-btn ee-btn-soft ee-btn-sm mt-5"><i class="fas fa-arrow-left"></i>На главную</a>
+            </div>
+        </section>
+
         {% endif %}
 
     </main>
-
-    <script>
-        function toggleTheme() {
-            document.documentElement.classList.toggle('dark');
-        }
-    </script>
-
 </body>
 </html>
