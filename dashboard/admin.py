@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book
-from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book, LevelCalibration
+from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book, LevelCalibration, LoginEvent
 
 @admin.register(LevelCalibration)
 class LevelCalibrationAdmin(admin.ModelAdmin):
@@ -80,3 +80,18 @@ class InboxMessageAdmin(admin.ModelAdmin):
     list_display = ['category', 'student', 'group', 'author', 'created_at', 'read_at', 'resolution']
     list_filter = ['category']
     search_fields = ['student__name', 'text']
+
+
+@admin.register(LoginEvent)
+class LoginEventAdmin(admin.ModelAdmin):
+    """Журнал входов — только смотреть: записи делает сама CRM"""
+    list_display = ['created_at', 'username', 'success', 'note', 'ip', 'user_agent']
+    list_filter = ['success', 'note']
+    search_fields = ['username', 'ip']
+    readonly_fields = [f.name for f in LoginEvent._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

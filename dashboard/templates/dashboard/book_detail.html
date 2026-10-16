@@ -165,7 +165,7 @@
     </main>
 
     <script>
-        function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+        function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
         function giveBook(enrollmentId, studentName, groupName) {
             fetch('/enrollment/toggle-book/', {

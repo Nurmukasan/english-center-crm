@@ -1,0 +1,9 @@
+{% comment %}Одна строка журнала входов. e — LoginEvent (+ e.when, e.device из views.security_context), show_user — показать логин{% endcomment %}
+<li class="ev {% if not e.success %}is-bad{% endif %}">
+    <span class="ev-icon" aria-hidden="true"><i class="fas {% if e.success %}fa-right-to-bracket{% elif e.note == 'blocked' %}fa-ban{% else %}fa-triangle-exclamation{% endif %}"></i></span>
+    <div class="min-w-0 flex-1">
+        <p class="ev-title">{% if show_user %}<span class="ev-who notranslate">{{ e.username|default:"—" }}</span> · {% endif %}<span>{% if e.success %}Вход{% elif e.note == 'blocked' %}Попытка во время паузы{% else %}Неверный пароль{% endif %}</span>{% if e.note == 'admin' %} · <span class="notranslate">/admin/</span>{% endif %}</p>
+        <p class="ev-meta"><span>{{ e.device }}</span> · <span class="notranslate">{{ e.ip|default:"—" }}</span></p>
+    </div>
+    <span class="ev-when" title="{{ e.created_at|date:'d.m.Y H:i' }}">{{ e.when }}</span>
+</li>

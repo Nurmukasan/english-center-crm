@@ -87,9 +87,12 @@
             {% endif %}
             <span>Профиль</span>
         </a>
-        <a href="{% url 'logout' %}" class="ee-rail-item ee-rail-exit" data-label="Выйти">
-            <i class="fas fa-arrow-right-from-bracket"></i><span>Выйти</span>
-        </a>
+        <form method="POST" action="{% url 'logout' %}" id="eeLogout" class="contents">
+            {% csrf_token %}
+            <button type="submit" class="ee-rail-item ee-rail-exit" data-label="Выйти">
+                <i class="fas fa-arrow-right-from-bracket"></i><span>Выйти</span>
+            </button>
+        </form>
     </div>
 </nav>
 
@@ -174,7 +177,7 @@
         name: a.dataset.label, url: a.href, icon: a.querySelector('i').className,
     }));
     pages.push({ name: 'Профиль', url: '{% url "profile" %}', icon: 'fas fa-user' });
-    pages.push({ name: 'Выйти', url: '{% url "logout" %}', icon: 'fas fa-arrow-right-from-bracket' });
+    pages.push({ name: 'Выйти', url: '{% url "logout" %}', icon: 'fas fa-arrow-right-from-bracket', logout: true });
     {% if role != 'teacher' %}pages.push({ name: 'Скачать Excel', url: '{% url "export_excel" %}', icon: 'fas fa-file-excel' });{% endif %}
     {% if role == 'admin' or role == 'accountant' or role == 'developer' %}pages.push({ name: 'Напомнить об оплате в WhatsApp', url: '{% url "broadcast_page" %}?kind=payment', icon: 'fab fa-whatsapp' });{% endif %}
     {% if role == 'admin' or role == 'developer' %}pages.push({ name: 'Скачать копию базы', url: '{% url "download_backup" %}', icon: 'fas fa-database' });{% endif %}
@@ -189,7 +192,7 @@
     const list = document.getElementById('eePaletteResults');
     let rows = [], cursor = 0, timer = null, seq = 0;
 
-    function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     function render(sections) {
         rows = [];
         let html = '';
@@ -251,7 +254,13 @@
     input.addEventListener('keydown', e => {
         if (e.key === 'ArrowDown') { e.preventDefault(); cursor = Math.min(rows.length - 1, cursor + 1); highlight(); }
         else if (e.key === 'ArrowUp') { e.preventDefault(); cursor = Math.max(0, cursor - 1); highlight(); }
-        else if (e.key === 'Enter' && rows[cursor]) { e.preventDefault(); location.href = rows[cursor].url; }
+        else if (e.key === 'Enter' && rows[cursor]) { e.preventDefault(); go(rows[cursor]); }
+    });
+    // Выход — только отправкой формы (POST), а не переходом по ссылке
+    function go(row) { if (row.logout) document.getElementById('eeLogout').submit(); else location.href = row.url; }
+    list.addEventListener('click', e => {
+        const r = e.target.closest('.ee-palette-row');
+        if (r && rows[+r.dataset.i] && rows[+r.dataset.i].logout) { e.preventDefault(); go(rows[+r.dataset.i]); }
     });
     list.addEventListener('pointermove', e => {
         const r = e.target.closest('.ee-palette-row');

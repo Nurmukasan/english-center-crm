@@ -432,7 +432,7 @@
         const initial = JSON.parse(document.getElementById('filters-data').textContent);
         const groupsData = JSON.parse(document.getElementById('groups-data').textContent);
         const fmt = n => Math.round(n).toLocaleString('ru-RU').replace(/\s/g, ' ');
-        const esc = s => { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; };
+        const esc = s => { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); };
 
         const state = {
             kind: initial.kind, audience: initial.audience, type: initial.group_type,

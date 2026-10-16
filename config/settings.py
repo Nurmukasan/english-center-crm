@@ -11,6 +11,9 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 import os
+import secrets
+import sys
+import time
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -32,13 +35,46 @@ def _load_env(path):
 
 _load_env(BASE_DIR / '.env')
 
-# Секретный ключ и режим отладки задаются на сервере в .env (см. docs/server.md).
-# Без .env всё работает как раньше — со старым ключом и включённой отладкой.
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY') or 'django-insecure-fz%bp8-lpzybk5_0*x=(wsez7-7d-9f&f8op6lhp*fcs2n+j*s'
 
-DEBUG = os.environ.get('DJANGO_DEBUG', '1').lower() not in ('0', 'false', 'no', 'off')
+def _secret_key():
+    """Секретный ключ: из .env (DJANGO_SECRET_KEY), а если его там нет — свой случайный ключ сервера
+    в secret_key.txt (создаётся сам один раз, в git не попадает). Старый общий ключ из кода — только
+    если записать файл некуда."""
+    key = os.environ.get('DJANGO_SECRET_KEY')
+    if key:
+        return key
+    path = BASE_DIR / 'secret_key.txt'
+    for _ in range(20):
+        try:
+            key = path.read_text(encoding='utf-8').strip()
+            if key:
+                return key
+        except FileNotFoundError:
+            try:
+                # O_EXCL: если сервер запускает несколько процессов разом, ключ создаст только один
+                fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            except FileExistsError:
+                pass
+            except OSError:
+                break
+            else:
+                with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                    f.write(secrets.token_urlsafe(50))
+                continue
+        except OSError:
+            break
+        time.sleep(0.05)
+    return 'django-insecure-fz%bp8-lpzybk5_0*x=(wsez7-7d-9f&f8op6lhp*fcs2n+j*s'
+
+
+SECRET_KEY = _secret_key()
+
+# Отладка (страницы ошибок с кодом и настройками) — только если явно включить DJANGO_DEBUG=1 в .env
+DEBUG = os.environ.get('DJANGO_DEBUG', '0').lower() not in ('0', 'false', 'no', 'off', '')
 
 ALLOWED_HOSTS = ['enjoy-english.space', 'www.enjoy-english.space', '201.51.26.233', 'localhost', '127.0.0.1']
+# Ещё адреса сайта, если появятся: DJANGO_ALLOWED_HOSTS=crm.example.kz,1.2.3.4
+ALLOWED_HOSTS += [h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()]
 CSRF_TRUSTED_ORIGINS = ['https://enjoy-english.space', 'https://www.enjoy-english.space']
 
 
@@ -58,6 +94,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # Первым: видит ответ последним, когда все cookie уже добавлены (ставит им Secure при HTTPS)
+    'dashboard.security.SecurityHeadersMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -68,6 +106,27 @@ MIDDLEWARE = [
     'dashboard.i18n.EnglishMiddleware',
 ]
 X_FRAME_OPTIONS = 'SAMEORIGIN'
+# manage.py check --deploy: эти пункты закрыты иначе, а не забыты —
+#   W004 HSTS и W012/W016 Secure-cookie — ставит dashboard.security.SecurityHeadersMiddleware, когда сайт открыт по HTTPS;
+#   W008 перенаправление на HTTPS — делает nginx; W019 — читалка книг показывает PDF во фрейме этого же сайта.
+SILENCED_SYSTEM_CHECKS = ['security.W004', 'security.W008', 'security.W012', 'security.W016', 'security.W019']
+# Cookie с токеном формы скрипты страниц не читают (токен берут из страницы) — пусть и не могут
+CSRF_COOKIE_HTTPONLY = True
+SESSION_COOKIE_HTTPONLY = True
+# Cookie входа и формы получают флаг Secure сами, когда сайт открыт по HTTPS (dashboard/security.py)
+
+# Кэш общий для всех процессов сервера (gunicorn запускает несколько): иначе счётчик неудачных
+# входов у каждого процесса свой и подобрать пароль в разы проще. В тестах — в памяти.
+_CACHE_DIR = BASE_DIR / '.cache'
+try:
+    _CACHE_DIR.mkdir(exist_ok=True)
+    _cache_ok = os.access(_CACHE_DIR, os.W_OK)
+except OSError:
+    _cache_ok = False
+if _cache_ok and 'test' not in sys.argv[1:2]:
+    CACHES = {'default': {'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache', 'LOCATION': str(_CACHE_DIR)}}
+else:
+    CACHES = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}}
 ROOT_URLCONF = 'config.urls'
 
 TEMPLATES = [

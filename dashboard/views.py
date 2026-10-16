@@ -62,30 +62,9 @@ def landing_stats():
     return [s for s in stats if s['value']]
 
 
-LOGIN_LIMITS = (('user', 10), ('ip', 30))   # неудачных попыток за LOGIN_WINDOW
-LOGIN_WINDOW = 15 * 60
-
-
-def login_keys(request, username):
-    ip = (request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() or request.META.get('REMOTE_ADDR', ''))
-    return {'user': f'login-fail:u:{(username or "").strip().lower()[:150]}', 'ip': f'login-fail:ip:{ip}'}
-
-
-def login_blocked(request, username):
-    """Защита от подбора пароля: после серии неудачных входов — пауза 15 минут"""
-    from django.core.cache import cache
-    keys = login_keys(request, username)
-    return any(cache.get(keys[kind], 0) >= limit for kind, limit in LOGIN_LIMITS)
-
-
-def login_failed(request, username):
-    from django.core.cache import cache
-    for key in login_keys(request, username).values():
-        cache.add(key, 0, LOGIN_WINDOW)
-        try:
-            cache.incr(key)
-        except ValueError:
-            cache.set(key, 1, LOGIN_WINDOW)
+# Защита от подбора пароля, журнал входов и т.п. — в dashboard/security.py
+from .security import (LOGIN_LIMITS, LOGIN_WINDOW, end_other_sessions, login_blocked, login_failed,  # noqa: E402,F401
+                       login_keys, login_succeeded, password_problems, record_login, user_sessions)
 
 
 def login_view(request):
@@ -102,17 +81,19 @@ def login_view(request):
         password = request.POST.get('password')
         user = None
         if login_blocked(request, username):
+            record_login(request, username, note='blocked')
             messages.error(request, 'Слишком много неудачных попыток — подождите 15 минут')
         else:
             user = authenticate(request, username=username, password=password)
             if user is None:
                 login_failed(request, username)
+                record_login(request, username)
                 messages.error(request, 'Неверный логин или пароль')
         
         if user is not None:
-            from django.core.cache import cache
-            cache.delete(login_keys(request, username)['user'])
+            login_succeeded(request, username)
             login(request, user)
+            record_login(request, username, user=user, success=True)
             if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
                 return redirect(next_url)
             return redirect('dashboard')
@@ -130,7 +111,12 @@ def login_view(request):
 
 
 def logout_view(request):
-    """Выход"""
+    """Выход — только кнопкой (POST с токеном формы): чужой сайт не сможет «выкинуть» сотрудника
+    из CRM картинкой со ссылкой на /logout/. Открыли адрес просто так — спросим, точно ли выйти."""
+    if request.method != 'POST':
+        if not request.user.is_authenticated:
+            return redirect('login')
+        return render(request, 'dashboard/logout.html')
     list(messages.get_messages(request))  # непоказанные сообщения CRM не должны всплыть в окне входа
     logout(request)
     return redirect('login')
@@ -1440,8 +1426,9 @@ def profile(request):
                 messages.error(request, 'Неверный текущий пароль')
             elif new_password != confirm_password:
                 messages.error(request, 'Новые пароли не совпадают')
-            elif len(new_password) < 6:
-                messages.error(request, 'Пароль должен быть не менее 6 символов')
+            elif password_problems(new_password, request.user):
+                for problem in password_problems(new_password, request.user):
+                    messages.error(request, problem)
             else:
                 request.user.set_password(new_password)
                 request.user.save()
@@ -1449,6 +1436,14 @@ def profile(request):
                 from django.contrib.auth import update_session_auth_hash
                 update_session_auth_hash(request, request.user)
         
+        elif action == 'end_sessions':
+            closed = end_other_sessions(request)
+            if closed:
+                messages.success(request, f'Готово: закрыто сеансов на других устройствах — {closed}')
+            else:
+                messages.success(request, 'Других открытых сеансов нет')
+            return redirect('profile')
+
         elif action == 'change_phone':
             phone = clean_text(request.POST.get('phone'), 20)
             profile_obj, created = Profile.objects.get_or_create(user=request.user, defaults={'role': role})
@@ -1476,8 +1471,36 @@ def profile(request):
         'role': role,
         'user_profile': user_profile,
     }
-    
+    context.update(security_context(request, role))
     return render(request, 'dashboard/profile.html', context)
+
+
+def security_context(request, role):
+    """Для «Личного кабинета»: последние входы в аккаунт, на скольких устройствах вошли,
+    а админу — журнал входов всей CRM"""
+    from .inbox import when_label
+    from .models import LoginEvent
+    from .security import device_label
+    now = timezone.now()
+
+    def decorate(events):
+        for event in events:
+            event.when = when_label(event.created_at, now)
+            event.device = device_label(event.user_agent)
+        return events
+
+    mine = decorate(list(LoginEvent.objects.filter(
+        Q(user=request.user) | Q(user__isnull=True, username__iexact=request.user.username))[:8]))
+    week_ago = now - timedelta(days=7)
+    context = {
+        'my_events': mine,
+        'my_failed_recent': any(not e.success and e.created_at >= week_ago for e in mine),
+        'sessions_count': len(user_sessions(request.user)),
+    }
+    if role in ('admin', 'developer'):
+        context['all_events'] = decorate(list(LoginEvent.objects.select_related('user')[:30]))
+        context['failed_day'] = LoginEvent.objects.filter(success=False, created_at__gte=now - timedelta(hours=24)).count()
+    return context
 
 
 import openpyxl

@@ -11,6 +11,7 @@ from getpass import getpass
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 
+from dashboard.security import password_problems
 from users.models import Profile
 
 
@@ -29,8 +30,9 @@ class Command(BaseCommand):
             password = getpass('Пароль: ')
             if password != getpass('Ещё раз: '):
                 raise CommandError('Пароли не совпали')
-        if len(password) < 6:
-            raise CommandError('Пароль слишком короткий — нужно хотя бы 6 символов')
+        problems = password_problems(password, User(username=username))
+        if 'Пароль — не короче 8 символов' in problems:
+            raise CommandError('Пароль слишком короткий — нужно хотя бы 8 символов')
 
         user, created = User.objects.get_or_create(username=username)
         if not created and (user.is_superuser or getattr(user, 'profile', None) and user.profile.role != 'manager'):
@@ -41,3 +43,6 @@ class Command(BaseCommand):
         Profile.objects.update_or_create(user=user, defaults={'role': 'manager'})
         self.stdout.write(self.style.SUCCESS(
             f'Менеджер {username} создан' if created else f'Менеджеру {username} обновлён пароль'))
+        for problem in problems:
+            # Не запрещаем — пароль выбирает владелец, но предупреждаем
+            self.stdout.write(self.style.WARNING(f'Внимание: {problem.lower()}. Лучше придумать пароль сложнее.'))

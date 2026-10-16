@@ -11,6 +11,9 @@ db.sqlite3
 
 # Секреты
 secret_key.txt
+
+# Кэш (счётчики входов и т.п.)
+/.cache/
 *.key
 
 # IDE

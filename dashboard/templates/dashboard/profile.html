@@ -39,6 +39,23 @@
         html.ee .pf-file:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
         html.ee .pf-file::file-selector-button { height: 32px; margin-right: 12px; padding: 0 14px; background: var(--surface); }
 
+        /* ---------- Безопасность: входы и сеансы ---------- */
+        .ev-list { display: flex; flex-direction: column; }
+        .ev { display: flex; align-items: center; gap: 12px; padding: 11px 0; }
+        .ev + .ev { border-top: 1px solid var(--line); }
+        .ev-icon { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; font-size: 13px;
+            color: var(--ok-ink); background: var(--ok-soft); }
+        .ev.is-bad .ev-icon { color: var(--bad-ink); background: var(--bad-soft); }
+        .ev-title { font-size: 14px; font-weight: 700; color: var(--ink); }
+        .ev.is-bad .ev-title { color: var(--bad-ink); }
+        .ev-meta { font-size: 12px; color: var(--muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ev-when { margin-left: auto; flex-shrink: 0; font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+        .ev-who { font-weight: 800; color: var(--ink); }
+        .sess { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; background: var(--surface-2); margin-bottom: 14px; }
+        .sess b { font-size: 15px; color: var(--ink); }
+        .sec-alert { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; margin-bottom: 14px; font-size: 13.5px; font-weight: 600;
+            color: var(--bad-ink); background: var(--bad-soft); box-shadow: inset 0 0 0 1px var(--bad-line); }
+        @media (max-width: 640px) { .ev { flex-wrap: wrap; } .ev-when { margin-left: 46px; } }
         @media (min-width: 768px) { .ee-head-actions.pf-exit { display: none; } }
         @media (max-width: 640px) {
             .pf-hero { padding: 20px 16px; }
@@ -67,7 +84,7 @@
             </div>
             <!-- На телефоне в нижнем меню нет кнопки выхода -->
             <div class="ee-head-actions pf-exit">
-                <a href="{% url 'logout' %}" class="head-btn"><i class="fas fa-arrow-right-from-bracket"></i>Выйти</a>
+                <form method="POST" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="head-btn"><i class="fas fa-arrow-right-from-bracket"></i>Выйти</button></form>
             </div>
         </div>
     </header>
@@ -164,12 +181,12 @@
                         </div>
                         <div>
                             <label class="ee-label" for="fNewPassword">Новый пароль</label>
-                            <input type="password" name="new_password" id="fNewPassword" required minlength="6" autocomplete="new-password" class="ee-input">
-                            <p class="ee-hint">Не меньше 6 символов</p>
+                            <input type="password" name="new_password" id="fNewPassword" required minlength="8" autocomplete="new-password" class="ee-input">
+                            <p class="ee-hint">Не меньше 8 символов, не только цифры и не похож на логин</p>
                         </div>
                         <div>
                             <label class="ee-label" for="fConfirmPassword">Повторите пароль</label>
-                            <input type="password" name="confirm_password" id="fConfirmPassword" required minlength="6" autocomplete="new-password" class="ee-input">
+                            <input type="password" name="confirm_password" id="fConfirmPassword" required minlength="8" autocomplete="new-password" class="ee-input">
                         </div>
                     </div>
                     <div class="pf-submit flex justify-end mt-5">
@@ -178,6 +195,58 @@
                 </form>
             </section>
         </div>
+
+        <!-- Безопасность: где вошли и последние входы -->
+        <section class="panel ee-sec mb-5" id="security">
+            <div class="ee-sec-head !mb-4">
+                <span class="ee-sec-icon"><i class="fas fa-shield-halved"></i></span>
+                <div>
+                    <h2 class="ee-sec-title">Безопасность</h2>
+                    <p class="ee-sec-desc">Последние входы в ваш аккаунт. Если видите незнакомое устройство — смените пароль и выйдите на других устройствах.</p>
+                </div>
+            </div>
+            {% if my_failed_recent %}
+            <p class="sec-alert"><i class="fas fa-triangle-exclamation mt-0.5"></i><span>За последнюю неделю были неудачные попытки войти в ваш аккаунт. Если это были не вы — смените пароль.</span></p>
+            {% endif %}
+            <div class="sess">
+                <i class="fas fa-laptop" style="color: var(--accent)" aria-hidden="true"></i>
+                <span class="text-sm text-gray-600">Открытых сеансов: <b>{{ sessions_count }}</b></span>
+                {% if sessions_count > 1 %}
+                <form method="POST" class="ml-auto">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="end_sessions">
+                    <button type="submit" class="ee-btn ee-btn-sm ee-btn-soft"><i class="fas fa-right-from-bracket"></i>Выйти на других устройствах</button>
+                </form>
+                {% endif %}
+            </div>
+            {% if my_events %}
+            <ul class="ev-list">
+                {% for e in my_events %}{% include 'dashboard/partials/login_event.html' %}{% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-gray-500">Журнал входов пока пуст — он начнёт заполняться со следующего входа.</p>
+            {% endif %}
+        </section>
+
+        {% if role == 'admin' or role == 'developer' %}
+        <!-- Журнал входов всей CRM -->
+        <section class="panel ee-sec mb-5">
+            <div class="ee-sec-head !mb-4">
+                <span class="ee-sec-icon"><i class="fas fa-list-check"></i></span>
+                <div class="flex-1 min-w-0">
+                    <h2 class="ee-sec-title">Журнал входов в CRM</h2>
+                    <p class="ee-sec-desc">Все сотрудники, последние 30 входов. Неудачных попыток за сутки: <b class="{% if failed_day %}text-red-600{% endif %}">{{ failed_day }}</b></p>
+                </div>
+            </div>
+            {% if all_events %}
+            <ul class="ev-list">
+                {% for e in all_events %}{% include 'dashboard/partials/login_event.html' with show_user=True %}{% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-gray-500">Журнал входов пока пуст — он начнёт заполняться со следующего входа.</p>
+            {% endif %}
+        </section>
+        {% endif %}
 
         {% if role == 'admin' or role == 'developer' %}
         <!-- Резервная копия -->
