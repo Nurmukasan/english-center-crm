@@ -49,20 +49,78 @@
         .donut .track { stroke: var(--surface-3); }
         .donut .bar { stroke-linecap: round; transition: stroke-dashoffset 1.6s cubic-bezier(.22,1,.36,1); }
 
-        /* ---------- Карточки групп ---------- */
-        .gcard { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 20px; overflow: hidden; isolation: isolate; box-shadow: var(--shadow); }
-        .gcard-photo { position: absolute; inset: 0; z-index: -1; background-size: cover; background-position: center; opacity: .1; }
-        .gicon { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; flex-shrink: 0; background: var(--accent-soft); color: var(--accent-ink); }
-        .gcard:hover .gicon { background: var(--accent); color: #fff; }
-        .day-dot { width: 30px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-size: 11px; font-weight: 800;
+        /* ---------- Карточки групп: обложка-рисунок по названию (dashboard/campus.py) ----------
+           Один оттенок --h на карточку, светлота и насыщенность у всех одинаковые — карточки рядом смотрятся серией */
+        .gcard { --h: 262; --s: 1; position: relative; border-radius: 22px; overflow: hidden; isolation: isolate;
+            background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow);
+            transition: transform var(--spring-dur) var(--spring), box-shadow .35s ease, border-color .35s ease; }
+        .gcard:hover { transform: translateY(-4px); border-color: hsl(var(--h) calc(45% * var(--s)) 84%);
+            box-shadow: 0 2px 4px rgba(31, 28, 26, .04), 0 22px 44px -24px hsl(var(--h) 55% 28% / .5); }
+        .gcard-link { display: block; color: inherit; }
+        .gcard-link:focus-visible { outline: 2px solid hsl(var(--h) 60% 45%); outline-offset: -3px; border-radius: 22px; }
+        .gcard-cover { position: relative; height: 112px; overflow: hidden;
+            background: linear-gradient(180deg, hsl(var(--h) calc(70% * var(--s)) 95%), hsl(var(--h) calc(62% * var(--s)) 86%)); }
+        .gcard-art, .gcard-photo { position: absolute; inset: 0; width: 100%; height: 100%; transform-origin: 50% 100%;
+            transition: transform 1s cubic-bezier(.22, 1, .36, 1); }
+        .gcard-photo { object-fit: cover; }
+        .gcard:hover :is(.gcard-art, .gcard-photo) { transform: scale(1.05); }
+        .gcard-art .f { fill: hsl(var(--h) calc(32% * var(--s)) 80%); }
+        .gcard-art .m { fill: hsl(var(--h) calc(36% * var(--s)) 64%); }
+        .gcard-art .k { fill: hsl(var(--h) calc(44% * var(--s)) 44%); }
+        .gcard-art .n { fill: hsl(var(--h) calc(50% * var(--s)) 28%); }
+        .gcard-art .w { fill: hsl(var(--h) calc(80% * var(--s)) 97%); }
+        .gcard-art .s { fill: hsl(42 95% 74%); }
+        .gcard-art .c { fill: #fff; opacity: .8; }
+        .gcard-art .lk { stroke: hsl(var(--h) calc(44% * var(--s)) 44%); fill: none; }
+        .gcard-art .lm { stroke: hsl(var(--h) calc(36% * var(--s)) 58%); }
+        .gcard-art path.lm:not(.w) { fill: none; }
+        .gcard-place { position: absolute; left: 12px; top: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 9px;
+            border-radius: 9999px; font-size: 11px; font-weight: 800; letter-spacing: .02em; color: hsl(var(--h) calc(50% * var(--s)) 26%);
+            background: rgba(255, 255, 255, .72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+        .gcard-place i { font-size: 10px; color: hsl(var(--h) calc(55% * var(--s)) 45%); }
+        .gcard-body { position: relative; padding: 14px 20px 18px; }
+        .gcard-badge { position: absolute; left: 20px; top: -24px; width: 48px; height: 48px; border-radius: 15px; display: grid; place-items: center;
+            font-size: 17px; color: #fff; background: linear-gradient(145deg, hsl(var(--h) calc(56% * var(--s)) 58%), hsl(var(--h) calc(58% * var(--s)) 40%));
+            box-shadow: 0 0 0 4px var(--surface), 0 10px 20px -10px hsl(var(--h) 60% 28% / .7);
+            transition: transform var(--spring-dur) var(--spring); }
+        .gcard:hover .gcard-badge { transform: rotate(-6deg) scale(1.06); }
+        .gcard-head { display: flex; align-items: center; gap: 10px; padding-left: 60px; min-height: 28px; }
+        .gcard-name { flex: 1; min-width: 0; font-size: 18px; font-weight: 800; line-height: 1.25; letter-spacing: -.01em; color: var(--ink);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gcard-count { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 9999px;
+            font-size: 12px; font-weight: 800; color: hsl(var(--h) calc(50% * var(--s)) 30%); background: hsl(var(--h) calc(70% * var(--s)) 95%);
+            box-shadow: inset 0 0 0 1px hsl(var(--h) calc(55% * var(--s)) 88%); }
+        .gcard-count i { font-size: 10px; }
+        .gcard-teachers { margin-top: 10px; font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gcard-teachers i { margin-right: 6px; font-size: 11px; color: hsl(var(--h) calc(45% * var(--s)) 55%); }
+        .gcard-days { display: flex; gap: 5px; margin-top: 14px; }
+        .gday { width: 30px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-size: 11px; font-weight: 800;
             color: var(--faint); background: var(--surface-2); }
-        .day-dot.on { color: var(--accent-ink); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); }
-        .face { width: 30px; height: 30px; border-radius: 9999px; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: var(--ink-2);
-            background: var(--surface-3); box-shadow: 0 0 0 2px var(--surface); }
-        .face + .face { margin-left: -8px; }
-        .gcard-tools a, .gcard-tools button { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-2); color: var(--muted);
-            border: 1px solid var(--line); transition: color .2s ease, background .2s ease; }
-        .gcard-tools a:hover, .gcard-tools button:hover { color: var(--ink); background: var(--surface-3); }
+        .gday.on { color: hsl(var(--h) calc(52% * var(--s)) 30%); background: hsl(var(--h) calc(72% * var(--s)) 93%);
+            box-shadow: inset 0 0 0 1px hsl(var(--h) calc(55% * var(--s)) 82%); }
+        .gcard-time { margin-top: 8px; font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gcard-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+        .gface { width: 30px; height: 30px; border-radius: 9999px; display: grid; place-items: center; font-size: 12px; font-weight: 800;
+            color: hsl(var(--h) calc(45% * var(--s)) 30%); background: hsl(var(--h) calc(65% * var(--s)) 93%); box-shadow: 0 0 0 2px var(--surface); }
+        .gface + .gface { margin-left: -8px; }
+        .gcard-empty { font-size: 13px; color: var(--faint); }
+        .gcard-go { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: hsl(var(--h) calc(52% * var(--s)) 38%);
+            opacity: .75; transition: opacity .25s ease; }
+        .gcard-go i { font-size: 11px; transition: transform var(--spring-dur) var(--spring); }
+        .gcard:hover .gcard-go { opacity: 1; }
+        .gcard:hover .gcard-go i { transform: translateX(4px); }
+        .gcard-tools { position: absolute; top: 10px; right: 10px; display: flex; gap: 6px; z-index: 2; }
+        .gcard-tools form { display: contents; }
+        .gcard-tools a, .gcard-tools button { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center;
+            color: hsl(var(--h) calc(45% * var(--s)) 28%); background: rgba(255, 255, 255, .74); box-shadow: 0 1px 2px rgba(31, 28, 26, .08);
+            backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); transition: background-color .2s ease, transform var(--spring-dur) var(--spring); }
+        .gcard-tools a:hover, .gcard-tools button:hover { background: #fff; transform: translateY(-1px); }
+        .gcard.is-archived :is(.gcard-cover, .gcard-badge) { filter: grayscale(.85); }
+        .gcard.is-archived .gcard-cover { opacity: .8; }
+        @media (prefers-reduced-motion: reduce) {
+            .gcard, .gcard-art, .gcard-photo, .gcard-badge, .gcard-go i { transition: none; }
+            .gcard:hover, .gcard:hover :is(.gcard-art, .gcard-photo, .gcard-badge, .gcard-go i) { transform: none; }
+        }
         /* ---------- Цитата дня ---------- */
         .quote-card { position: relative; overflow: hidden; display: flex; align-items: flex-start; gap: 20px; }
         .quote-mark { position: absolute; right: 22px; top: -46px; font-family: Georgia, 'Times New Roman', serif; font-size: 240px; line-height: 1;
@@ -289,55 +347,54 @@
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {% for group in group_cards %}
-                <div class="gcard hover-scale">
-                    {% if group.photo %}<div class="gcard-photo" style="background-image: url('{{ group.photo.url }}')"></div>{% endif %}
-                    <a href="{% url 'group_detail' group.id %}" class="block p-6">
-                        <div class="flex items-start gap-3 pr-20">
-                            <span class="gicon">
-                                <i class="fas {% if group.group_type == 'individual' %}fa-user{% else %}fa-users{% endif %}"></i>
-                            </span>
-                            <div class="min-w-0">
-                                <h4 class="text-lg font-bold text-white truncate notranslate">{{ group.name }}</h4>
-                                <p class="text-sm text-gray-400 truncate notranslate">
-                                    {{ group.teacher.username|default:"без учителя" }}{% for t in group.teachers.all %} · {{ t.username }}{% endfor %}
-                                </p>
-                            </div>
+                {% for group in group_cards %}{% with c=group.ee_cover %}
+                <div class="gcard{% if not group.is_active %} is-archived{% endif %}" style="--h: {{ c.hue }}; --s: {{ c.sat }}" data-cover="{{ c.key }}">
+                    <a href="{% url 'group_detail' group.id %}" class="gcard-link">
+                        <div class="gcard-cover">
+                            {% if c.art %}{% include c.art %}{% else %}<img class="gcard-photo" src="{{ group.photo.url }}" alt="" loading="lazy">{% endif %}
+                            {% if c.label %}<span class="gcard-place"><i class="fas fa-location-dot" aria-hidden="true"></i>{{ c.label }}</span>{% endif %}
                         </div>
-
-                        <div class="flex gap-1.5 mt-5">
-                            {% for d in group.ee_days %}<span class="day-dot {% if d.on %}on{% endif %}">{{ d.short }}</span>{% endfor %}
-                        </div>
-                        <p class="text-xs text-gray-400 mt-2 truncate">{{ group.get_schedule_display|default:"расписание не задано" }}</p>
-
-                        <div class="flex items-center justify-between mt-5 pt-4 border-t border-gray-200">
-                            <div class="flex items-center">
-                                {% for f in group.ee_faces %}<span class="face notranslate">{{ f }}</span>{% endfor %}
-                                {% if group.ee_more %}<span class="face">+{{ group.ee_more }}</span>{% endif %}
-                                {% if not group.ee_count %}<span class="text-sm text-gray-500">пока без учеников</span>{% endif %}
+                        <div class="gcard-body">
+                            <span class="gcard-badge" aria-hidden="true"><i class="fas {% if group.group_type == 'individual' %}fa-user{% else %}fa-users{% endif %}"></i></span>
+                            <div class="gcard-head">
+                                <h4 class="gcard-name notranslate">{{ group.name }}</h4>
+                                <span class="gcard-count" title="Учеников в группе"><i class="fas fa-user-group" aria-hidden="true"></i>{{ group.ee_count }}</span>
                             </div>
-                            <span class="text-sm font-bold text-gray-500">{{ group.ee_count }} <i class="fas fa-user-group text-xs"></i></span>
+                            <p class="gcard-teachers notranslate"><i class="fas fa-chalkboard-user" aria-hidden="true"></i>{{ group.teacher.username|default:"без учителя" }}{% for t in group.teachers.all %} · {{ t.username }}{% endfor %}</p>
+                            <div class="gcard-days">
+                                {% for d in group.ee_days %}<span class="gday {% if d.on %}on{% endif %}">{{ d.short }}</span>{% endfor %}
+                            </div>
+                            <p class="gcard-time">{{ group.get_schedule_display|default:"расписание не задано" }}</p>
+                            <div class="gcard-foot">
+                                <div class="flex items-center min-w-0">
+                                    {% for f in group.ee_faces %}<span class="gface notranslate">{{ f }}</span>{% endfor %}
+                                    {% if group.ee_more %}<span class="gface">+{{ group.ee_more }}</span>{% endif %}
+                                    {% if not group.ee_count %}<span class="gcard-empty">пока без учеников</span>{% endif %}
+                                </div>
+                                <span class="gcard-go">Открыть<i class="fas fa-arrow-right" aria-hidden="true"></i></span>
+                            </div>
                         </div>
                     </a>
                     {% if role == 'admin' or role == 'developer' or role == 'manager' %}
-                    <div class="gcard-tools absolute top-5 right-5 flex gap-2">
+                    <div class="gcard-tools">
                         {% if group.is_active %}
-                        <a href="{% url 'edit_group' group.id %}" title="Изменить"><i class="fas fa-pen text-xs"></i></a>
+                        <a href="{% url 'edit_group' group.id %}" title="Изменить" aria-label="Изменить"><i class="fas fa-pen text-xs"></i></a>
                         <form method="POST" action="{% url 'archive_group' group.id %}"
                               data-confirm="Перенести группу «{{ group.name }}» в архив? Уроки и оплаты сохранятся, вернуть можно в любой момент."
                               onsubmit="return confirm(this.dataset.confirm)">
                             {% csrf_token %}
-                            <button type="submit" title="В архив"><i class="fas fa-box-archive text-xs"></i></button>
+                            <button type="submit" title="В архив" aria-label="В архив"><i class="fas fa-box-archive text-xs"></i></button>
                         </form>
                         {% else %}
                         <form method="POST" action="{% url 'restore_group' group.id %}">
                             {% csrf_token %}
-                            <button type="submit" title="Вернуть из архива"><i class="fas fa-rotate-left text-xs"></i></button>
+                            <button type="submit" title="Вернуть из архива" aria-label="Вернуть из архива"><i class="fas fa-rotate-left text-xs"></i></button>
                         </form>
                         {% endif %}
                     </div>
                     {% endif %}
                 </div>
+                {% endwith %}
                 {% empty %}
                 <div class="col-span-full panel p-12 text-center text-gray-400">
                     <i class="fas fa-inbox text-5xl mb-3"></i>

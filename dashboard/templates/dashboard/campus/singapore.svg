@@ -1,0 +1,53 @@
+<svg class="gcard-art" viewBox="0 0 400 120" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+<circle class="s" cx="60" cy="34" r="13"/>
+<path class="c" d="M140 24h36.8a7.2 7.2 0 0 0-5.6-10.4a9.6 9.6 0 0 0-17.6-3.2a7.2 7.2 0 0 0-13.6 13.6z"/>
+<path class="c" d="M330 18h32.2a6.3 6.3 0 0 0-4.9-9.1a8.4 8.4 0 0 0-15.4-2.8a6.3 6.3 0 0 0-11.9 11.9z"/>
+<rect class="f" x="130" y="60" width="14" height="60"/>
+<rect class="f" x="146" y="46" width="12" height="74"/>
+<rect class="f" x="160" y="66" width="16" height="54"/>
+<rect class="f" x="178" y="52" width="12" height="68"/>
+<rect class="f" x="192" y="70" width="14" height="50"/>
+<rect class="f" x="356" y="58" width="14" height="62"/>
+<rect class="f" x="372" y="70" width="18" height="50"/>
+<path class="k" d="M214 108L217 44H235L238 108Z"/>
+<rect class="w" x="219" y="56" width="14" height="1.4" rx="0.7"/>
+<rect class="w" x="219" y="68" width="14" height="1.4" rx="0.7"/>
+<rect class="w" x="219" y="80" width="14" height="1.4" rx="0.7"/>
+<rect class="w" x="219" y="92" width="14" height="1.4" rx="0.7"/>
+<path class="k" d="M248 108L251 44H269L272 108Z"/>
+<rect class="w" x="253" y="56" width="14" height="1.4" rx="0.7"/>
+<rect class="w" x="253" y="68" width="14" height="1.4" rx="0.7"/>
+<rect class="w" x="253" y="80" width="14" height="1.4" rx="0.7"/>
+<rect class="w" x="253" y="92" width="14" height="1.4" rx="0.7"/>
+<path class="k" d="M282 108L285 44H303L306 108Z"/>
+<rect class="w" x="287" y="56" width="14" height="1.4" rx="0.7"/>
+<rect class="w" x="287" y="68" width="14" height="1.4" rx="0.7"/>
+<rect class="w" x="287" y="80" width="14" height="1.4" rx="0.7"/>
+<rect class="w" x="287" y="92" width="14" height="1.4" rx="0.7"/>
+<path class="k" d="M204 44C240 37 292 37 336 40V45C292 42 240 42 204 48Z"/>
+<rect class="m" x="64.5" y="66" width="3" height="42"/>
+<path class="m" d="M52 54Q66 49 80 54L69 67H63Z"/>
+<circle class="w" cx="58" cy="56" r="1.1"/>
+<circle class="w" cx="63" cy="56" r="1.1"/>
+<circle class="w" cx="68" cy="56" r="1.1"/>
+<circle class="w" cx="73" cy="56" r="1.1"/>
+<rect class="m" x="90.5" y="52" width="3" height="56"/>
+<path class="m" d="M78 40Q92 35 106 40L95 53H89Z"/>
+<circle class="w" cx="84" cy="42" r="1.1"/>
+<circle class="w" cx="89" cy="42" r="1.1"/>
+<circle class="w" cx="94" cy="42" r="1.1"/>
+<circle class="w" cx="99" cy="42" r="1.1"/>
+<rect class="m" x="116.5" y="72" width="3" height="36"/>
+<path class="m" d="M104 60Q118 55 132 60L121 73H115Z"/>
+<circle class="w" cx="110" cy="62" r="1.1"/>
+<circle class="w" cx="115" cy="62" r="1.1"/>
+<circle class="w" cx="120" cy="62" r="1.1"/>
+<circle class="w" cx="125" cy="62" r="1.1"/>
+<path class="m" d="M336 108Q336 92 344 84Q346 96 348 108ZM348 108Q349 88 358 78Q360 94 360 108ZM360 108Q364 90 374 84Q372 98 370 108ZM370 108Q376 96 386 92Q382 102 380 108Z"/>
+<rect class="n" x="0" y="106" width="400" height="4"/>
+<rect class="m" x="0" y="110" width="400" height="10"/>
+<rect class="w" x="30" y="113" width="60" height="1.2" rx="0.6"/>
+<rect class="w" x="150" y="117" width="40" height="1.2" rx="0.6"/>
+<rect class="w" x="230" y="113" width="80" height="1.2" rx="0.6"/>
+<rect class="w" x="340" y="117" width="40" height="1.2" rx="0.6"/>
+</svg>

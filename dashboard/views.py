@@ -324,8 +324,10 @@ def dashboard_extras(base_groups, groups):
         })
 
     cards = list(groups.select_related('teacher').prefetch_related('schedule_slots', 'teachers', 'enrollments__student'))
+    from .campus import cover_for
     for g in cards:
         g.ee_hue = GROUP_HUES[g.id % len(GROUP_HUES)]
+        g.ee_cover = cover_for(g, g.ee_hue)   # обложка карточки: рисунок по названию группы (dashboard/campus.py)
         lesson_days = {slot.day_of_week for slot in g.schedule_slots.all()}
         g.ee_days = [{'short': d, 'on': i in lesson_days} for i, d in enumerate(DAYS_SHORT)]
         students = [e.student for e in g.enrollments.all()]

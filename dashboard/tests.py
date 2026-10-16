@@ -1807,6 +1807,48 @@ class WeatherTests(CRMTestCase):
         self.assertEqual(self.client.get('/dashboard/').status_code, 200)
 
 
+class GroupCoverTests(CRMTestCase):
+    """Обложки карточек групп: рисунок по названию университета (dashboard/campus.py)"""
+
+    def test_theme_by_group_name(self):
+        from .campus import THEMES, theme_for
+        cases = {'Melbourne': 'melbourne', 'Glasgow': 'glasgow', 'NUS': 'singapore', 'PSL': 'paris', 'Sydney': 'sydney',
+                 'Canada': 'canada', 'Мельбурн': 'melbourne', 'NUS 2 (kids)': 'singapore', 'MIT': 'boston',
+                 'New York Teens': 'newyork', 'Нью-Йорк': 'newyork', 'Toronto': 'canada', 'Oxford B2': 'oxford'}
+        for name, key in cases.items():
+            self.assertEqual((theme_for(name) or {}).get('key'), key, name)
+        for name in ('Bonus', 'Smith', 'Beginner A1', '', None):   # «nus» и «mit» — только отдельным словом
+            self.assertIsNone(theme_for(name), name)
+        theme = theme_for('PSL')
+        self.assertEqual((theme['hue'], theme['sat'], theme['art']), ('262', '0.9', 'dashboard/campus/paris.svg'))
+        from django.template.loader import get_template
+        from . import i18n
+        for art, hue, sat, label, keys in THEMES:
+            get_template(f'dashboard/campus/{art}.svg')                  # рисунок есть
+            self.assertIsNotNone(i18n.translate_phrase(label), label)   # и подпись переведена
+
+    def test_cover_falls_back_to_photo_then_campus(self):
+        from types import SimpleNamespace
+        from .campus import cover_for
+        self.assertEqual(cover_for(SimpleNamespace(name='Beginner', photo='group_photos/a.jpg'), 38)['key'], 'photo')
+        plain = cover_for(SimpleNamespace(name='Beginner', photo=None), 38)
+        self.assertEqual((plain['key'], plain['hue'], plain['art']), ('campus', '38', 'dashboard/campus/campus.svg'))
+        self.assertEqual(cover_for(SimpleNamespace(name='Sydney', photo='x.jpg'), 38)['key'], 'sydney')   # рисунок важнее фото
+
+    def test_dashboard_cards(self):
+        self.group.name = 'Melbourne'
+        self.group.save()
+        self.login(self.admin)
+        page = self.client.get('/dashboard/')
+        self.assertContains(page, 'data-cover="melbourne"')
+        self.assertContains(page, 'class="gcard-art"')
+        self.assertContains(page, 'style="--h: 222; --s: 1"')
+        self.assertContains(page, 'Австралия')
+        self.assertContains(page, 'data-cover="campus"')              # «Альфа» — без особого рисунка
+        self.client.cookies['ee_lang'] = 'en'
+        self.assertContains(self.client.get('/dashboard/'), 'Australia')
+
+
 class BackupTests(TransactionTestCase):
     """Без обёртки-транзакции TestCase: SQLite не даёт снять копию посреди открытой записи"""
     def setUp(self):

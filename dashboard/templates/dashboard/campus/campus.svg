@@ -1,0 +1,37 @@
+<svg class="gcard-art" viewBox="0 0 400 120" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+<circle class="s" cx="330" cy="30" r="12"/>
+<path class="c" d="M60 26h36.8a7.2 7.2 0 0 0-5.6-10.4a9.6 9.6 0 0 0-17.6-3.2a7.2 7.2 0 0 0-13.6 13.6z"/>
+<path class="c" d="M250 18h27.6a5.4 5.4 0 0 0-4.2-7.8a7.2 7.2 0 0 0-13.2-2.4a5.4 5.4 0 0 0-10.2 10.2z"/>
+<path class="f" d="M0 98C70 88 130 94 200 90C270 86 330 94 400 88V120H0Z"/>
+<rect class="k" x="130" y="66" width="140" height="6"/>
+<path class="k" d="M126 66L200 44L274 66Z"/>
+<rect class="k" x="176" y="30" width="48" height="10"/>
+<path class="m" d="M176 30A24 24 0 0 1 224 30Z"/>
+<rect class="k" x="198" y="0" width="4" height="8"/>
+<rect class="k" x="136" y="72" width="8" height="30"/>
+<rect class="k" x="154" y="72" width="8" height="30"/>
+<rect class="k" x="172" y="72" width="8" height="30"/>
+<rect class="k" x="190" y="72" width="8" height="30"/>
+<rect class="k" x="208" y="72" width="8" height="30"/>
+<rect class="k" x="226" y="72" width="8" height="30"/>
+<rect class="k" x="244" y="72" width="8" height="30"/>
+<rect class="k" x="262" y="72" width="8" height="30"/>
+<rect class="k" x="126" y="102" width="148" height="4"/>
+<rect class="k" x="120" y="106" width="160" height="4"/>
+<path class="w" d="M188 60H212L200 52Z"/>
+<rect class="m" x="70" y="80" width="50" height="30"/>
+<rect class="m" x="280" y="80" width="50" height="30"/>
+<rect class="w" x="76" y="86" width="5" height="8" rx="1"/>
+<rect class="w" x="86" y="86" width="5" height="8" rx="1"/>
+<rect class="w" x="96" y="86" width="5" height="8" rx="1"/>
+<rect class="w" x="106" y="86" width="5" height="8" rx="1"/>
+<rect class="w" x="286" y="86" width="5" height="8" rx="1"/>
+<rect class="w" x="296" y="86" width="5" height="8" rx="1"/>
+<rect class="w" x="306" y="86" width="5" height="8" rx="1"/>
+<rect class="w" x="316" y="86" width="5" height="8" rx="1"/>
+<circle class="n" cx="30" cy="99.2" r="16"/>
+<circle class="n" cx="52" cy="103.2" r="11"/>
+<circle class="n" cx="356" cy="100" r="15"/>
+<circle class="n" cx="380" cy="102.4" r="12"/>
+<rect class="m" x="0" y="110" width="400" height="10"/>
+</svg>
