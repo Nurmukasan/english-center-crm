@@ -898,6 +898,12 @@ PHRASES = {
     '{d}: начало': '{d}: start',
     '{d}: конец': '{d}: end',
     'Начать занятия': 'Start lessons',
+    # Профиль ученика
+    'Всего уроков': 'Total lessons',
+    'за всё время': 'all time',
+    # Личный кабинет
+    'JPG, PNG или WEBP, до {n} МБ': 'JPG, PNG or WEBP, up to {n} MB',
+    'Не меньше {n} символов': 'At least {n} characters',
     # Создать / редактировать группу
     'Основное': 'Basics',
     'Название группы': 'Group name',
@@ -1124,10 +1130,3 @@ PATTERNS = [
     (r'Убрать (.+) из группы\? Оплаты и посещаемость останутся в истории\.',
      'Remove {0} from the group? Payments and attendance stay in the history.'),
 ]
-
-# ВРЕМЕННО, на время переделки страниц: переводы помощников из locale_en_a…d (потом переносятся выше)
-for _part in ('a', 'b', 'c', 'd'):
-    try:
-        PHRASES.update(__import__(f'dashboard.locale_en_{_part}', fromlist=['PHRASES']).PHRASES)
-    except ImportError:
-        pass

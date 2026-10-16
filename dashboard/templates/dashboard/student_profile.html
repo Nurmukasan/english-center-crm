@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load i18n %}<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -6,278 +6,323 @@
     <title>{{ student.name }} — Enjoy English</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
-        * { font-family: 'Inter', sans-serif; }
-        .fade-in { animation: fadeIn 0.4s ease; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .hover-scale { transition: all 0.3s ease; }
-        .hover-scale:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+        .tnum { font-variant-numeric: tabular-nums; }
+        .tone-ok { --tone: var(--ok); --tone-soft: var(--ok-soft); }
+        .tone-warn { --tone: var(--warn); --tone-soft: var(--warn-soft); }
+        .tone-bad { --tone: var(--bad); --tone-soft: var(--bad-soft); }
+        .tone-none { --tone: var(--faint); --tone-soft: var(--surface-2); }
 
-        /* Круговой прогресс */
-        .progress-ring {
-            transform: rotate(-90deg);
-            transform-origin: 50% 50%;
-        }
-        .progress-ring circle {
-            transition: stroke-dashoffset 1s ease-in-out;
-        }
+        /* ---------- Карточка ученика ---------- */
+        .sp-hero { padding: 26px; }
+        .sp-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 22px; }
+        .sp-avatar { width: 92px; height: 92px; border-radius: 28px; display: grid; place-items: center; flex-shrink: 0;
+            font-size: 38px; font-weight: 800; color: var(--accent-ink); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); }
+        .sp-name { font-size: 30px; font-weight: 800; line-height: 1.15; color: var(--ink); letter-spacing: -.02em; overflow-wrap: anywhere; margin-top: 4px; }
+        .sp-groups { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+        a.ee-tag { transition: background-color .2s ease, box-shadow .2s ease; }
+        a.ee-tag:hover { background: var(--accent-100); box-shadow: inset 0 0 0 1px var(--accent-line); }
+        a.ee-tag.ee-tag-muted:hover { background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--line-strong); }
+        .sp-price { min-width: 150px; padding: 14px 18px; border-radius: 18px; text-align: right; background: var(--surface-2); border: 1px solid var(--line); }
+        .sp-price span { display: block; font-size: 12px; font-weight: 700; color: var(--muted); }
+        .sp-price b { display: block; margin-top: 2px; font-size: 26px; font-weight: 800; line-height: 1.1; color: var(--ink); white-space: nowrap; }
+        .sp-price b small { font-size: 16px; font-weight: 700; color: var(--muted); }
 
+        .facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; margin-top: 22px; padding-top: 22px; border-top: 1px solid var(--line); }
+        .fact { display: flex; align-items: center; gap: 11px; min-width: 0; padding: 10px 12px; border-radius: 14px; background: var(--surface-2); }
+        .fact > i { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; font-size: 13px;
+            color: var(--accent-ink); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+        .fact-label { display: block; font-size: 11.5px; font-weight: 700; color: var(--muted); }
+        .fact-value { display: block; font-size: 14px; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* ---------- Плитки: ДЗ, посещаемость, звёзды, уроки ---------- */
+        .kpi { display: flex; align-items: center; gap: 14px; padding: 18px; min-width: 0; }
+        .kpi-visual { position: relative; width: 58px; height: 58px; flex-shrink: 0; display: grid; place-items: center; }
+        .kpi-visual > i { position: relative; font-size: 17px; color: var(--tone, var(--accent-ink)); }
+        .kpi-visual.is-disc { border-radius: 9999px; background: var(--tone-soft, var(--accent-soft)); }
+        .kring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+        .kring circle { fill: none; stroke-width: 5; }
+        .kring-track { stroke: var(--surface-3); }
+        .kring-bar { stroke: var(--tone); stroke-linecap: round; animation: ring-in 1.1s var(--spring-soft) both .15s; }
+        @keyframes ring-in { from { stroke-dasharray: 0 100; } }
+        .kpi-label { font-size: 12.5px; font-weight: 700; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .kpi-value { font-size: 26px; font-weight: 800; line-height: 1.1; color: var(--ink); letter-spacing: -.02em; }
+        .kpi-value small { font-size: 15px; font-weight: 700; color: var(--muted); letter-spacing: 0; }
+        .kpi-sub { font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 2px; white-space: nowrap; }
+        .dots { display: flex; gap: 3px; margin-top: 7px; }
+        .dots i { width: 7px; height: 7px; border-radius: 9999px; flex-shrink: 0; }
+        .dots i.present { background: var(--ok); }
+        .dots i.late { background: #f59e0b; }
+        .dots i.absent { box-shadow: inset 0 0 0 1.5px var(--bad); }
+
+        /* ---------- Разделы ---------- */
+        .box-head { display: flex; align-items: center; gap: 12px; padding: 18px 22px; border-bottom: 1px solid var(--line); }
+        .box-head .ee-sec-title { flex: 1; min-width: 0; }
+
+        /* Последние уроки */
+        .les { display: flex; align-items: center; gap: 14px; padding: 12px 22px; transition: background-color .2s ease; }
+        .les + .les { border-top: 1px solid var(--line); }
+        .les:hover { background: var(--surface-2); }
+        .les-date { width: 48px; flex-shrink: 0; text-align: center; border-radius: 12px; padding: 5px 0; background: var(--surface-2); border: 1px solid var(--line); }
+        .les:hover .les-date { background: var(--surface); }
+        .les-date b { display: block; font-size: 17px; font-weight: 800; line-height: 1.1; color: var(--ink); }
+        .les-date span { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+        .les-body { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 6px 14px; }
+        .les-group { font-size: 14px; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .les-meta { font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .les-tags { display: grid; grid-template-columns: 96px 50px 48px; align-items: center; justify-items: start; gap: 6px; flex-shrink: 0; }
+        .ee-tag.ee-tag-star { color: var(--warn-ink); background: var(--warn-soft); }
+        .ee-tag.ee-tag-star i { color: #f59e0b; }
+
+        /* Калибровки */
+        .cal { display: flex; align-items: flex-start; gap: 12px; padding: 14px 22px; }
+        .cal + .cal { border-top: 1px solid var(--line); }
+        .cal-icon { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; font-size: 14px; }
+        .cal-icon.up { color: var(--ok-ink); background: var(--ok-soft); }
+        .cal-icon.down { color: var(--bad-ink); background: var(--bad-soft); }
+        .cal-title { font-size: 14px; font-weight: 800; color: var(--ink); }
+        .cal-date { font-size: 12px; font-weight: 600; color: var(--faint); white-space: nowrap; }
+        .cal-meta { font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 1px; }
+        .cal-comment { margin-top: 8px; padding: 8px 12px; border-radius: 10px; font-size: 13.5px; line-height: 1.45; color: var(--ink-2);
+            background: var(--surface-2); border-left: 3px solid var(--line-strong); overflow-wrap: anywhere; }
+
+        @media (max-width: 640px) {
+            .sp-hero { padding: 18px 16px; }
+            .sp-top { grid-template-columns: auto minmax(0, 1fr); gap: 14px 16px; }
+            .sp-avatar { width: 68px; height: 68px; border-radius: 22px; font-size: 28px; }
+            .sp-name { font-size: 22px; }
+            .sp-price { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-radius: 14px; text-align: left; }
+            .sp-price b { font-size: 20px; margin: 0; }
+            .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 16px; padding-top: 16px; gap: 8px; }
+            .fact { padding: 8px 10px; gap: 10px; }
+            .fact > i { width: 30px; height: 30px; }
+            .fact.is-wide { grid-column: 1 / -1; }
+            .kpi { gap: 10px; padding: 14px 12px; }
+            .kpi-visual { width: 44px; height: 44px; }
+            .kpi-label { font-size: 12px; }
+            .dots { gap: 3px; }
+            .dots i { width: 6px; height: 6px; }
+            .kpi-visual > i { font-size: 15px; }
+            .kpi-value { font-size: 22px; }
+            .box-head { padding: 14px 16px; }
+            .les { align-items: flex-start; padding: 12px 16px; gap: 12px; }
+            .les-body { flex-direction: column; align-items: flex-start; }
+            .les-tags { display: flex; flex-wrap: wrap; }
+            .les-tags > .empty { display: none; }
+            .cal { padding: 14px 16px; }
+        }
+        @media (prefers-reduced-motion: reduce) { .kring-bar { animation: none; } }
     </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
-<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+<body class="min-h-screen">
     {% include 'dashboard/partials/shell.html' %}
 
-
-    <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
-        <div class="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
-            <div class="flex items-center gap-4">
-                <a href="javascript:history.back()" class="text-gray-300 hover:text-white transition">
-                    <i class="fas fa-arrow-left"></i> Назад
-                </a>
-                <div class="flex items-center gap-2">
-                    <i class="fas fa-user-graduate text-2xl text-indigo-400"></i>
-                    <h1 class="text-xl font-bold text-white">Профиль ученика</h1>
+    <header class="sticky top-0 z-40">
+        <div class="ee-head max-w-5xl mx-auto px-4 sm:px-6">
+            <div class="ee-head-main">
+                <a href="{% if role == 'accountant' %}{% url 'payments_page' %}{% else %}{% url 'students_list' %}{% endif %}" onclick="var r = document.referrer; if (r.indexOf(location.origin + '/') === 0 &amp;&amp; r.indexOf('/edit/') &lt; 0) { history.back(); return false; }" class="head-back" aria-label="Назад"><i class="fas fa-arrow-left"></i></a>
+                <span class="head-icon"><i class="fas fa-user-graduate"></i></span>
+                <div class="min-w-0">
+                    <h1 class="head-title">Профиль ученика</h1>
+                    <p class="head-sub notranslate">{{ student.name }}</p>
                 </div>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="ee-head-actions">
                 {% if role == 'teacher' or role == 'manager' %}
-                <a href="{% url 'inbox_page' %}?student={{ student.id }}" class="chip-btn" title="Комментарий или жалоба — придёт админу">
+                <a href="{% url 'inbox_page' %}?student={{ student.id }}" class="head-btn" title="Комментарий или жалоба — придёт админу">
                     <i class="fas fa-comment-dots"></i><span class="hidden sm:inline">Написать админу</span>
                 </a>
                 {% endif %}
-                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
-                    <i class="fas fa-moon dark:hidden text-gray-300"></i>
-                    <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
-                </button>
-                <a href="{% url 'logout' %}" class="text-red-400 text-sm">
-                    <i class="fas fa-sign-out-alt"></i> Выйти
+                {% if role == 'admin' or role == 'developer' or role == 'manager' %}
+                <a href="{% url 'edit_student' student.id %}?return={{ request.get_full_path|urlencode }}" class="head-btn is-main" title="Изменить" aria-label="Изменить">
+                    <i class="fas fa-pen"></i><span class="hidden sm:inline">Изменить</span>
                 </a>
+                {% endif %}
             </div>
         </div>
     </header>
 
-    <main class="max-w-5xl mx-auto px-4 py-8 fade-in">
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
-        <!-- ===== ВЕРХНИЙ БЛОК: ФОТО + ИНФО ===== -->
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-2xl shadow-md border border-gray-300 dark:border-gray-600 p-6 mb-6 hover-scale transition-colors">
-            <div class="flex flex-col md:flex-row items-center md:items-start gap-6">
-
-                <!-- Фото / Аватар -->
-                <div class="flex-shrink-0">
-                    <div class="w-32 h-32 rounded-full bg-orange-100 flex items-center justify-center text-orange-700 text-5xl font-bold shadow-lg ring-4 ring-white dark:ring-gray-700">
-                        {{ student.name|slice:":1"|upper }}
-                    </div>
-                </div>
-
-                <!-- Инфо -->
-                <div class="flex-1 text-center md:text-left">
-                    <div class="flex items-center justify-center md:justify-start gap-3 flex-wrap">
-                        <h2 class="text-3xl font-bold text-gray-800 dark:text-white">{{ student.name }}</h2>
-                        {% if total_stars > 0 %}
-                        <span class="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-lg font-bold px-3 py-1 rounded-full inline-flex items-center gap-1">
-                            ⭐ {{ total_stars }}
-                        </span>
+        <!-- Карточка: кто это, группы, цена, контакты -->
+        <section class="panel sp-hero mb-5">
+            <div class="sp-top">
+                <div class="sp-avatar notranslate" aria-hidden="true">{{ student.name|slice:":1"|upper }}</div>
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <p class="eyebrow">Ученик</p>
+                        {% if not student.is_active %}
+                        <span class="ee-tag ee-tag-muted"><i class="fas fa-box-archive"></i>{% if student.archived_at %}в архиве с {{ student.archived_at|date:"d.m.Y" }}{% else %}архив{% endif %}</span>
                         {% endif %}
                     </div>
-
-                    <div class="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                        {% if student.age %}
-                        <div class="bg-white dark:bg-gray-700 rounded-lg px-3 py-2">
-                            <span class="text-gray-500 dark:text-gray-400 text-xs">Возраст</span>
-                            <p class="font-bold text-gray-800 dark:text-white">{{ student.age }} лет</p>
-                        </div>
-                        {% endif %}
-                        {% if student.grade %}
-                        <div class="bg-white dark:bg-gray-700 rounded-lg px-3 py-2">
-                            <span class="text-gray-500 dark:text-gray-400 text-xs">Класс</span>
-                            <p class="font-bold text-gray-800 dark:text-white">{{ student.grade }}</p>
-                        </div>
-                        {% endif %}
-                        {% if student.school %}
-                        <div class="bg-white dark:bg-gray-700 rounded-lg px-3 py-2">
-                            <span class="text-gray-500 dark:text-gray-400 text-xs">Школа</span>
-                            <p class="font-bold text-gray-800 dark:text-white truncate" title="{{ student.school }}">{{ student.school }}</p>
-                        </div>
-                        {% endif %}
-                        {% if student.phone %}
-                        <div class="bg-white dark:bg-gray-700 rounded-lg px-3 py-2">
-                            <span class="text-gray-500 dark:text-gray-400 text-xs">Телефон</span>
-                            <p class="font-bold text-gray-800 dark:text-white">{% include 'dashboard/partials/phone.html' with phone=student.phone %}</p>
-                        </div>
-                        {% endif %}
-                        {% if student.parent_name %}
-                        <div class="bg-white dark:bg-gray-700 rounded-lg px-3 py-2">
-                            <span class="text-gray-500 dark:text-gray-400 text-xs">Родитель</span>
-                            <p class="font-bold text-gray-800 dark:text-white">{{ student.parent_name }}</p>
-                        </div>
-                        {% endif %}
-                        {% if student.parent_phone %}
-                        <div class="bg-white dark:bg-gray-700 rounded-lg px-3 py-2">
-                            <span class="text-gray-500 dark:text-gray-400 text-xs">Тел. родителя</span>
-                            <p class="font-bold text-gray-800 dark:text-white">{% include 'dashboard/partials/phone.html' with phone=student.parent_phone %}</p>
-                        </div>
-                        {% endif %}
-                    </div>
-
-                    <div class="mt-4 flex flex-wrap gap-2 justify-center md:justify-start">
+                    <h2 class="sp-name notranslate">{{ student.name }}</h2>
+                    <div class="sp-groups">
                         {% for enrollment in enrollments %}
-                        <a href="{% url 'group_detail' enrollment.group.id %}"
-                           class="bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-full text-xs font-medium hover:bg-indigo-200 dark:hover:bg-indigo-900/60 transition">
-                            <i class="fas fa-users mr-1"></i>{{ enrollment.group.name }}
+                        <a href="{% url 'group_detail' enrollment.group.id %}" class="ee-tag {% if not enrollment.group.is_active %}ee-tag-muted{% endif %}">
+                            <i class="fas {% if enrollment.group.group_type == 'individual' %}fa-user{% else %}fa-users{% endif %}"></i><span class="notranslate">{{ enrollment.group.name }}</span>
                         </a>
+                        {% empty %}
+                        <span class="ee-tag ee-tag-muted">Нет групп</span>
                         {% endfor %}
                     </div>
                 </div>
-
-                <!-- Правая колонка: цена -->
-                <div class="flex-shrink-0 text-center md:text-right">
-                    <p class="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">Цена за урок</p>
-                    <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ student.price_per_lesson|floatformat:0 }} ₸</p>
+                <div class="sp-price">
+                    <span>Цена за урок</span>
+                    <b class="tnum">{{ student.price_per_lesson|floatformat:0 }} <small>₸</small></b>
                 </div>
             </div>
-        </div>
 
-        <!-- ===== КРУГОВЫЕ ПРОГРЕССЫ ===== -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            {% if student.age or student.grade or student.school or student.phone or student.parent_name or student.parent_phone %}
+            <div class="facts">
+                {% if student.age %}
+                <div class="fact"><i class="fas fa-cake-candles"></i><div class="min-w-0"><span class="fact-label">Возраст</span><span class="fact-value">{{ student.age }} лет</span></div></div>
+                {% endif %}
+                {% if student.grade %}
+                <div class="fact"><i class="fas fa-graduation-cap"></i><div class="min-w-0"><span class="fact-label">Класс</span><span class="fact-value notranslate">{{ student.grade }}</span></div></div>
+                {% endif %}
+                {% if student.school %}
+                <div class="fact is-wide"><i class="fas fa-school"></i><div class="min-w-0"><span class="fact-label">Школа</span><span class="fact-value notranslate" title="{{ student.school }}">{{ student.school }}</span></div></div>
+                {% endif %}
+                {% if student.phone %}
+                <div class="fact is-wide"><i class="fas fa-phone"></i><div class="min-w-0"><span class="fact-label">Телефон</span><span class="fact-value">{% include 'dashboard/partials/phone.html' with phone=student.phone %}</span></div></div>
+                {% endif %}
+                {% if student.parent_name %}
+                <div class="fact is-wide"><i class="fas fa-people-roof"></i><div class="min-w-0"><span class="fact-label">Родитель</span><span class="fact-value notranslate" title="{{ student.parent_name }}">{{ student.parent_name }}</span></div></div>
+                {% endif %}
+                {% if student.parent_phone %}
+                <div class="fact is-wide"><i class="fas fa-mobile-screen"></i><div class="min-w-0"><span class="fact-label">Тел. родителя</span><span class="fact-value">{% include 'dashboard/partials/phone.html' with phone=student.parent_phone %}</span></div></div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </section>
 
-            <!-- Домашка -->
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-2xl shadow-md border border-gray-300 dark:border-gray-600 p-6 hover-scale transition-colors">
-                <div class="flex items-center justify-center mb-4">
-                    <div class="relative">
-                        <svg class="progress-ring" width="180" height="180">
-                            <circle cx="90" cy="90" r="78" stroke="#e5e7eb" stroke-width="14" fill="transparent" class="dark:stroke-gray-700"/>
-                            <circle cx="90" cy="90" r="78"
-                                    stroke="{{ homework_color.stroke }}"
-                                    stroke-width="14"
-                                    fill="transparent"
-                                    stroke-linecap="round"
-                                    stroke-dasharray="{{ 490 }}"
-                                    stroke-dashoffset="{{ 490|add:0 }}"
-                                    style="stroke-dashoffset: calc(490 - (490 * {{ homework_percent }}) / 100);"/>
-                        </svg>
-                        <div class="absolute inset-0 flex flex-col items-center justify-center">
-                            <span class="text-4xl font-bold {{ homework_color.text }}">{{ homework_percent }}%</span>
-                            <span class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ homework_count }} / {{ total_lessons }}</span>
+        <!-- Плитки за всё время -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5">
+            <div class="panel kpi tone-{% if not total_lessons %}none{% elif homework_percent < 50 %}bad{% elif homework_percent < 80 %}warn{% else %}ok{% endif %}" title="Сделано ДЗ за всё время">
+                <div class="kpi-visual">
+                    <svg class="kring" viewBox="0 0 44 44" aria-hidden="true">
+                        <circle class="kring-track" cx="22" cy="22" r="19" pathLength="100"/>
+                        {% if homework_percent %}<circle class="kring-bar" cx="22" cy="22" r="19" pathLength="100" stroke-dasharray="{{ homework_percent }} 100"/>{% endif %}
+                    </svg>
+                    <i class="fas fa-book"></i>
+                </div>
+                <div class="min-w-0">
+                    <p class="kpi-label">Домашка</p>
+                    <p class="kpi-value tnum">{% if total_lessons %}{{ homework_percent }}<small>%</small>{% else %}—{% endif %}</p>
+                    <p class="kpi-sub tnum">{{ homework_count }} из {{ total_lessons }}</p>
+                </div>
+            </div>
+            <div class="panel kpi tone-{% if not total_lessons %}none{% elif participation_percent < 50 %}bad{% elif participation_percent < 80 %}warn{% else %}ok{% endif %}" title="Присутствовал на занятиях">
+                <div class="kpi-visual">
+                    <svg class="kring" viewBox="0 0 44 44" aria-hidden="true">
+                        <circle class="kring-track" cx="22" cy="22" r="19" pathLength="100"/>
+                        {% if participation_percent %}<circle class="kring-bar" cx="22" cy="22" r="19" pathLength="100" stroke-dasharray="{{ participation_percent }} 100"/>{% endif %}
+                    </svg>
+                    <i class="fas fa-user-check"></i>
+                </div>
+                <div class="min-w-0">
+                    <p class="kpi-label">Посещаемость</p>
+                    <p class="kpi-value tnum">{% if total_lessons %}{{ participation_percent }}<small>%</small>{% else %}—{% endif %}</p>
+                    <p class="kpi-sub tnum">{{ present_count }} из {{ total_lessons }}</p>
+                </div>
+            </div>
+            <div class="panel kpi tone-warn">
+                <div class="kpi-visual is-disc"><i class="fas fa-star" style="color: #f59e0b"></i></div>
+                <div class="min-w-0">
+                    <p class="kpi-label">Звёзды</p>
+                    <p class="kpi-value tnum">{{ total_stars }}</p>
+                    <p class="kpi-sub">за всё время</p>
+                </div>
+            </div>
+            <div class="panel kpi">
+                <div class="kpi-visual is-disc"><i class="fas fa-calendar-check"></i></div>
+                <div class="min-w-0">
+                    <p class="kpi-label">Всего уроков</p>
+                    <p class="kpi-value tnum">{{ total_lessons }}</p>
+                    {% if recent_lessons %}
+                    <div class="dots" title="Последние уроки">
+                        {% for att in recent_lessons reversed %}<i class="{% if att.status == 'present' %}present{% elif att.status == 'late' %}late{% else %}absent{% endif %}" title="{{ att.lesson.date|date:'d.m' }}"></i>{% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="kpi-sub">за всё время</p>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+
+        <div class="{% if calibrations %}grid lg:grid-cols-5 gap-5 items-start{% endif %}">
+            <!-- Последние уроки -->
+            <section class="panel overflow-hidden {% if calibrations %}lg:col-span-3{% endif %}">
+                <div class="box-head">
+                    <span class="ee-sec-icon"><i class="fas fa-clock-rotate-left"></i></span>
+                    <h2 class="ee-sec-title">Последние уроки</h2>
+                </div>
+                {% if recent_lessons %}
+                <ul>
+                    {% for att in recent_lessons %}
+                    <li class="les">
+                        {% language 'ru' %}
+                        <div class="les-date" title="{{ att.lesson.date|date:'d.m.Y' }}"><b>{{ att.lesson.date|date:"j" }}</b><span>{{ att.lesson.date|date:"b" }}</span></div>
+                        <div class="les-body">
+                            <div class="min-w-0">
+                                <p class="les-group notranslate">{{ att.lesson.group.name }}</p>
+                                <p class="les-meta"><span>{{ att.lesson.date|date:"D, d.m.Y" }}</span>{% if att.lesson.topic %} · <span class="notranslate">{{ att.lesson.topic }}</span>{% endif %}</p>
+                            </div>
+                            <div class="les-tags">
+                                {% if att.status == 'present' %}
+                                <span class="ee-tag ee-tag-ok"><i class="fas fa-circle-check"></i>Был</span>
+                                {% elif att.status == 'late' %}
+                                <span class="ee-tag ee-tag-warn"><i class="fas fa-clock"></i>Опоздал</span>
+                                {% else %}
+                                <span class="ee-tag ee-tag-bad"><i class="fas fa-circle-xmark"></i>Не был</span>
+                                {% endif %}
+                                {% if att.homework_done %}<span class="ee-tag ee-tag-ok" title="Домашнее задание"><i class="fas fa-check"></i>ДЗ</span>{% else %}<span class="empty" aria-hidden="true"></span>{% endif %}
+                                {% if att.stars %}<span class="ee-tag ee-tag-star tnum" title="Звёзды за урок"><i class="fas fa-star"></i>{{ att.stars }}</span>{% else %}<span class="empty" aria-hidden="true"></span>{% endif %}
+                            </div>
                         </div>
-                    </div>
+                        {% endlanguage %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="ee-empty"><i class="fas fa-calendar-xmark"></i><b>Пока нет занятий</b></div>
+                {% endif %}
+            </section>
+
+            {% if calibrations %}
+            <!-- Калибровки уровня -->
+            <section class="panel overflow-hidden lg:col-span-2">
+                <div class="box-head">
+                    <span class="ee-sec-icon"><i class="fas fa-scale-balanced"></i></span>
+                    <h2 class="ee-sec-title">Калибровки уровня</h2>
                 </div>
-                <h3 class="text-center font-bold text-gray-800 dark:text-white text-lg">
-                    <i class="fas fa-book text-amber-500 mr-1"></i> Домашнее задание
-                </h3>
-                <p class="text-center text-xs text-gray-500 dark:text-gray-400 mt-1">Сделано ДЗ за всё время</p>
-            </div>
-
-            <!-- Участие -->
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-2xl shadow-md border border-gray-300 dark:border-gray-600 p-6 hover-scale transition-colors">
-                <div class="flex items-center justify-center mb-4">
-                    <div class="relative">
-                        <svg class="progress-ring" width="180" height="180">
-                            <circle cx="90" cy="90" r="78" stroke="#e5e7eb" stroke-width="14" fill="transparent" class="dark:stroke-gray-700"/>
-                            <circle cx="90" cy="90" r="78"
-                                    stroke="{{ participation_color.stroke }}"
-                                    stroke-width="14"
-                                    fill="transparent"
-                                    stroke-linecap="round"
-                                    stroke-dasharray="490"
-                                    style="stroke-dashoffset: calc(490 - (490 * {{ participation_percent }}) / 100);"/>
-                        </svg>
-                        <div class="absolute inset-0 flex flex-col items-center justify-center">
-                            <span class="text-4xl font-bold {{ participation_color.text }}">{{ participation_percent }}%</span>
-                            <span class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ present_count }} / {{ total_lessons }}</span>
-                        </div>
-                    </div>
-                </div>
-                <h3 class="text-center font-bold text-gray-800 dark:text-white text-lg">
-                    <i class="fas fa-hand-paper text-emerald-500 mr-1"></i> Участие на уроках
-                </h3>
-                <p class="text-center text-xs text-gray-500 dark:text-gray-400 mt-1">Присутствовал на занятиях</p>
-            </div>
-
-        </div>
-
-        <!-- ===== ПОСЛЕДНИЕ УРОКИ ===== -->
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-2xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden mb-6 transition-colors">
-            <div class="px-6 py-4 border-b border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700/50">
-                <h3 class="font-bold text-gray-800 dark:text-white">
-                    <i class="fas fa-history text-indigo-500 mr-1"></i> Последние уроки
-                </h3>
-            </div>
-            <div class="divide-y divide-gray-200 dark:divide-gray-700">
-                {% for att in recent_lessons %}
-                <div class="px-6 py-3 flex justify-between items-center gap-3">
-                    <div class="min-w-0 flex-1">
-                        <p class="text-sm font-medium text-gray-800 dark:text-white">{{ att.lesson.date|date:"d.m.Y" }}</p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ att.lesson.group.name }}</p>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        {% if att.stars %}
-                        <span class="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-1 rounded-full font-bold" title="Звёзды за урок">⭐ {{ att.stars }}</span>
-                        {% endif %}
-                        {% if att.homework_done %}
-                        <span class="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full">✅ ДЗ</span>
-                        {% endif %}
-                        {% if att.status == 'present' %}
-                        <span class="text-xs bg-green-500 text-white px-3 py-1 rounded-full">Был</span>
-                        {% elif att.status == 'late' %}
-                        <span class="text-xs bg-amber-500 text-white px-3 py-1 rounded-full">Опоздал</span>
+                <ul>
+                    {% for cal in calibrations %}
+                    <li class="cal">
+                        {% if cal.direction == 'up' %}
+                        <span class="cal-icon up"><i class="fas fa-arrow-trend-up"></i></span>
                         {% else %}
-                        <span class="text-xs bg-red-500 text-white px-3 py-1 rounded-full">Не был</span>
+                        <span class="cal-icon down"><i class="fas fa-arrow-trend-down"></i></span>
                         {% endif %}
-                    </div>
-                </div>
-                {% empty %}
-                <div class="px-6 py-8 text-center text-gray-400">
-                    <i class="fas fa-inbox text-3xl mb-2"></i>
-                    <p>Пока нет занятий</p>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-
-        <!-- ===== КАЛИБРОВКИ ===== -->
-        {% if calibrations %}
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-2xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden mb-6 transition-colors">
-            <div class="px-6 py-4 border-b border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700/50">
-                <h3 class="font-bold text-gray-800 dark:text-white">
-                    <i class="fas fa-balance-scale text-amber-500 mr-1"></i> Калибровки уровня
-                </h3>
-            </div>
-            <div class="divide-y divide-gray-200 dark:divide-gray-700">
-                {% for cal in calibrations %}
-                <div class="px-6 py-3">
-                    <div class="flex justify-between items-start gap-3">
-                        <div class="flex-1">
-                            {% if cal.direction == 'up' %}
-                            <span class="text-sm font-medium text-green-600 dark:text-green-400">⬆️ Уровень выше</span>
-                            {% else %}
-                            <span class="text-sm font-medium text-red-600 dark:text-red-400">⬇️ Уровень ниже</span>
-                            {% endif %}
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ cal.group.name }}</p>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-baseline justify-between gap-3">
+                                <p class="cal-title">{% if cal.direction == 'up' %}Уровень выше{% else %}Уровень ниже{% endif %}</p>
+                                <span class="cal-date tnum">{{ cal.created_at|date:"d.m.Y" }}</span>
+                            </div>
+                            <p class="cal-meta notranslate">{{ cal.group.name }}</p>
                             {% if cal.comment %}
-                            <p class="text-sm text-gray-700 dark:text-gray-300 mt-2 italic notranslate">"{{ cal.comment }}"</p>
+                            <p class="cal-comment notranslate">{{ cal.comment }}</p>
                             {% endif %}
                         </div>
-                        <span class="text-xs text-gray-400 whitespace-nowrap">{{ cal.created_at|date:"d.m.Y" }}</span>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </section>
+            {% endif %}
         </div>
-        {% endif %}
 
     </main>
-
-    <script>
-        function toggleTheme() {
-            document.documentElement.classList.toggle('dark');
-        }
-    </script>
-
 </body>
 </html>
