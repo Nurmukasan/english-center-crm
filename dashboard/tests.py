@@ -983,14 +983,39 @@ class IncomeStatsTests(CRMTestCase):
         self.assertRedirects(self.client.get('/accountant-stats/'), '/dashboard/', fetch_redirect_response=False)
 
     def test_excel_export(self):
+        """Excel статистики: те же цифры, что на странице, — формулами из листа «Начисления»"""
         import io
         import openpyxl
+        stats = self.client.get('/accountant-stats/?months=6').context['stats']
         response = self.client.get('/accountant-stats/export/?months=6')
         self.assertEqual(response.status_code, 200)
-        wb = openpyxl.load_workbook(io.BytesIO(response.content))
-        self.assertEqual(wb.sheetnames, ['По месяцам', 'По группам', 'Должники', 'Оплаты'])
-        self.assertEqual(wb['Должники']['A2'].value, 'Алия')
-        self.assertEqual(wb['Оплаты'].max_row, 4)
+        self.assertIn('enjoy-english-income-6m-', response['Content-Disposition'])
+        content = io.BytesIO(response.content)
+        formulas, values = openpyxl.load_workbook(content), openpyxl.load_workbook(content, data_only=True)
+        self.assertEqual(formulas.sheetnames, ['Сводка', 'По месяцам', 'По группам', 'По учителям', 'Должники', 'Начисления'])
+        # Строки начислений: ученик × группа × месяц периода (4 месяца, один ученик)
+        charges = values['Начисления']
+        last = 4 + sum(1 for r in range(5, 100) if charges.cell(row=r, column=5).value)
+        aliya = [charges.cell(row=r, column=9).value for r in range(5, last + 1) if charges.cell(row=r, column=5).value == 'Алия']
+        self.assertEqual(aliya, ['Оплачено', 'Оплачено', 'Долг', 'Оплачено'])
+        self.assertTrue(formulas['Начисления']['K5'].value.startswith('=IF(I5="Оплачено"'))
+        # Сводка — формулы, а рядом готовые числа, совпадающие со страницей
+        summary_f, summary_v = formulas['Сводка'], values['Сводка']
+        self.assertEqual(summary_f['B7'].value, f"=SUM('Начисления'!$K$5:$K${last})")
+        self.assertEqual(summary_v['B7'].value, stats['total'])
+        self.assertEqual(summary_v['K7'].value, stats['debt'])               # «Долг»
+        self.assertAlmostEqual(summary_v['H7'].value, stats['rate'] / 100, places=2)
+        # По месяцам: СУММЕСЛИМН по «Начислениям»
+        months = formulas['По месяцам']
+        self.assertTrue(months['C5'].value.startswith(f"=SUMIFS('Начисления'!$K$5:$K${last}"))
+        self.assertEqual([values['По месяцам'].cell(row=5 + i, column=3).value for i in range(len(stats['chart']))],
+                         [c['collected'] for c in stats['chart']])
+        self.assertEqual(values['Должники']['A5'].value, 'Алия')
+        self.assertEqual(values['Должники']['G5'].value, stats['debt'])
+        self.assertEqual(values['По группам']['F5'].value, 48000)
+        import zipfile
+        charts = [n for n in zipfile.ZipFile(content).namelist() if n.startswith('xl/charts/chart')]
+        self.assertEqual(len(charts), 4)                                       # 2 по месяцам, способы оплаты, группы
 
 
 class CashPaymentTests(CRMTestCase):
@@ -1537,6 +1562,62 @@ class SecurityTests(CRMTestCase):
         self.assertEqual(device_label('Mozilla/5.0 (Linux; Android 13) AppleWebKit Chrome/120 Mobile Safari'), 'Chrome · Android')
         self.assertEqual(device_label('Mozilla/5.0 (Windows NT 10.0) Chrome/120 Safari/537 Edg/120'), 'Edge · Windows')
         self.assertEqual(device_label(''), 'Неизвестное устройство')
+
+
+class GeneralExcelTests(CRMTestCase):
+    """Общий отчёт в Excel (/export/): ученики, оплаты, группы, журнал посещаемости — формулами"""
+
+    def test_general_report(self):
+        import io
+        import openpyxl
+        ScheduleSlot.objects.create(group=self.group, day_of_week=0, start_time=time(10), end_time=time(11))
+        lesson = Lesson.objects.create(group=self.group, date=timezone.localdate())
+        Attendance.objects.create(lesson=lesson, student=self.student, status='present', homework_done=True, stars=3)
+        cancelled = Lesson.objects.create(group=self.group, date=timezone.localdate() - timedelta(days=1), is_cancelled=True)
+        Attendance.objects.create(lesson=cancelled, student=self.student, status='absent')
+        year, month = get_current_period(self.group.cycle_start_day)
+        Payment.objects.create(student=self.student, group=self.group, cycle_number=year * 100 + month,
+                               amount=8000, paid_amount=8000, is_paid=True)
+        self.login(self.manager)
+        response = self.client.get('/export/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('enjoy-english-report-', response['Content-Disposition'])
+        content = io.BytesIO(response.content)
+        formulas, values = openpyxl.load_workbook(content), openpyxl.load_workbook(content, data_only=True)
+        self.assertEqual(formulas.sheetnames, ['Сводка', 'Ученики', 'Оплаты', 'Группы', 'Посещаемость'])
+        # Журнал: только проведённые уроки
+        log = values['Посещаемость']
+        self.assertEqual((log['E5'].value, log['F5'].value, log['G5'].value, log['H5'].value), ('Алия', 'Был', 'Да', 3))
+        self.assertIsNone(log['E6'].value)
+        # Ученики: посещаемость и звёзды — формулами из журнала
+        students = {values['Ученики'].cell(row=r, column=1).value: r for r in range(5, 7)}
+        r = students['Алия']
+        self.assertTrue(formulas['Ученики'][f'N{r}'].value.startswith('=IFERROR(M'))
+        self.assertEqual((values['Ученики'][f'N{r}'].value, values['Ученики'][f'P{r}'].value), (1, 3))
+        # Оплаты: текущий месяц оплачен, к оплате = цена × уроки
+        pay = {values['Оплаты'].cell(row=r, column=1).value: r for r in range(5, 7)}
+        r = pay['Алия']
+        self.assertEqual(formulas['Оплаты'][f'F{r}'].value, f'=D{r}*E{r}')
+        self.assertEqual(values['Оплаты'][f'G{r}'].value, 'Оплачено')
+        # Группы и сводка
+        groups = {values['Группы'].cell(row=r, column=1).value: r for r in range(5, 7)}
+        self.assertEqual(values['Группы'][f'G{groups["Beginner"]}'].value, 1)
+        self.assertEqual(values['Сводка']['B6'].value, 2)                       # учатся сейчас
+        self.assertTrue(formulas['Сводка']['B6'].value.startswith('=COUNTIFS('))
+        import zipfile
+        self.assertGreaterEqual(len([n for n in zipfile.ZipFile(content).namelist() if n.startswith('xl/charts/chart')]), 3)
+        # Учителю — нельзя
+        self.login(self.teacher)
+        self.assertEqual(self.client.get('/export/').status_code, 302)
+
+    def test_empty_crm_exports(self):
+        """Ни учеников, ни оплат — файлы всё равно собираются"""
+        Payment.objects.all().delete()
+        Student.objects.all().delete()
+        Group.objects.all().delete()
+        self.login(self.admin)
+        self.assertEqual(self.client.get('/export/').status_code, 200)
+        self.assertEqual(self.client.get('/accountant-stats/export/?months=12&type=individual').status_code, 200)
 
 class BackupTests(TransactionTestCase):
     """Без обёртки-транзакции TestCase: SQLite не даёт снять копию посреди открытой записи"""
