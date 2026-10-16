@@ -15,6 +15,20 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        /* Сортировка по клику на заголовок */
+        .sort-link { display: inline-flex; align-items: center; gap: 6px; color: inherit; border-radius: 6px; }
+        .sort-link i { font-size: 11px; opacity: 0; transition: opacity .2s ease; }
+        .sort-link:hover { color: var(--ink, #1f2937); }
+        .sort-link:hover i { opacity: .5; }
+        .sort-link.is-on { color: var(--accent-ink, #4338ca); font-weight: 700; }
+        .sort-link.is-on i { opacity: 1; }
+        /* Разделитель месяцев при сортировке по дате */
+        .month-row td { background: var(--surface-2, #f3f4f6); border-bottom: 1px solid var(--line, #e5e7eb); }
+        .month-title { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2, #374151); }
+        .month-count { font-size: 12px; font-weight: 600; color: var(--muted, #6b7280); margin-left: 4px; }
+        .month-count::before { content: '· '; }
+        .added-new { font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 9999px; letter-spacing: .02em;
+            background: var(--accent-soft, #e0e7ff); color: var(--accent-ink, #4338ca); box-shadow: inset 0 0 0 1px var(--accent-line, transparent); }
     </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
@@ -78,7 +92,7 @@
                 </div>
 
                 <!-- Селекты -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
 
                     <div>
                         <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
@@ -129,6 +143,17 @@
                         </select>
                     </div>
 
+                    <div class="col-span-2 md:col-span-1">
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            <i class="fas fa-arrow-down-wide-short mr-1"></i>Сортировка
+                        </label>
+                        <select name="sort" onchange="this.form.submit()" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="name" {% if sort == 'name' %}selected{% endif %}>По имени (А–Я)</option>
+                            <option value="new" {% if sort == 'new' %}selected{% endif %}>Сначала новые</option>
+                            <option value="old" {% if sort == 'old' %}selected{% endif %}>Сначала старые</option>
+                        </select>
+                    </div>
+
                 </div>
 
                 <!-- Кнопки + счётчик -->
@@ -176,16 +201,34 @@
                                        class="w-4 h-4 accent-indigo-500 cursor-pointer">
                             </th>
                             {% endif %}{% endif %}
-                            <th class="px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Имя</th>
-                            <th class="px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Телефон</th>
-                            <th class="px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Группы</th>
+                            <th class="px-4 xl:px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400" {% if sort == 'name' %}aria-sort="ascending"{% endif %}>
+                                <a href="{{ sort_urls.name }}" class="sort-link {% if sort == 'name' %}is-on{% endif %}" title="Сортировать по имени">
+                                    <span>Имя</span><i class="fas fa-arrow-down-a-z" aria-hidden="true"></i>
+                                </a>
+                            </th>
+                            <th class="px-4 xl:px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Телефон</th>
+                            <th class="px-4 xl:px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Группы</th>
+                            <th class="hidden sm:table-cell px-4 xl:px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap" {% if sort == 'new' %}aria-sort="descending"{% elif sort == 'old' %}aria-sort="ascending"{% endif %}>
+                                <a href="{% if sort == 'new' %}{{ sort_urls.old }}{% else %}{{ sort_urls.new }}{% endif %}" class="sort-link {% if sort != 'name' %}is-on{% endif %}"
+                                   title="{% if sort == 'new' %}Сначала старые{% else %}Сначала новые{% endif %}">
+                                    <span>Добавлен</span><i class="fas {% if sort == 'old' %}fa-arrow-up-short-wide{% else %}fa-arrow-down-wide-short{% endif %}" aria-hidden="true"></i>
+                                </a>
+                            </th>
                             {% if role == 'admin' or role == 'developer' or role == 'manager' %}
-                            <th class="px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Действия</th>
+                            <th class="px-4 xl:px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Действия</th>
                             {% endif %}
                         </tr>
                     </thead>
                     <tbody>
                         {% for data in student_data %}
+                        {% if data.month_title %}
+                        <tr class="month-row">
+                            <td colspan="{{ columns }}" class="px-4 xl:px-6 py-2.5">
+                                <span class="month-title">{{ data.month_title }}</span>
+                                <span class="month-count">{{ data.month_count }}</span>
+                            </td>
+                        </tr>
+                        {% endif %}
                         <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition">
                             {% if role == 'admin' or role == 'developer' or role == 'manager' %}{% if not show_archive %}
                             <td class="pl-6 py-4 w-8">
@@ -193,7 +236,7 @@
                                        onchange="updateBulk()" class="student-check w-4 h-4 accent-indigo-500 cursor-pointer">
                             </td>
                             {% endif %}{% endif %}
-                            <td class="px-6 py-4">
+                            <td class="px-4 xl:px-6 py-4">
                                 <p class="font-medium text-gray-800 dark:text-white">{{ data.student.name }}</p>
                                 {% if data.student.school or data.student.grade or data.student.age %}
                                 <p class="text-xs text-gray-400">
@@ -202,12 +245,17 @@
                                     {% if data.student.age %} • {{ data.student.age }} лет{% endif %}
                                 </p>
                                 {% endif %}
+                                <!-- На телефоне колонки «Добавлен» нет — дата под именем -->
+                                <p class="sm:hidden text-xs text-gray-400 mt-1 flex items-center gap-1.5 whitespace-nowrap" title="{{ data.added.full }}">
+                                    <i class="far fa-calendar-plus" aria-hidden="true"></i><span>{{ data.added.label }}</span><span aria-hidden="true">·</span><span>{{ data.added.ago }}</span>
+                                    {% if data.added.is_new and not show_archive %}<span class="added-new">новый</span>{% endif %}
+                                </p>
                             </td>
-                            <td class="px-6 py-4 text-gray-600 dark:text-gray-300">
+                            <td class="px-4 xl:px-6 py-4 text-gray-600 dark:text-gray-300">
                                 {% if data.student.phone or not data.student.parent_phone %}{% include 'dashboard/partials/phone.html' with phone=data.student.phone %}{% endif %}
                                 {% if data.student.parent_phone %}<p class="text-xs text-gray-400 mt-1">родитель: {% include 'dashboard/partials/phone.html' with phone=data.student.parent_phone %}</p>{% endif %}
                             </td>
-                            <td class="px-6 py-4">
+                            <td class="px-4 xl:px-6 py-4">
                                 <div class="flex flex-wrap gap-1">
                                     {% for group_name in data.groups %}
                                     <span class="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-2 py-1 rounded-full text-xs font-medium">
@@ -218,9 +266,16 @@
                                     {% endfor %}
                                 </div>
                             </td>
+                            <td class="hidden sm:table-cell px-4 xl:px-6 py-4 whitespace-nowrap" title="{{ data.added.full }}">
+                                <p class="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                                    <span>{{ data.added.label }}</span>
+                                    {% if data.added.is_new and not show_archive %}<span class="added-new">новый</span>{% endif %}
+                                </p>
+                                <p class="text-xs text-gray-400 mt-0.5">{{ data.added.ago }}</p>
+                            </td>
                             {% if role == 'admin' or role == 'developer' or role == 'manager' %}
-                            <td class="px-6 py-4">
-                                <div class="flex gap-2">
+                            <td class="px-4 xl:px-6 py-4">
+                                <div class="flex gap-2 whitespace-nowrap">
                                     {% if show_archive %}
                                     <span class="text-xs text-gray-400 self-center mr-1">в архиве с {{ data.student.archived_at|date:"d.m.Y" }}</span>
                                     <form method="POST" action="{% url 'restore_student' data.student.id %}">
@@ -255,7 +310,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="5" class="px-6 py-12 text-center text-gray-400">
+                            <td colspan="{{ columns }}" class="px-6 py-12 text-center text-gray-400">
                                 <i class="fas fa-inbox text-5xl mb-3"></i>
                                 <p>Нет учеников</p>
                             </td>

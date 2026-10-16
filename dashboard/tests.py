@@ -1261,6 +1261,79 @@ class QuoteOfTheDayTests(CRMTestCase):
         self.assertContains(response, 'Quote of the day')
         self.assertContains(response, quote_for(lang='en')['author'])
 
+
+class StudentSortTests(CRMTestCase):
+    """Ученики: сортировка по дате добавления и подпись даты"""
+
+    def test_plural_and_labels(self):
+        from datetime import date, datetime
+        from .views import added_info, ru_plural
+        self.assertEqual([ru_plural(n, 'день', 'дня', 'дней') for n in (1, 2, 5, 11, 12, 21, 22, 25, 111)],
+                         ['день', 'дня', 'дней', 'дней', 'дней', 'день', 'дня', 'дней', 'дней'])
+        today = date(2026, 10, 16)
+        tz = timezone.get_current_timezone()
+
+        def info(y, m, d, hh=14, mm=30):
+            return added_info(datetime(y, m, d, hh, mm, tzinfo=tz), today)
+        self.assertEqual(info(2026, 10, 16)['ago'], 'сегодня')
+        self.assertEqual(info(2026, 10, 15)['ago'], 'вчера')
+        self.assertEqual(info(2026, 10, 13)['ago'], '3 дня назад')
+        self.assertEqual(info(2026, 10, 9)['ago'], 'неделю назад')
+        self.assertEqual(info(2026, 9, 25)['ago'], '3 недели назад')
+        self.assertEqual(info(2026, 9, 16)['ago'], 'месяц назад')
+        self.assertEqual(info(2026, 5, 1)['ago'], '5 месяцев назад')
+        self.assertEqual(info(2025, 10, 16)['ago'], 'год назад')
+        self.assertEqual(info(2023, 1, 1)['ago'], '3 года назад')
+        self.assertEqual(info(2026, 10, 16)['label'], '16 окт')
+        self.assertEqual(info(2026, 5, 9)['label'], '9 мая')
+        self.assertEqual(info(2025, 12, 31)['label'], '31 дек 2025')
+        self.assertEqual(info(2026, 10, 16, 9, 5)['full'], 'Добавлен 16.10.2026 в 09:05')
+        self.assertTrue(info(2026, 10, 10)['is_new'])
+        self.assertFalse(info(2026, 10, 9)['is_new'])
+
+    def test_sorting(self):
+        now = timezone.now()
+        Student.objects.filter(id=self.student.id).update(created_at=now - timedelta(days=40))       # Алия — старая
+        Student.objects.filter(id=self.other_student.id).update(created_at=now - timedelta(days=2))  # Тимур — новый
+        Student.objects.create(name='Бахыт')                                                        # только что
+        self.login(self.admin)
+
+        def names(response):
+            return [d['student'].name for d in response.context['student_data']]
+        url = reverse('students_list')
+        self.assertEqual(names(self.client.get(url)), ['Алия', 'Бахыт', 'Тимур'])          # по умолчанию — по имени
+        response = self.client.get(url + '?sort=new')
+        self.assertEqual(names(response), ['Бахыт', 'Тимур', 'Алия'])
+        self.assertContains(response, 'class="month-row"')
+        self.assertContains(response, 'сегодня')
+        self.assertContains(response, '2 дня назад')
+        self.assertContains(response, 'class="added-new"')
+        # Выбор запоминается
+        self.assertEqual(names(self.client.get(url)), ['Бахыт', 'Тимур', 'Алия'])
+        self.assertEqual(names(self.client.get(url + '?sort=old')), ['Алия', 'Тимур', 'Бахыт'])
+        self.assertEqual(names(self.client.get(url + '?sort=junk')), ['Алия', 'Тимур', 'Бахыт'])
+        response = self.client.get(url + '?sort=name')
+        self.assertEqual(names(response), ['Алия', 'Бахыт', 'Тимур'])
+        self.assertNotContains(response, 'class="month-row"')
+        # Сортировка вместе с фильтром: ссылки в заголовках сохраняют фильтр
+        response = self.client.get(url + f'?group={self.group.id}&sort=new')
+        self.assertEqual(names(response), ['Алия'])
+        self.assertIn(f'group={self.group.id}', response.context['sort_urls']['old'])
+        # Учитель видит колонку и сортирует своих
+        self.login(self.teacher)
+        response = self.client.get(url + '?sort=new')
+        self.assertContains(response, 'Добавлен')
+        self.assertEqual(names(response), ['Алия'])
+
+    def test_english(self):
+        Student.objects.filter(id=self.student.id).update(created_at=timezone.now() - timedelta(days=3))
+        self.login(self.admin)
+        self.client.cookies['ee_lang'] = 'en'
+        response = self.client.get(reverse('students_list') + '?sort=new')
+        self.assertContains(response, '3 days ago')
+        self.assertContains(response, 'Newest first')
+        self.assertContains(response, 'Added')
+
 class BackupTests(TransactionTestCase):
     """Без обёртки-транзакции TestCase: SQLite не даёт снять копию посреди открытой записи"""
     def setUp(self):

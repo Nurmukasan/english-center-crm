@@ -640,6 +640,54 @@ def mark_attendance(request, group_id):
     return JsonResponse({'success': True, 'status': status})
 
 
+# ---------------- Ученики: сортировка и дата добавления ----------------
+
+STUDENT_SORTS = {
+    'name': ('name', 'id'),            # по имени А→Я
+    'new': ('-created_at', '-id'),     # сначала новые
+    'old': ('created_at', 'id'),       # сначала старые
+}
+MONTHS_DAY = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
+
+
+def ru_plural(n, one, few, many):
+    """1 день, 2 дня, 5 дней"""
+    n = abs(n)
+    if n % 10 == 1 and n % 100 != 11:
+        return one
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return few
+    return many
+
+
+def added_info(created, today):
+    """Когда ученика добавили: «16 окт» (+ год, если не этот), «3 дня назад», полная дата для подсказки"""
+    local = timezone.localtime(created)
+    day = local.date()
+    days = (today - day).days
+    label = f'{day.day} {MONTHS_DAY[day.month - 1]}' + (f' {day.year}' if day.year != today.year else '')
+    months = (today.year - day.year) * 12 + today.month - day.month - (today.day < day.day)
+    if days <= 0:
+        ago = 'сегодня'
+    elif days == 1:
+        ago = 'вчера'
+    elif days < 7:
+        ago = f'{days} {ru_plural(days, "день", "дня", "дней")} назад'
+    elif days < 30 or months < 1:
+        weeks = days // 7
+        ago = 'неделю назад' if weeks == 1 else f'{weeks} {ru_plural(weeks, "неделю", "недели", "недель")} назад'
+    elif months < 12:
+        ago = 'месяц назад' if months == 1 else f'{months} {ru_plural(months, "месяц", "месяца", "месяцев")} назад'
+    else:
+        years = months // 12
+        ago = 'год назад' if years == 1 else f'{years} {ru_plural(years, "год", "года", "лет")} назад'
+    return {
+        'label': label, 'ago': ago, 'is_new': days < 7,
+        'full': f'Добавлен {local:%d.%m.%Y} в {local:%H:%M}',
+        'month': (day.year, day.month),
+    }
+
+
 @crm_view
 def students_list(request):
     """Список всех учеников с фильтрами"""
@@ -698,7 +746,14 @@ def students_list(request):
         except ValueError:
             pass
 
-    students = students.distinct().order_by('name')
+    # ===== Сортировка (запоминается, пока не выберут другую) =====
+    sort = request.GET.get('sort')
+    if sort in STUDENT_SORTS:
+        request.session['students_sort'] = sort
+    else:
+        sort = request.session.get('students_sort')
+        sort = sort if sort in STUDENT_SORTS else 'name'
+    students = students.distinct().order_by(*STUDENT_SORTS[sort])
 
     # ===== Опции для фильтров (уникальные) =====
     base_for_options = Student.objects.filter(is_active=True)
@@ -712,16 +767,39 @@ def students_list(request):
     schools_options = base_for_options.exclude(school='').values_list('school', flat=True).distinct().order_by('school')
     ages_options = base_for_options.exclude(age__isnull=True).values_list('age', flat=True).distinct().order_by('age')
 
+    today = timezone.localdate()
     student_data = []
     for student in students.prefetch_related('enrollments__group'):
         groups_list = [e.group.name for e in student.enrollments.all()]
         student_data.append({
             'student': student,
             'groups': groups_list,
+            'added': added_info(student.created_at, today),
         })
+
+    # При сортировке по дате — разделители по месяцам: «Октябрь 2026 · 5 учеников»
+    if sort != 'name':
+        per_month = {}
+        for data in student_data:
+            per_month[data['added']['month']] = per_month.get(data['added']['month'], 0) + 1
+        previous = None
+        for data in student_data:
+            month = data['added']['month']
+            if month != previous:
+                n = per_month[month]
+                data['month_title'] = f'{MONTHS_RU[month[1] - 1]} {month[0]}'
+                data['month_count'] = f'{n} {ru_plural(n, "ученик", "ученика", "учеников")}'
+                previous = month
 
     # Активен ли фильтр
     has_filters = any([search_query, group_filter, grade_filter, school_filter, age_filter])
+
+    # Ссылки для заголовков таблицы: та же выборка, другая сортировка
+    params = request.GET.copy()
+    sort_urls = {}
+    for key in STUDENT_SORTS:
+        params['sort'] = key
+        sort_urls[key] = '?' + params.urlencode()
 
     context = {
         'student_data': student_data,
@@ -737,6 +815,9 @@ def students_list(request):
         'ages_options': ages_options,
         'has_filters': has_filters,
         'total_found': len(student_data),
+        'sort': sort,
+        'sort_urls': sort_urls,
+        'columns': 4 + (role in MANAGE_ROLES) * (1 + (not show_archive)),
         'show_archive': show_archive,
         'archived_count': Student.objects.filter(is_active=False).count() if role in MANAGE_ROLES else 0,
     }
