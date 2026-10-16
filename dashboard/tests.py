@@ -1361,6 +1361,49 @@ class StudentSortTests(CRMTestCase):
         self.assertContains(response, 'Newest first')
         self.assertContains(response, 'Added')
 
+
+class SetupWhatsAppTests(CRMTestCase):
+    """manage.py setup_whatsapp — его вызывает deploy/waha/install.sh, чтобы CRM подключилась к WAHA сама"""
+
+    def run_command(self, *args, env=None):
+        import io
+        import os
+        from unittest import mock
+        from django.core.management import call_command
+        out = io.StringIO()
+        with mock.patch.dict(os.environ, env or {}, clear=False):
+            call_command('setup_whatsapp', *args, stdout=out)
+        return out.getvalue()
+
+    def test_saves_settings_and_reports_state(self):
+        from unittest import mock
+        from .models import WhatsAppSettings
+        WhatsAppSettings.objects.create(pk=1, provider='green', instance_id='1101', token='old')
+        with mock.patch('dashboard.management.commands.setup_whatsapp.waha_status', return_value=('STARTING', '')) as status:
+            out = self.run_command('--url', 'http://127.0.0.1:3001/', env={'WAHA_API_KEY': 'k' * 64})
+        settings = WhatsAppSettings.load()
+        self.assertEqual((settings.provider, settings.api_url, settings.token, settings.instance_id),
+                         ('waha', 'http://127.0.0.1:3001', 'k' * 64, ''))
+        self.assertTrue(status.called)
+        self.assertIn('Осталось отсканировать QR-код', out)
+        self.assertNotIn('k' * 64, out)                       # ключ не печатаем
+        with mock.patch('dashboard.management.commands.setup_whatsapp.waha_status', return_value=('WORKING', '')):
+            self.assertIn('WhatsApp подключён', self.run_command('--status'))
+
+    def test_errors(self):
+        import os
+        from unittest import mock
+        from django.core.management.base import CommandError
+        from .whatsapp import WhatsAppError
+        with mock.patch.dict(os.environ, {'WAHA_API_KEY': ''}):
+            with self.assertRaises(CommandError):
+                self.run_command()                            # нет ключа
+        with self.assertRaises(CommandError):
+            self.run_command('--status')                      # WAHA ещё не настроена
+        with mock.patch('dashboard.management.commands.setup_whatsapp.waha_status', side_effect=WhatsAppError('Нет связи')):
+            with self.assertRaises(CommandError):
+                self.run_command('--key', 'abc')
+
 class BackupTests(TransactionTestCase):
     """Без обёртки-транзакции TestCase: SQLite не даёт снять копию посреди открытой записи"""
     def setUp(self):
