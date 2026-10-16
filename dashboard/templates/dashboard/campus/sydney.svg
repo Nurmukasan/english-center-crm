@@ -1,0 +1,24 @@
+<svg class="gcard-art" viewBox="0 0 400 120" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+<circle class="s" cx="362" cy="30" r="12"/>
+<path class="c" d="M230 22h36.8a7.2 7.2 0 0 0-5.6-10.4a9.6 9.6 0 0 0-17.6-3.2a7.2 7.2 0 0 0-13.6 13.6z"/>
+<path class="c" d="M60 18h27.6a5.4 5.4 0 0 0-4.2-7.8a7.2 7.2 0 0 0-13.2-2.4a5.4 5.4 0 0 0-10.2 10.2z"/>
+<path class="f" d="M0 94C80 84 160 90 240 86C300 83 350 88 400 84V120H0Z"/>
+<rect class="k" x="12" y="62" width="18" height="46"/>
+<rect class="k" x="190" y="62" width="18" height="46"/>
+<rect class="k" x="14" y="58" width="14" height="4"/>
+<rect class="k" x="192" y="58" width="14" height="4"/>
+<path class="k" d="M30 80Q110 8 190 80H182Q110 22 38 80Z"/>
+<rect class="k" x="0" y="80" width="240" height="5"/>
+<path class="lk" d="M50 64.8V80M62 57.5V80M74 51.8V80M86 47.7V80M98 45.3V80M110 44.5V80M122 45.3V80M134 47.7V80M146 51.8V80M158 57.5V80M170 64.8V80" stroke-width="1.1"/>
+<rect class="m" x="240" y="100" width="132" height="8"/>
+<path class="w lm" d="M250 100Q254 62 286 52Q280 74 284 100Z" stroke-width="1.4"/>
+<path class="w lm" d="M276 100Q282 70 312 60Q306 80 308 100Z" stroke-width="1.4"/>
+<path class="w lm" d="M300 100Q306 76 332 68Q326 86 328 100Z" stroke-width="1.4"/>
+<path class="w lm" d="M322 100Q328 84 348 80Q344 92 344 100Z" stroke-width="1.4"/>
+<path class="w lm" d="M344 100Q348 90 362 88Q360 96 360 100Z" stroke-width="1.4"/>
+<rect class="m" x="0" y="106" width="400" height="14"/>
+<rect class="w" x="20" y="109" width="60" height="1.2" rx="0.6"/>
+<rect class="w" x="130" y="113" width="40" height="1.2" rx="0.6"/>
+<rect class="w" x="250" y="109" width="70" height="1.2" rx="0.6"/>
+<rect class="w" x="340" y="113" width="40" height="1.2" rx="0.6"/>
+</svg>

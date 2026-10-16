@@ -1,0 +1,27 @@
+<svg class="gcard-art" viewBox="0 0 400 120" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+<circle class="s" cx="60" cy="30" r="12"/>
+<path class="c" d="M200 20h32.2a6.3 6.3 0 0 0-4.9-9.1a8.4 8.4 0 0 0-15.4-2.8a6.3 6.3 0 0 0-11.9 11.9z"/>
+<path class="c" d="M350 26h27.6a5.4 5.4 0 0 0-4.2-7.8a7.2 7.2 0 0 0-13.2-2.4a5.4 5.4 0 0 0-10.2 10.2z"/>
+<path class="f" d="M0 100C60 96 100 70 160 58C210 48 250 64 290 80C330 94 370 96 400 94V120H0Z"/>
+<path class="k" d="M196 56L198 22H202L204 56Z"/>
+<ellipse class="k" cx="200" cy="24" rx="8" ry="4"/>
+<rect class="k" x="199.4" y="4" width="1.2" height="18"/>
+<rect class="w" x="193" y="23" width="14" height="1.4" rx="0.7"/>
+<rect class="m" x="20" y="82" width="18" height="38"/>
+<rect class="m" x="42" y="74" width="14" height="46"/>
+<rect class="m" x="330" y="78" width="16" height="42"/>
+<rect class="m" x="350" y="70" width="14" height="50"/>
+<rect class="m" x="370" y="84" width="20" height="36"/>
+<path class="n" d="M70 94Q86 92 96 80H304Q314 92 330 94L330 97H70Z"/>
+<rect class="n" x="110" y="72" width="180" height="8"/>
+<path class="n" d="M100 72Q110 70 116 64H284Q290 70 300 72Z"/>
+<rect class="k" x="112" y="97" width="6" height="13"/>
+<rect class="k" x="140" y="97" width="6" height="13"/>
+<rect class="k" x="168" y="97" width="6" height="13"/>
+<rect class="k" x="196" y="97" width="6" height="13"/>
+<rect class="k" x="224" y="97" width="6" height="13"/>
+<rect class="k" x="252" y="97" width="6" height="13"/>
+<rect class="k" x="280" y="97" width="6" height="13"/>
+<rect class="k" x="100" y="106" width="200" height="4"/>
+<rect class="m" x="0" y="110" width="400" height="10"/>
+</svg>

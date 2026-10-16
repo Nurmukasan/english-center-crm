@@ -1,0 +1,57 @@
+<svg class="gcard-art" viewBox="0 0 400 120" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+<circle class="s" cx="60" cy="30" r="12"/>
+<path class="c" d="M150 22h32.2a6.3 6.3 0 0 0-4.9-9.1a8.4 8.4 0 0 0-15.4-2.8a6.3 6.3 0 0 0-11.9 11.9z"/>
+<path class="c" d="M340 16h27.6a5.4 5.4 0 0 0-4.2-7.8a7.2 7.2 0 0 0-13.2-2.4a5.4 5.4 0 0 0-10.2 10.2z"/>
+<rect class="f" x="0" y="70" width="20" height="50"/>
+<rect class="f" x="22" y="56" width="16" height="64"/>
+<rect class="f" x="40" y="66" width="18" height="54"/>
+<rect class="f" x="100" y="48" width="18" height="72"/>
+<rect class="f" x="120" y="62" width="14" height="58"/>
+<rect class="f" x="136" y="40" width="16" height="80"/>
+<rect class="f" x="240" y="50" width="16" height="70"/>
+<rect class="f" x="258" y="64" width="18" height="56"/>
+<rect class="f" x="300" y="44" width="14" height="76"/>
+<rect class="f" x="316" y="58" width="20" height="62"/>
+<rect class="f" x="338" y="36" width="16" height="84"/>
+<rect class="f" x="356" y="60" width="18" height="60"/>
+<rect class="f" x="376" y="50" width="24" height="70"/>
+<rect class="m" x="10" y="84" width="30" height="36"/>
+<rect class="m" x="60" y="78" width="24" height="42"/>
+<rect class="m" x="110" y="82" width="26" height="38"/>
+<rect class="m" x="150" y="74" width="20" height="46"/>
+<rect class="m" x="232" y="76" width="24" height="44"/>
+<rect class="m" x="270" y="84" width="28" height="36"/>
+<rect class="m" x="330" y="78" width="26" height="42"/>
+<rect class="m" x="372" y="86" width="28" height="34"/>
+<path class="k" d="M178 110V54H184V40H190V30H196V18H199.4V4H200.6V18H204V30H210V40H216V54H222V110Z"/>
+<rect class="w" x="182" y="60" width="2" height="6" rx="1"/>
+<rect class="w" x="188" y="60" width="2" height="6" rx="1"/>
+<rect class="w" x="194" y="60" width="2" height="6" rx="1"/>
+<rect class="w" x="200" y="60" width="2" height="6" rx="1"/>
+<rect class="w" x="206" y="60" width="2" height="6" rx="1"/>
+<rect class="w" x="212" y="60" width="2" height="6" rx="1"/>
+<rect class="w" x="182" y="72" width="2" height="6" rx="1"/>
+<rect class="w" x="188" y="72" width="2" height="6" rx="1"/>
+<rect class="w" x="194" y="72" width="2" height="6" rx="1"/>
+<rect class="w" x="200" y="72" width="2" height="6" rx="1"/>
+<rect class="w" x="206" y="72" width="2" height="6" rx="1"/>
+<rect class="w" x="212" y="72" width="2" height="6" rx="1"/>
+<rect class="w" x="182" y="84" width="2" height="6" rx="1"/>
+<rect class="w" x="188" y="84" width="2" height="6" rx="1"/>
+<rect class="w" x="194" y="84" width="2" height="6" rx="1"/>
+<rect class="w" x="200" y="84" width="2" height="6" rx="1"/>
+<rect class="w" x="206" y="84" width="2" height="6" rx="1"/>
+<rect class="w" x="212" y="84" width="2" height="6" rx="1"/>
+<rect class="w" x="182" y="96" width="2" height="6" rx="1"/>
+<rect class="w" x="188" y="96" width="2" height="6" rx="1"/>
+<rect class="w" x="194" y="96" width="2" height="6" rx="1"/>
+<rect class="w" x="200" y="96" width="2" height="6" rx="1"/>
+<rect class="w" x="206" y="96" width="2" height="6" rx="1"/>
+<rect class="w" x="212" y="96" width="2" height="6" rx="1"/>
+<rect class="n" x="0" y="108" width="400" height="3"/>
+<rect class="m" x="0" y="111" width="400" height="9"/>
+<rect class="w" x="40" y="114" width="50" height="1.2" rx="0.6"/>
+<rect class="w" x="150" y="118" width="60" height="1.2" rx="0.6"/>
+<rect class="w" x="260" y="114" width="40" height="1.2" rx="0.6"/>
+<rect class="w" x="330" y="118" width="50" height="1.2" rx="0.6"/>
+</svg>

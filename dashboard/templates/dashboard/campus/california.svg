@@ -1,0 +1,35 @@
+<svg class="gcard-art" viewBox="0 0 400 120" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+<circle class="s" cx="80" cy="34" r="14"/>
+<path class="c" d="M240 22h32.2a6.3 6.3 0 0 0-4.9-9.1a8.4 8.4 0 0 0-15.4-2.8a6.3 6.3 0 0 0-11.9 11.9z"/>
+<path class="f" d="M0 90C60 70 120 80 180 72C240 64 300 80 400 70V120H0Z"/>
+<rect class="k" x="186" y="32" width="28" height="70"/>
+<rect class="k" x="182" y="28" width="36" height="6"/>
+<path class="m" d="M188 28Q200 8 212 28Z"/>
+<rect class="k" x="199.4" y="6" width="1.2" height="8"/>
+<rect class="w" x="192" y="38" width="5" height="14" rx="2.5"/>
+<rect class="w" x="203" y="38" width="5" height="14" rx="2.5"/>
+<rect class="k" x="60" y="86" width="280" height="24"/>
+<path class="w" d="M68 110V100a6 6 0 0 1 12 0V110Z"/>
+<path class="w" d="M86 110V100a6 6 0 0 1 12 0V110Z"/>
+<path class="w" d="M104 110V100a6 6 0 0 1 12 0V110Z"/>
+<path class="w" d="M122 110V100a6 6 0 0 1 12 0V110Z"/>
+<path class="w" d="M140 110V100a6 6 0 0 1 12 0V110Z"/>
+<path class="w" d="M158 110V100a6 6 0 0 1 12 0V110Z"/>
+<path class="w" d="M176 110V100a6 6 0 0 1 12 0V110Z"/>
+<path class="w" d="M194 110V100a6 6 0 0 1 12 0V110Z"/>
+<path class="w" d="M212 110V100a6 6 0 0 1 12 0V110Z"/>
+<path class="w" d="M230 110V100a6 6 0 0 1 12 0V110Z"/>
+<path class="w" d="M248 110V100a6 6 0 0 1 12 0V110Z"/>
+<path class="w" d="M266 110V100a6 6 0 0 1 12 0V110Z"/>
+<path class="w" d="M284 110V100a6 6 0 0 1 12 0V110Z"/>
+<path class="w" d="M302 110V100a6 6 0 0 1 12 0V110Z"/>
+<path class="w" d="M320 110V100a6 6 0 0 1 12 0V110Z"/>
+<path class="m" d="M56 86L200 78L344 86Z"/>
+<path class="n" d="M28.5 110Q32 78.0 34 46L36 46Q34 78.0 31.5 110Z"/>
+<path class="n" d="M35 46Q25 38 15 44Q26 43 35 46ZM35 46Q45 38 55 44Q44 43 35 46ZM35 46Q31 34 23 32Q31 38 35 46ZM35 46Q39 34 47 32Q39 38 35 46Z"/>
+<path class="n" d="M358.5 110Q362 75.0 364 40L366 40Q364 75.0 361.5 110Z"/>
+<path class="n" d="M365 40Q355 32 345 38Q356 37 365 40ZM365 40Q375 32 385 38Q374 37 365 40ZM365 40Q361 28 353 26Q361 32 365 40ZM365 40Q369 28 377 26Q369 32 365 40Z"/>
+<path class="n" d="M380.5 110Q384 82.0 386 54L388 54Q386 82.0 383.5 110Z"/>
+<path class="n" d="M387 54Q377 46 367 52Q378 51 387 54ZM387 54Q397 46 407 52Q396 51 387 54ZM387 54Q383 42 375 40Q383 46 387 54ZM387 54Q391 42 399 40Q391 46 387 54Z"/>
+<rect class="m" x="0" y="110" width="400" height="10"/>
+</svg>
