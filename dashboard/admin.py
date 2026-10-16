@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book
-from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book, LevelCalibration, LoginEvent
+from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book, LevelCalibration, LoginEvent, GameScore
 
 @admin.register(LevelCalibration)
 class LevelCalibrationAdmin(admin.ModelAdmin):
@@ -95,3 +95,12 @@ class LoginEventAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+
+@admin.register(GameScore)
+class GameScoreAdmin(admin.ModelAdmin):
+    """Результаты тетриса: отсюда можно удалить нечестный рекорд"""
+    list_display = ('user', 'score', 'lines', 'level', 'duration', 'created_at')
+    list_filter = ('game',)
+    search_fields = ('user__username', 'user__first_name')
+    date_hierarchy = 'created_at'

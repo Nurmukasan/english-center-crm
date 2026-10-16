@@ -72,6 +72,13 @@
     </div>
 
     <div class="ee-rail-bottom">
+        <!-- Тетрис для сотрудников с «Топ-5 центра» — в новой вкладке -->
+        <a href="{% url 'tetris' %}" target="_blank" rel="noopener" class="ee-rail-item ee-rail-game" data-label="Тетрис · топ-5 центра">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <rect class="g1" x="3" y="12" width="6" height="6" rx="1.6"/><rect class="g2" x="9" y="12" width="6" height="6" rx="1.6"/>
+                <rect class="g3" x="15" y="12" width="6" height="6" rx="1.6"/><rect class="g4" x="9" y="6" width="6" height="6" rx="1.6"/>
+            </svg><span>Тетрис</span>
+        </a>
         <button type="button" class="ee-rail-item" data-label="Поиск · Ctrl K" onclick="eePalette.open()">
             <i class="fas fa-magnifying-glass"></i><span>Поиск</span>
         </button>
@@ -177,6 +184,7 @@
         name: a.dataset.label, url: a.href, icon: a.querySelector('i').className,
     }));
     pages.push({ name: 'Профиль', url: '{% url "profile" %}', icon: 'fas fa-user' });
+    pages.push({ name: 'Тетрис · топ-5 центра', url: '{% url "tetris" %}', icon: 'fas fa-gamepad' });
     pages.push({ name: 'Выйти', url: '{% url "logout" %}', icon: 'fas fa-arrow-right-from-bracket', logout: true });
     {% if role != 'teacher' %}pages.push({ name: 'Скачать Excel', url: '{% url "export_excel" %}', icon: 'fas fa-file-excel' });{% endif %}
     {% if role == 'admin' or role == 'accountant' or role == 'developer' %}pages.push({ name: 'Напомнить об оплате в WhatsApp', url: '{% url "broadcast_page" %}?kind=payment', icon: 'fab fa-whatsapp' });{% endif %}

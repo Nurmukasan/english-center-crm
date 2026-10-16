@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Тетрис — Enjoy English</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    {% comment %}
+    Тетрис для сотрудников (dashboard/game.py). Классические правила: 7 фигур «мешком», вращение SRS
+    с отскоком от стен, запас (hold), тень, задержка фиксации, уровни каждые 10 линий, комбо и тетрисы подряд.
+    Музыка и звуки синтезируются в браузере (Web Audio): «Коробейники» — народная песня, тема классического
+    тетриса; «Неон» и «Лофи» — свои мелодии. Справа — «Топ-5 центра» по лучшему результату каждого сотрудника.
+    {% endcomment %}
+    <style>
+        :root {
+            --bg-1: #070917; --bg-2: #141033; --ink: #f4f3ff; --muted: rgba(226, 228, 255, .66); --faint: rgba(226, 228, 255, .4);
+            --panel: rgba(255, 255, 255, .055); --panel-line: rgba(255, 255, 255, .09); --glow: 167, 139, 250;
+            --gold: #fcd34d; --silver: #cbd5e1; --bronze: #f0a46b;
+        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; min-height: 100%; }
+        body { font-family: 'Manrope', system-ui, sans-serif; color: var(--ink); background: var(--bg-1); overflow-x: hidden;
+            -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+        button, select, input { font: inherit; color: inherit; }
+        button { cursor: pointer; border: 0; background: none; }
+        .tt-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden;
+            background: radial-gradient(120% 90% at 50% 0%, var(--bg-2) 0%, var(--bg-1) 70%); }
+        .tt-bg::before { content: ''; position: absolute; inset: -50%; opacity: .5;
+            background-image: linear-gradient(rgba(var(--glow), .07) 1px, transparent 1px), linear-gradient(90deg, rgba(var(--glow), .07) 1px, transparent 1px);
+            background-size: 44px 44px; transform: perspective(600px) rotateX(58deg) translateY(10%); transform-origin: 50% 100%;
+            animation: tt-grid 18s linear infinite; mask-image: linear-gradient(180deg, transparent 30%, #000 85%); -webkit-mask-image: linear-gradient(180deg, transparent 30%, #000 85%); }
+        .tt-bg::after { content: ''; position: absolute; left: 50%; top: 18%; width: 70vmax; height: 70vmax; transform: translate(-50%, -50%);
+            background: radial-gradient(circle, rgba(var(--glow), .22), transparent 60%); filter: blur(30px); transition: background 1.2s ease; }
+        @keyframes tt-grid { to { background-position: 0 44px, 0 0; } }
+
+        /* ---------- Шапка ---------- */
+        .tt-header { display: flex; align-items: center; gap: 14px; padding: 14px 22px; }
+        .tt-back { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 12px; font-size: 13px; font-weight: 700;
+            color: var(--muted); text-decoration: none; background: var(--panel); border: 1px solid var(--panel-line); transition: color .2s, background-color .2s; }
+        .tt-back:hover { color: var(--ink); background: rgba(255, 255, 255, .09); }
+        .tt-brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+        .tt-brand svg { width: 30px; height: 30px; }
+        .tt-brand b { font-size: 19px; font-weight: 800; letter-spacing: .02em; }
+        .tt-brand span { font-size: 12px; font-weight: 700; color: var(--faint); }
+        .tt-sound { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 14px; background: var(--panel); border: 1px solid var(--panel-line); }
+        .tt-iconbtn { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: var(--muted); transition: color .2s, background-color .2s; }
+        .tt-iconbtn:hover { color: var(--ink); background: rgba(255, 255, 255, .08); }
+        .tt-iconbtn.is-off { color: var(--faint); }
+        .tt-iconbtn:focus-visible, .tt-btn:focus-visible, .tt-back:focus-visible, .tt-sound select:focus-visible { outline: 2px solid rgb(var(--glow)); outline-offset: 2px; }
+        .tt-sound select { height: 34px; padding: 0 28px 0 10px; border-radius: 10px; border: 1px solid var(--panel-line); background: rgba(10, 10, 30, .6); font-size: 13px; font-weight: 700;
+            appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+            background-position: calc(100% - 15px) 15px, calc(100% - 10px) 15px; background-size: 5px 5px; background-repeat: no-repeat; }
+        .tt-sound select option { background: #15122e; }
+        .tt-sound input[type=range] { width: 90px; accent-color: rgb(var(--glow)); }
+
+        /* ---------- Раскладка ---------- */
+        .tt-main { display: grid; justify-content: center; align-items: start; gap: 16px 22px; padding: 4px 22px 28px;
+            grid-template-columns: 210px auto 300px; grid-template-areas: "left stage right"; }
+        .tt-left { grid-area: left; } .tt-right { grid-area: right; }
+        .tt-left, .tt-right { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+        .tt-hold { grid-area: hold; } .tt-stats { grid-area: stats; } .tt-stage { grid-area: stage; } .tt-next { grid-area: next; }
+        .tt-top { grid-area: top; } .tt-keys { grid-area: keys; } .tt-touch { grid-area: touch; display: none; }
+        .tt-panel { border-radius: 20px; padding: 16px 18px; background: var(--panel); border: 1px solid var(--panel-line);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        .tt-panel h2 { margin: 0 0 12px; font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--muted);
+            display: flex; align-items: center; gap: 8px; }
+        .tt-panel canvas { display: block; margin: 0 auto; }
+        .tt-hint { margin: 10px 0 0; font-size: 11px; font-weight: 700; color: var(--faint); text-align: center; }
+
+        .tt-stats { display: grid; gap: 12px; }
+        .tt-stat span { display: block; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+        .tt-stat b { display: block; margin-top: 2px; font-size: 26px; font-weight: 800; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+        .tt-stat.is-score b { font-size: 32px; background: linear-gradient(90deg, #fff, rgb(var(--glow))); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .tt-stat.is-best b { font-size: 18px; color: var(--gold); }
+        .tt-stat b.bump { animation: tt-bump .35s ease; }
+        @keyframes tt-bump { 40% { transform: scale(1.12); } }
+
+        /* ---------- Поле ---------- */
+        .tt-stage { position: relative; }
+        .tt-board { position: relative; border-radius: 18px; padding: 8px; background: linear-gradient(160deg, rgba(var(--glow), .55), rgba(56, 217, 245, .35) 60%, rgba(244, 114, 182, .45));
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, .06), 0 30px 80px -30px rgba(var(--glow), .55), 0 0 60px -20px rgba(var(--glow), .45); transition: box-shadow 1.2s ease, background 1.2s ease; }
+        .tt-board canvas { display: block; border-radius: 12px; background: rgba(6, 8, 24, .92); touch-action: none; }
+        .tt-board.shake { animation: tt-shake .18s ease; }
+        @keyframes tt-shake { 30% { transform: translateY(5px); } 60% { transform: translateY(-2px); } }
+        .tt-fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: 18px; }
+        .tt-pop { position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; font-weight: 800; letter-spacing: .02em; text-align: center;
+            text-shadow: 0 0 18px rgba(var(--glow), .9), 0 2px 0 rgba(0, 0, 0, .35); animation: tt-pop 1.15s cubic-bezier(.22, 1, .36, 1) forwards; }
+        .tt-pop.big { font-size: 34px; background: linear-gradient(90deg, #67e8f9, #c4b5fd, #f9a8d4); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .tt-pop.mid { font-size: 22px; color: #fff; }
+        .tt-pop.small { font-size: 15px; color: #fde68a; }
+        @keyframes tt-pop { 0% { opacity: 0; transform: translate(-50%, 16px) scale(.6); } 18% { opacity: 1; transform: translate(-50%, 0) scale(1.08); }
+            30% { transform: translate(-50%, 0) scale(1); } 100% { opacity: 0; transform: translate(-50%, -46px) scale(1); } }
+
+        /* ---------- Заставки: старт, пауза, конец игры ---------- */
+        .tt-overlay { position: absolute; inset: 8px; border-radius: 12px; display: grid; place-items: center; text-align: center; padding: 22px;
+            background: rgba(6, 7, 22, .78); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); transition: opacity .3s ease, visibility .3s; }
+        .tt-overlay[hidden] { display: grid; opacity: 0; visibility: hidden; pointer-events: none; }
+        .tt-card { max-width: 290px; }
+        .tt-title { margin: 0; font-size: 40px; font-weight: 800; letter-spacing: .06em; line-height: 1;
+            background: linear-gradient(90deg, #67e8f9, #c4b5fd 45%, #f9a8d4); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .tt-sub { margin: 12px 0 0; font-size: 14px; font-weight: 600; line-height: 1.5; color: var(--muted); }
+        .tt-big { margin: 10px 0 2px; font-size: 44px; font-weight: 800; font-variant-numeric: tabular-nums; }
+        .tt-line { margin: 4px 0 0; font-size: 13px; font-weight: 700; color: var(--muted); }
+        .tt-status { min-height: 22px; margin: 12px 0 0; font-size: 14px; font-weight: 800; color: #fde68a; }
+        .tt-status.is-error { color: #fda4af; }
+        .tt-btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 20px; }
+        .tt-btn { display: inline-flex; align-items: center; gap: 9px; padding: 12px 22px; border-radius: 14px; font-size: 15px; font-weight: 800;
+            color: #160f33; background: linear-gradient(135deg, #a5f3fc, #c4b5fd 55%, #f9a8d4); box-shadow: 0 12px 30px -12px rgba(var(--glow), .9);
+            transition: transform .2s cubic-bezier(.34, 1.56, .64, 1), box-shadow .2s ease; }
+        .tt-btn:hover { transform: translateY(-2px) scale(1.03); }
+        .tt-btn.is-ghost { color: var(--ink); background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px var(--panel-line); }
+        .tt-kbd { display: inline-block; min-width: 22px; padding: 2px 6px; border-radius: 6px; font-size: 11px; font-weight: 800; text-align: center;
+            color: var(--ink); background: rgba(255, 255, 255, .1); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .3); }
+
+        /* ---------- Топ-5 центра ---------- */
+        .tt-top h2 i { color: var(--gold); }
+        .tt-rows { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+        .tt-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 14px; background: rgba(255, 255, 255, .035);
+            border: 1px solid transparent; transition: background-color .3s, border-color .3s; }
+        .tt-row.is-me { background: rgba(var(--glow), .14); border-color: rgba(var(--glow), .45); }
+        .tt-row.is-new { animation: tt-new 1.6s ease; }
+        @keyframes tt-new { 0%, 40% { box-shadow: 0 0 0 2px rgba(253, 230, 138, .9), 0 0 30px rgba(253, 230, 138, .5); } }
+        .tt-place { width: 26px; height: 26px; border-radius: 9px; flex-shrink: 0; display: grid; place-items: center; font-size: 13px; font-weight: 800;
+            color: var(--muted); background: rgba(255, 255, 255, .06); }
+        .tt-row:nth-child(1) .tt-place { color: #3b2a00; background: linear-gradient(135deg, #fde68a, #f59e0b); }
+        .tt-row:nth-child(2) .tt-place { color: #1e293b; background: linear-gradient(135deg, #f1f5f9, #94a3b8); }
+        .tt-row:nth-child(3) .tt-place { color: #3b1a05; background: linear-gradient(135deg, #fed7aa, #c2703d); }
+        .tt-ava { width: 34px; height: 34px; border-radius: 9999px; flex-shrink: 0; display: grid; place-items: center; overflow: hidden; font-size: 14px; font-weight: 800;
+            color: #fff; background: linear-gradient(135deg, rgba(var(--glow), .9), rgba(56, 189, 248, .8)); }
+        .tt-ava img { width: 100%; height: 100%; object-fit: cover; }
+        .tt-who { flex: 1; min-width: 0; }
+        .tt-who b { display: block; font-size: 14px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tt-who > span { display: block; font-size: 11px; font-weight: 700; color: var(--faint); white-space: nowrap; }
+        .tt-you { font-size: 11px; font-weight: 700; color: rgb(var(--glow)); }
+        .tt-score { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+        .tt-empty { margin: 4px 0; font-size: 13px; font-weight: 600; color: var(--muted); line-height: 1.5; }
+        .tt-me { margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--panel-line); font-size: 13px; font-weight: 700; color: var(--muted); }
+        .tt-me b { color: var(--ink); }
+
+        .tt-keys ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
+        .tt-keys li { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+        /* ---------- Кнопки для телефона ---------- */
+        .tt-touch { gap: 10px; justify-content: center; user-select: none; -webkit-user-select: none; }
+        .tt-pad { width: 60px; height: 60px; border-radius: 18px; display: grid; place-items: center; font-size: 20px; color: var(--ink);
+            background: rgba(255, 255, 255, .08); border: 1px solid var(--panel-line); touch-action: none; transition: transform .08s ease, background-color .1s; }
+        .tt-pad:active, .tt-pad.is-down { transform: scale(.92); background: rgba(var(--glow), .3); }
+        .tt-pad.is-main { background: linear-gradient(135deg, rgba(103, 232, 249, .35), rgba(196, 181, 253, .4)); }
+
+        @media (max-width: 979px) {
+            .tt-header { padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
+            .tt-brand span, .tt-back span { display: none; }
+            .tt-sound { flex: 1 1 100%; order: 3; }
+            .tt-sound select { flex: 1; min-width: 0; text-overflow: ellipsis; }
+            .tt-sound input[type=range] { width: 72px; }
+            .tt-pad { width: 52px; height: 52px; border-radius: 16px; font-size: 18px; }
+            .tt-touch { gap: 8px; flex-wrap: nowrap; }
+            .tt-main { grid-template-columns: 74px minmax(0, 1fr) 74px; gap: 10px; padding: 0 12px 24px;
+                grid-template-areas: "hold stats next" "stage stage stage" "touch touch touch" "top top top"; }
+            .tt-left, .tt-right { display: contents; }
+            .tt-keys { display: none; }
+            .tt-touch { display: flex; }
+            .tt-panel { padding: 10px; border-radius: 16px; }
+            .tt-panel h2 { margin-bottom: 6px; font-size: 9px; letter-spacing: .1em; justify-content: center; }
+            .tt-hold .tt-hint { display: none; }
+            .tt-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; text-align: center; align-content: center; }
+            .tt-stat span { font-size: 9px; letter-spacing: .08em; }
+            .tt-stat b, .tt-stat.is-score b { font-size: 18px; }
+            .tt-stat.is-time, .tt-stat.is-best { display: none; }
+            .tt-stage { justify-self: center; }
+            .tt-top { padding: 14px; }
+            .tt-top h2 { justify-content: flex-start; font-size: 11px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .tt-bg::before { animation: none; }
+            .tt-board.shake { animation: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="tt-bg" aria-hidden="true"></div>
+
+    <header class="tt-header">
+        <a href="{% url 'dashboard' %}" class="tt-back"><i class="fas fa-arrow-left"></i><span>В CRM</span></a>
+        <div class="tt-brand">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="12" width="6" height="6" rx="1.6" fill="#38d9f5"/><rect x="9" y="12" width="6" height="6" rx="1.6" fill="#a78bfa"/><rect x="15" y="12" width="6" height="6" rx="1.6" fill="#fbbf24"/><rect x="9" y="6" width="6" height="6" rx="1.6" fill="#f472b6"/></svg>
+            <b>Тетрис</b><span class="notranslate">Enjoy English</span>
+        </div>
+        <div class="tt-sound">
+            <button type="button" class="tt-iconbtn" id="musicBtn" title="Музыка (M)" aria-label="Музыка"><i class="fas fa-music"></i></button>
+            <select id="trackSel" aria-label="Саундтрек">
+                <option value="korobeiniki">Коробейники · классика</option>
+                <option value="neon">Неон · синтвейв</option>
+                <option value="lofi">Лофи · спокойно</option>
+            </select>
+            <input type="range" id="musicVol" min="0" max="100" value="55" aria-label="Громкость музыки">
+            <button type="button" class="tt-iconbtn" id="sfxBtn" title="Звуки" aria-label="Звуки"><i class="fas fa-volume-high"></i></button>
+        </div>
+    </header>
+
+    <main class="tt-main">
+        <div class="tt-left">
+        <section class="tt-panel tt-hold" aria-label="Запас">
+            <h2>Запас</h2>
+            <canvas id="holdCv" width="96" height="64"></canvas>
+            <p class="tt-hint"><span class="tt-kbd">C</span> или <span class="tt-kbd">Shift</span></p>
+        </section>
+
+        <section class="tt-panel tt-stats" aria-live="polite">
+            <div class="tt-stat is-score"><span>Очки</span><b id="sScore">0</b></div>
+            <div class="tt-stat"><span>Уровень</span><b id="sLevel">1</b></div>
+            <div class="tt-stat"><span>Линии</span><b id="sLines">0</b></div>
+            <div class="tt-stat is-time"><span>Время</span><b id="sTime">0:00</b></div>
+            <div class="tt-stat is-best"><span>Ваш рекорд</span><b id="sBest">{{ me.best }}</b></div>
+        </section>
+        </div>
+
+        <section class="tt-stage">
+            <div class="tt-board" id="board">
+                <canvas id="boardCv" width="300" height="600" aria-label="Игровое поле"></canvas>
+                <div class="tt-fx" id="fx" aria-hidden="true"></div>
+                <div class="tt-overlay" id="ovStart">
+                    <div class="tt-card">
+                        <p class="tt-title notranslate">TETRIS</p>
+                        <p class="tt-sub">Собирайте линии, ставьте рекорды и попадайте в топ-5 центра.</p>
+                        <div class="tt-btns"><button type="button" class="tt-btn" id="playBtn"><i class="fas fa-play"></i>Играть</button></div>
+                        <p class="tt-line"><span class="tt-kbd">Enter</span> — начать</p>
+                    </div>
+                </div>
+                <div class="tt-overlay" id="ovPause" hidden>
+                    <div class="tt-card">
+                        <p class="tt-title">Пауза</p>
+                        <div class="tt-btns">
+                            <button type="button" class="tt-btn" id="resumeBtn"><i class="fas fa-play"></i>Продолжить</button>
+                            <button type="button" class="tt-btn is-ghost" id="restartBtn"><i class="fas fa-rotate-right"></i>Заново</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="tt-overlay" id="ovOver" hidden>
+                    <div class="tt-card">
+                        <p class="tt-sub">Игра окончена</p>
+                        <p class="tt-big" id="oScore">0</p>
+                        <p class="tt-line"><span>Линии:</span> <b id="oLines">0</b> · <span>Уровень:</span> <b id="oLevel">1</b> · <b id="oTime">0:00</b></p>
+                        <p class="tt-status" id="oStatus"></p>
+                        <div class="tt-btns"><button type="button" class="tt-btn" id="againBtn"><i class="fas fa-rotate-right"></i>Ещё раз</button></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="tt-right">
+        <section class="tt-panel tt-next" aria-label="Дальше">
+            <h2>Дальше</h2>
+            <canvas id="nextCv" width="96" height="190"></canvas>
+        </section>
+
+        <section class="tt-panel tt-top" aria-labelledby="topTitle">
+            <h2 id="topTitle"><i class="fas fa-crown"></i>Топ-5 центра</h2>
+            <ol class="tt-rows" id="topList">
+                {% for row in top %}
+                <li class="tt-row{% if row.me %} is-me{% endif %}">
+                    <span class="tt-place">{{ row.place }}</span>
+                    <span class="tt-ava">{% if row.photo %}<img src="{{ row.photo }}" alt="">{% else %}<span class="notranslate">{{ row.initial }}</span>{% endif %}</span>
+                    <span class="tt-who"><b class="notranslate">{{ row.name }}</b><span><i class="fas fa-layer-group"></i> {{ row.lines }} · {{ row.date }}</span></span>
+                    <span class="tt-score">{{ row.score }}</span>
+                </li>
+                {% empty %}
+                <li class="tt-empty">Пока никто не играл — станьте первым!</li>
+                {% endfor %}
+            </ol>
+            <p class="tt-me" id="myLine"{% if not me.place %} hidden{% endif %}><span>Ваш рекорд:</span> <b id="myBest">{{ me.best|stringformat:'d' }}</b> · <span>место</span> <b id="myPlace">{{ me.place|default:'' }}</b></p>
+            <p class="tt-me" id="myNone"{% if me.place %} hidden{% endif %}>Сыграйте — и ваш результат появится здесь</p>
+        </section>
+
+        <section class="tt-panel tt-keys" aria-label="Управление">
+            <h2>Управление</h2>
+            <ul>
+                <li><span>Влево, вправо</span><span><span class="tt-kbd">←</span> <span class="tt-kbd">→</span></span></li>
+                <li><span>Повернуть</span><span><span class="tt-kbd">↑</span> <span class="tt-kbd">X</span> <span class="tt-kbd">Z</span></span></li>
+                <li><span>Быстрее вниз</span><span class="tt-kbd">↓</span></li>
+                <li><span>Сбросить вниз</span><span class="tt-kbd">Пробел</span></li>
+                <li><span>В запас</span><span class="tt-kbd">C</span></li>
+                <li><span>Пауза</span><span class="tt-kbd">P</span></li>
+                <li><span>Музыка</span><span class="tt-kbd">M</span></li>
+            </ul>
+        </section>
+        </div>
+
+        <div class="tt-touch" id="touch" aria-label="Кнопки управления">
+            <button type="button" class="tt-pad" data-act="hold" aria-label="В запас"><i class="fas fa-box-archive"></i></button>
+            <button type="button" class="tt-pad" data-act="left" aria-label="Влево"><i class="fas fa-chevron-left"></i></button>
+            <button type="button" class="tt-pad is-main" data-act="rotate" aria-label="Повернуть"><i class="fas fa-rotate-right"></i></button>
+            <button type="button" class="tt-pad" data-act="right" aria-label="Вправо"><i class="fas fa-chevron-right"></i></button>
+            <button type="button" class="tt-pad" data-act="down" aria-label="Быстрее вниз"><i class="fas fa-chevron-down"></i></button>
+            <button type="button" class="tt-pad is-main" data-act="drop" aria-label="Сбросить вниз"><i class="fas fa-angles-down"></i></button>
+        </div>
+    </main>
+
+    {% csrf_token %}
+    {{ texts|json_script:"tt-texts" }}
+    <script>
+    (function () {
+        'use strict';
+        const TEXT = JSON.parse(document.getElementById('tt-texts').textContent);
+        const SCORE_URL = '{% url "tetris_score" %}';
+        const CSRF = (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
+        const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const $ = id => document.getElementById(id);
+        const fmt = n => Math.round(n).toLocaleString('ru-RU').replace(/\s/g, ' ');
+        const clock = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+        const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+                        set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* без памяти — не страшно */ } } };
+
+        /* ================= Фигуры, вращение SRS ================= */
+        const COLS = 10, ROWS = 22, HIDDEN = 2;
+        const COLORS = { I: '#38d9f5', O: '#fcd34d', T: '#a78bfa', S: '#4ade80', Z: '#fb7185', J: '#60a5fa', L: '#fb923c' };
+        const SHAPES = {
+            I: [[[0, 1], [1, 1], [2, 1], [3, 1]], [[2, 0], [2, 1], [2, 2], [2, 3]], [[0, 2], [1, 2], [2, 2], [3, 2]], [[1, 0], [1, 1], [1, 2], [1, 3]]],
+            O: [[[1, 0], [2, 0], [1, 1], [2, 1]], [[1, 0], [2, 0], [1, 1], [2, 1]], [[1, 0], [2, 0], [1, 1], [2, 1]], [[1, 0], [2, 0], [1, 1], [2, 1]]],
+            T: [[[1, 0], [0, 1], [1, 1], [2, 1]], [[1, 0], [1, 1], [2, 1], [1, 2]], [[0, 1], [1, 1], [2, 1], [1, 2]], [[1, 0], [0, 1], [1, 1], [1, 2]]],
+            S: [[[1, 0], [2, 0], [0, 1], [1, 1]], [[1, 0], [1, 1], [2, 1], [2, 2]], [[1, 1], [2, 1], [0, 2], [1, 2]], [[0, 0], [0, 1], [1, 1], [1, 2]]],
+            Z: [[[0, 0], [1, 0], [1, 1], [2, 1]], [[2, 0], [1, 1], [2, 1], [1, 2]], [[0, 1], [1, 1], [1, 2], [2, 2]], [[1, 0], [0, 1], [1, 1], [0, 2]]],
+            J: [[[0, 0], [0, 1], [1, 1], [2, 1]], [[1, 0], [2, 0], [1, 1], [1, 2]], [[0, 1], [1, 1], [2, 1], [2, 2]], [[1, 0], [1, 1], [0, 2], [1, 2]]],
+            L: [[[2, 0], [0, 1], [1, 1], [2, 1]], [[1, 0], [1, 1], [1, 2], [2, 2]], [[0, 1], [1, 1], [2, 1], [0, 2]], [[0, 0], [1, 0], [1, 1], [1, 2]]],
+        };
+        // Отскоки от стен (SRS): [x, y], y вверх — как в стандарте; при проверке y переворачиваем
+        const KICKS = {
+            '0>1': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]], '1>0': [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]],
+            '1>2': [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]], '2>1': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
+            '2>3': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]], '3>2': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],
+            '3>0': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]], '0>3': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]],
+        };
+        const KICKS_I = {
+            '0>1': [[0, 0], [-2, 0], [1, 0], [-2, -1], [1, 2]], '1>0': [[0, 0], [2, 0], [-1, 0], [2, 1], [-1, -2]],
+            '1>2': [[0, 0], [-1, 0], [2, 0], [-1, 2], [2, -1]], '2>1': [[0, 0], [1, 0], [-2, 0], [1, -2], [-2, 1]],
+            '2>3': [[0, 0], [2, 0], [-1, 0], [2, 1], [-1, -2]], '3>2': [[0, 0], [-2, 0], [1, 0], [-2, -1], [1, 2]],
+            '3>0': [[0, 0], [1, 0], [-2, 0], [1, -2], [-2, 1]], '0>3': [[0, 0], [-1, 0], [2, 0], [-1, 2], [2, -1]],
+        };
+
+        /* ================= Звук: синтезатор, звуки, музыка ================= */
+        const settings = Object.assign({ track: 'korobeiniki', vol: 55, music: true, sfx: true }, store.get('tt-sound', {}));
+        const A = { ctx: null };
+        function impulse(ctx, seconds, decay) {
+            const len = Math.floor(ctx.sampleRate * seconds), buf = ctx.createBuffer(2, len, ctx.sampleRate);
+            for (let ch = 0; ch < 2; ch++) {
+                const d = buf.getChannelData(ch);
+                for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+            }
+            return buf;
+        }
+        function audioInit() {
+            if (A.ctx) { if (A.ctx.state === 'suspended') A.ctx.resume(); return; }
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            const ctx = A.ctx = new Ctx();
+            const comp = ctx.createDynamicsCompressor();
+            comp.threshold.value = -16; comp.ratio.value = 3; comp.attack.value = 0.005; comp.release.value = 0.2;
+            comp.connect(ctx.destination);
+            A.master = ctx.createGain(); A.master.gain.value = 0.9; A.master.connect(comp);
+            A.music = ctx.createGain(); A.music.connect(A.master);
+            A.sfx = ctx.createGain(); A.sfx.connect(A.master);
+            A.mverb = ctx.createConvolver(); A.mverb.buffer = impulse(ctx, 2.4, 3.2);
+            const mv = ctx.createGain(); mv.gain.value = 0.5; A.mverb.connect(mv); mv.connect(A.music);
+            A.sverb = ctx.createConvolver(); A.sverb.buffer = impulse(ctx, 1.6, 3);
+            const sv = ctx.createGain(); sv.gain.value = 0.45; A.sverb.connect(sv); sv.connect(A.sfx);
+            A.echo = ctx.createDelay(1); A.echo.delayTime.value = 0.32;
+            const fb = ctx.createGain(); fb.gain.value = 0.3; A.echo.connect(fb); fb.connect(A.echo);
+            const eg = ctx.createGain(); eg.gain.value = 0.3; A.echo.connect(eg); eg.connect(A.music);
+            const len = ctx.sampleRate;
+            A.noise = ctx.createBuffer(1, len, ctx.sampleRate);
+            const nd = A.noise.getChannelData(0);
+            for (let i = 0; i < len; i++) nd[i] = Math.random() * 2 - 1;
+            applySound();
+        }
+        function applySound() {
+            if (!A.ctx) return;
+            const t = A.ctx.currentTime;
+            A.music.gain.setTargetAtTime(settings.music ? settings.vol / 100 * 0.6 : 0, t, 0.05);
+            A.sfx.gain.setTargetAtTime(settings.sfx ? 0.75 : 0, t, 0.02);
+        }
+        const SEMI = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+        function hz(note) {
+            if (typeof note === 'number') return note;
+            const m = /^([A-G])([#b]?)(-?\d)$/.exec(note);
+            const midi = SEMI[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) + (+m[3] + 1) * 12;
+            return 440 * Math.pow(2, (midi - 69) / 12);
+        }
+        // Один голос: генератор → фильтр → огибающая; можно отправить в реверб и эхо
+        function voice(bus, t, note, dur, o) {
+            const ctx = A.ctx, osc = ctx.createOscillator(), g = ctx.createGain();
+            osc.type = o.type || 'triangle';
+            osc.frequency.setValueAtTime(hz(note), t);
+            if (o.slide) osc.frequency.exponentialRampToValueAtTime(hz(o.slide), t + Math.max(0.02, o.slideTime || dur));
+            if (o.detune) osc.detune.value = o.detune;
+            let node = osc;
+            if (o.cutoff) {
+                const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.cutoff; f.Q.value = o.q || 0.8;
+                node.connect(f); node = f;
+            }
+            node.connect(g);
+            const a = o.a == null ? 0.004 : o.a, peak = o.gain == null ? 0.2 : o.gain, sus = o.sus == null ? 0.55 : o.sus, rel = o.r == null ? 0.08 : o.r;
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.linearRampToValueAtTime(peak, t + a);
+            g.gain.setTargetAtTime(peak * sus, t + a, (o.dec == null ? 0.12 : o.dec) / 3);
+            g.gain.setTargetAtTime(0.0001, t + dur, rel / 3);
+            g.connect(bus);
+            if (o.verb) { const s = ctx.createGain(); s.gain.value = o.verb; g.connect(s); s.connect(bus === A.sfx ? A.sverb : A.mverb); }
+            if (o.echo) { const s = ctx.createGain(); s.gain.value = o.echo; g.connect(s); s.connect(A.echo); }
+            osc.start(t); osc.stop(t + dur + rel * 3 + 0.05);
+        }
+        function noise(bus, t, dur, o) {
+            const ctx = A.ctx, src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+            src.buffer = A.noise;
+            f.type = o.filter || 'highpass'; f.frequency.setValueAtTime(o.freq || 1000, t);
+            if (o.sweep) f.frequency.exponentialRampToValueAtTime(o.sweep, t + dur);
+            f.Q.value = o.q || 0.7;
+            g.gain.setValueAtTime(o.gain || 0.1, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+            src.connect(f); f.connect(g); g.connect(bus);
+            if (o.verb) { const s = ctx.createGain(); s.gain.value = o.verb; g.connect(s); s.connect(bus === A.sfx ? A.sverb : A.mverb); }
+            src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.02);
+        }
+        const drum = {
+            kick(t, v) {
+                const ctx = A.ctx, o = ctx.createOscillator(), g = ctx.createGain();
+                o.type = 'sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.13);
+                g.gain.setValueAtTime(0.85 * v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+                o.connect(g); g.connect(A.music); o.start(t); o.stop(t + 0.34);
+            },
+            snare(t, v) {
+                noise(A.music, t, 0.18, { freq: 1600, gain: 0.3 * v, verb: 0.35 });
+                voice(A.music, t, 190, 0.05, { type: 'triangle', gain: 0.22 * v, dec: 0.05, sus: 0.1, r: 0.05 });
+            },
+            rim(t, v) { voice(A.music, t, 820, 0.02, { type: 'square', gain: 0.07 * v, cutoff: 2600, sus: 0.1, r: 0.04, verb: 0.3 }); },
+            hat(t, v, open) { noise(A.music, t, open ? 0.24 : 0.045, { freq: 7600, gain: 0.09 * v }); },
+        };
+
+        // Звуки игры — мягкие, короткие
+        const sfx = {
+            move() { if (A.ctx) voice(A.sfx, A.ctx.currentTime, 'A5', 0.03, { type: 'triangle', gain: 0.045, sus: 0.2, r: 0.04 }); },
+            rotate() { if (A.ctx) voice(A.sfx, A.ctx.currentTime, 'E5', 0.05, { type: 'triangle', gain: 0.06, slide: 'B5', sus: 0.3, r: 0.05 }); },
+            soft() { if (A.ctx) voice(A.sfx, A.ctx.currentTime, 'C5', 0.015, { type: 'sine', gain: 0.02, sus: 0.2, r: 0.02 }); },
+            lock() { if (!A.ctx) return; const t = A.ctx.currentTime; voice(A.sfx, t, 'E4', 0.05, { type: 'sine', gain: 0.1, sus: 0.2, r: 0.06 }); voice(A.sfx, t, 'E5', 0.03, { type: 'triangle', gain: 0.04, sus: 0.2, r: 0.04 }); },
+            hard() {
+                if (!A.ctx) return; const t = A.ctx.currentTime;
+                voice(A.sfx, t, 160, 0.16, { type: 'sine', gain: 0.32, slide: 50, sus: 0.3, r: 0.1 });
+                noise(A.sfx, t, 0.08, { filter: 'lowpass', freq: 1800, gain: 0.12 });
+            },
+            hold() { if (A.ctx) noise(A.sfx, A.ctx.currentTime, 0.16, { filter: 'bandpass', freq: 500, sweep: 2600, q: 2, gain: 0.12 }); },
+            clear(n, combo) {
+                if (!A.ctx) return; const t = A.ctx.currentTime;
+                const notes = n >= 4 ? ['C5', 'E5', 'G5', 'C6', 'E6', 'G6'] : ['C5', 'E5', 'G5', 'C6'].slice(0, n + 1);
+                const shift = Math.min(combo, 8);
+                notes.forEach((note, i) => voice(A.sfx, t + i * 0.055, hz(note) * Math.pow(2, shift / 12), 0.16,
+                    { type: 'triangle', gain: 0.11, sus: 0.4, r: 0.3, verb: 0.5 }));
+                if (n >= 4) {
+                    voice(A.sfx, t, 'C3', 0.5, { type: 'sine', gain: 0.25, sus: 0.6, r: 0.4 });
+                    noise(A.sfx, t + 0.05, 0.6, { freq: 6000, gain: 0.05, verb: 0.6 });
+                }
+            },
+            level() {
+                if (!A.ctx) return; const t = A.ctx.currentTime;
+                ['G4', 'C5', 'E5', 'G5', 'C6'].forEach((n, i) => voice(A.sfx, t + i * 0.07, n, 0.2, { type: 'square', gain: 0.05, cutoff: 3000, sus: 0.5, r: 0.25, verb: 0.5 }));
+            },
+            start() { if (!A.ctx) return; const t = A.ctx.currentTime; ['C5', 'G5', 'C6'].forEach((n, i) => voice(A.sfx, t + i * 0.08, n, 0.14, { type: 'triangle', gain: 0.08, r: 0.3, verb: 0.4 })); },
+            over() {
+                if (!A.ctx) return; const t = A.ctx.currentTime;
+                ['A4', 'F4', 'D4', 'A3'].forEach((n, i) => voice(A.sfx, t + i * 0.22, n, 0.3, { type: 'triangle', gain: 0.12, cutoff: 1800, sus: 0.6, r: 0.5, verb: 0.5 }));
+            },
+            record() { if (!A.ctx) return; const t = A.ctx.currentTime; ['C5', 'E5', 'G5', 'C6', 'G5', 'C6', 'E6'].forEach((n, i) => voice(A.sfx, t + i * 0.09, n, 0.18, { type: 'triangle', gain: 0.1, r: 0.35, verb: 0.5 })); },
+        };
+
+        /* ---------- Музыка: шаговый секвенсор, шаг — шестнадцатая ---------- */
+        // Ноты мелодии: [нота или 'r' — пауза, длительность в четвертях]
+        function phrase(list) {
+            const ev = []; let pos = 0;
+            list.forEach(([n, beats]) => { const len = Math.round(beats * 4); if (n !== 'r') ev.push([pos, n, len]); pos += len; });
+            return { ev, len: pos };
+        }
+        function joinPhrases(parts) {
+            const ev = []; let pos = 0;
+            parts.forEach(p => { p.ev.forEach(([s, n, l]) => ev.push([s + pos, n, l])); pos += p.len; });
+            return { ev, len: pos };
+        }
+        function indexEvents(ev, steps) {
+            const at = Array.from({ length: steps }, () => []);
+            ev.forEach(e => { if (e[0] < steps) at[e[0]].push(e); });
+            return at;
+        }
+        function midi(note) {
+            const m = /^([A-G])([#b]?)(-?\d)$/.exec(note);
+            return SEMI[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) + (+m[3] + 1) * 12;
+        }
+        // Ноты аккорда снизу вверх от основного тона: A C E → A3 C4 E4
+        function voicing(names, oct) {
+            let prev = -1;
+            return names.map(n => { let o = oct; while (midi(n + o) <= prev) o++; prev = midi(n + o); return n + o; });
+        }
+        const CHORD = { A: ['A', 'C', 'E'], E: ['E', 'G#', 'B'], D: ['D', 'F', 'A'], C: ['C', 'E', 'G'], F: ['F', 'A', 'C'], G: ['G', 'B', 'D'],
+                        Fmaj7: ['F', 'A', 'C', 'E'], Em7: ['E', 'G', 'B', 'D'], Dm7: ['D', 'F', 'A', 'C'], Cmaj7: ['C', 'E', 'G', 'B'] };
+
+        // «Коробейники» — народная песня, тема классического тетриса
+        function trackKorobeiniki() {
+            const A1 = phrase([['E5', 1], ['B4', .5], ['C5', .5], ['D5', 1], ['C5', .5], ['B4', .5], ['A4', 1], ['A4', .5], ['C5', .5], ['E5', 1], ['D5', .5], ['C5', .5],
+                ['B4', 1.5], ['C5', .5], ['D5', 1], ['E5', 1], ['C5', 1], ['A4', 1], ['A4', 2],
+                ['r', .5], ['D5', 1], ['F5', .5], ['A5', 1], ['G5', .5], ['F5', .5], ['E5', 1.5], ['C5', .5], ['E5', 1], ['D5', .5], ['C5', .5],
+                ['B4', 1], ['B4', .5], ['C5', .5], ['D5', 1], ['E5', 1], ['C5', 1], ['A4', 1], ['A4', 1], ['r', 1]]);
+            const B = phrase([['E5', 2], ['C5', 2], ['D5', 2], ['B4', 2], ['C5', 2], ['A4', 2], ['G#4', 2], ['B4', 2],
+                ['E5', 2], ['C5', 2], ['D5', 2], ['B4', 2], ['C5', 1], ['E5', 1], ['A5', 2], ['G#5', 4]]);
+            const lead = joinPhrases([A1, A1, B]);
+            const roots = ['E', 'A', 'E', 'A', 'D', 'C', 'E', 'A', 'E', 'A', 'E', 'A', 'D', 'C', 'E', 'A', 'A', 'E', 'A', 'E', 'A', 'E', 'A', 'E'];
+            const steps = lead.len, bars = steps / 16;
+            const bass = [], pad = [];
+            roots.forEach((r, bar) => {
+                for (let i = 0; i < 8; i++) bass.push([bar * 16 + i * 2, r + (i % 2 ? '3' : '2'), 2]);
+                voicing(CHORD[r], 4).forEach(n => pad.push([bar * 16, n, 16]));
+            });
+            return {
+                bpm: 144, steps, speedsUp: true,
+                lead: indexEvents(lead.ev, steps), bass: indexEvents(bass, steps), pad: indexEvents(pad, steps),
+                play(step, t, sp) {
+                    const bar = Math.floor(step / 16), s = step % 16, part = bar >= 16;
+                    this.lead[step].forEach(([, n, l]) => {
+                        voice(A.music, t, n, l * sp * 0.92, { type: 'square', gain: 0.07, cutoff: 2600, sus: 0.6, r: 0.08, echo: 0.35, verb: 0.15 });
+                        voice(A.music, t, n, l * sp * 0.92, { type: 'triangle', gain: 0.06, detune: 7, sus: 0.6, r: 0.1 });
+                    });
+                    this.bass[step].forEach(([, n, l]) => voice(A.music, t, n, l * sp * 0.8, { type: 'sawtooth', gain: 0.075, cutoff: 700, sus: 0.5, r: 0.05 }));
+                    this.pad[step].forEach(([, n, l]) => voice(A.music, t, n, l * sp, { type: 'sine', gain: 0.025, a: 0.08, sus: 0.8, r: 0.4, verb: 0.4 }));
+                    if (part) { if (s === 0 || s === 8) drum.kick(t, 0.8); if (s % 4 === 2) drum.hat(t, 0.6); if (s === 4 || s === 12) drum.rim(t, 1); return; }
+                    if (s === 0 || s === 8 || s === 10) drum.kick(t, s === 10 ? 0.6 : 1);
+                    if (s === 4 || s === 12) drum.snare(t, 1);
+                    if (s % 2 === 0) drum.hat(t, s % 4 === 0 ? 1 : 0.6);
+                    if (bar % 8 === 7 && s >= 13) drum.snare(t, 0.55);
+                },
+            };
+        }
+        // «Неон» — своя мелодия в духе синтвейва
+        function trackNeon() {
+            const prog = ['A', 'F', 'C', 'G', 'A', 'F', 'C', 'G'];
+            const melody = phrase([['r', 16], ['E5', 1.5], ['D5', .5], ['C5', 1], ['B4', 1], ['C5', 1.5], ['A4', .5], ['F4', 1], ['A4', 1],
+                ['G4', 1], ['C5', 1], ['E5', 1], ['G5', 1], ['D5', 2], ['B4', 1], ['D5', 1]]);
+            const steps = prog.length * 16;
+            const arp = [], bass = [], pad = [];
+            const order = [0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 2, 1, 3];
+            prog.forEach((c, bar) => {
+                const notes = voicing(CHORD[c], 4); notes.push(CHORD[c][0] + (+notes[0].slice(-1) + 1));
+                order.forEach((k, i) => arp.push([bar * 16 + i, notes[k], 1]));
+                for (let i = 0; i < 8; i++) bass.push([bar * 16 + i * 2, CHORD[c][0] + (i === 3 || i === 7 ? '3' : '2'), 2]);
+                voicing(CHORD[c], 3).forEach(n => pad.push([bar * 16, n, 16]));
+            });
+            return {
+                bpm: 104, steps,
+                lead: indexEvents(melody.ev, steps), arp: indexEvents(arp, steps), bass: indexEvents(bass, steps), pad: indexEvents(pad, steps),
+                play(step, t, sp) {
+                    const s = step % 16;
+                    this.arp[step].forEach(([, n]) => voice(A.music, t, n, sp * 0.9, { type: 'sawtooth', gain: 0.035, cutoff: 1800, sus: 0.3, r: 0.06, echo: 0.4 }));
+                    this.lead[step].forEach(([, n, l]) => {
+                        voice(A.music, t, n, l * sp, { type: 'sawtooth', gain: 0.05, cutoff: 2400, detune: -6, sus: 0.7, r: 0.2, echo: 0.4, verb: 0.3 });
+                        voice(A.music, t, n, l * sp, { type: 'square', gain: 0.03, cutoff: 2000, detune: 6, sus: 0.7, r: 0.2 });
+                    });
+                    this.bass[step].forEach(([, n, l]) => voice(A.music, t, n, l * sp * 0.85, { type: 'sawtooth', gain: 0.08, cutoff: 520, sus: 0.6, r: 0.05 }));
+                    this.pad[step].forEach(([, n, l]) => {
+                        voice(A.music, t, n, l * sp, { type: 'sawtooth', gain: 0.018, cutoff: 1100, a: 0.5, sus: 0.9, r: 0.6, detune: -8, verb: 0.5 });
+                        voice(A.music, t, n, l * sp, { type: 'sawtooth', gain: 0.018, cutoff: 1100, a: 0.5, sus: 0.9, r: 0.6, detune: 8 });
+                    });
+                    if (s % 4 === 0) drum.kick(t, 1);
+                    if (s === 4 || s === 12) drum.snare(t, 1);
+                    if (s % 4 === 2) drum.hat(t, 0.8, s === 14);
+                },
+            };
+        }
+        // «Лофи» — спокойная своя мелодия
+        function trackLofi() {
+            const prog = ['Fmaj7', 'Em7', 'Dm7', 'Cmaj7', 'Fmaj7', 'Em7', 'Dm7', 'Cmaj7'];
+            const melody = phrase([['r', 16], ['E5', 1.5], ['C5', .5], ['A4', 2], ['D5', 1], ['B4', 1], ['G4', 2], ['C5', 1.5], ['A4', .5], ['F4', 1], ['A4', 1], ['B4', 2], ['G4', 1], ['E4', 1]]);
+            const steps = prog.length * 16, keys = [], bass = [];
+            prog.forEach((c, bar) => {
+                voicing(CHORD[c], 3).forEach(n => { keys.push([bar * 16, n, 7]); keys.push([bar * 16 + 10, n, 6]); });
+                bass.push([bar * 16, CHORD[c][0] + '2', 6]); bass.push([bar * 16 + 10, CHORD[c][2] + '2', 4]);
+            });
+            return {
+                bpm: 80, steps, swing: 0.14,
+                lead: indexEvents(melody.ev, steps), keys: indexEvents(keys, steps), bass: indexEvents(bass, steps),
+                play(step, t, sp) {
+                    const s = step % 16;
+                    this.keys[step].forEach(([, n, l]) => {
+                        voice(A.music, t, n, l * sp, { type: 'triangle', gain: 0.048, a: 0.01, dec: 0.4, sus: 0.35, r: 0.4, verb: 0.35 });
+                        voice(A.music, t, hz(n) * 2, l * sp * 0.6, { type: 'sine', gain: 0.012, dec: 0.2, sus: 0.2, r: 0.3 });
+                    });
+                    this.lead[step].forEach(([, n, l]) => voice(A.music, t, n, l * sp, { type: 'sine', gain: 0.08, dec: 0.5, sus: 0.3, r: 0.6, echo: 0.3, verb: 0.5 }));
+                    this.bass[step].forEach(([, n, l]) => voice(A.music, t, n, l * sp, { type: 'sine', gain: 0.17, dec: 0.3, sus: 0.6, r: 0.15 }));
+                    if (s === 0 || s === 7 || s === 10) drum.kick(t, 0.55);
+                    if (s === 4 || s === 12) drum.rim(t, 0.9);
+                    if (s % 2 === 0) drum.hat(t, 0.35);
+                },
+            };
+        }
+        const TRACKS = { korobeiniki: trackKorobeiniki, neon: trackNeon, lofi: trackLofi };
+        const seq = { track: null, step: 0, next: 0, timer: 0, playing: false };
+        function musicStart(fromTop) {
+            if (!A.ctx || !settings.music) return;
+            if (!seq.track || seq.name !== settings.track) { seq.track = TRACKS[settings.track](); seq.name = settings.track; fromTop = true; }
+            if (fromTop) seq.step = 0;
+            seq.next = A.ctx.currentTime + 0.06;
+            seq.playing = true;
+            clearInterval(seq.timer);
+            seq.timer = setInterval(scheduleMusic, 25);
+        }
+        function musicStop() { seq.playing = false; clearInterval(seq.timer); }
+        function scheduleMusic() {
+            if (!seq.playing || !A.ctx) return;
+            const tr = seq.track;
+            const speed = tr.speedsUp ? 1 + Math.min(0.3, (game.level - 1) * 0.025) : 1;
+            const sp = 60 / (tr.bpm * speed) / 4;
+            while (seq.next < A.ctx.currentTime + 0.14) {
+                const swing = tr.swing && seq.step % 2 ? tr.swing * sp : 0;
+                tr.play(seq.step, seq.next + swing, sp);
+                seq.step = (seq.step + 1) % tr.steps;
+                seq.next += sp;
+            }
+        }
+
+        /* ================= Игра ================= */
+        const game = { state: 'idle', board: [], bag: [], queue: [], cur: null, hold: null, holdUsed: false,
+                       score: 0, lines: 0, level: 1, combo: -1, b2b: false, time: 0, fall: 0, lock: 0, lockMoves: 0, clearing: null };
+        const best = { value: {{ me.best|default:0|stringformat:'d' }} };
+
+        function emptyBoard() { return Array.from({ length: ROWS }, () => Array(COLS).fill(null)); }
+        function fillBag() {
+            const bag = Object.keys(SHAPES);
+            for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
+            game.queue.push(...bag);
+        }
+        function cells(p, rot = p.rot, x = p.x, y = p.y) { return SHAPES[p.type][rot].map(([cx, cy]) => [x + cx, y + cy]); }
+        function fits(p, rot = p.rot, x = p.x, y = p.y) {
+            return cells(p, rot, x, y).every(([cx, cy]) => cx >= 0 && cx < COLS && cy < ROWS && (cy < 0 || !game.board[cy][cx]));
+        }
+        function spawn(type) {
+            if (game.queue.length < 7) fillBag();
+            const t = type || game.queue.shift();
+            const p = { type: t, rot: 0, x: 3, y: 0 };
+            if (!fits(p)) { gameOver(); return false; }
+            if (fits(p, 0, 3, 1)) p.y = 1;   // сразу на ряд ниже — фигура видна
+            game.cur = p; game.lock = 0; game.lockMoves = 0; game.fall = 0;
+            drawSide();
+            return true;
+        }
+        function speed() { return Math.max(0.045, 0.9 * Math.pow(0.85, game.level - 1)); }   // секунд на ряд
+        function grounded() { return !fits(game.cur, game.cur.rot, game.cur.x, game.cur.y + 1); }
+        function resetLock() { if (grounded() && game.lockMoves < 15) { game.lock = 0; game.lockMoves++; } }
+        function move(dx) {
+            if (game.state !== 'playing' || !game.cur) return false;
+            if (fits(game.cur, game.cur.rot, game.cur.x + dx, game.cur.y)) { game.cur.x += dx; resetLock(); sfx.move(); return true; }
+            return false;
+        }
+        function rotate(dir) {
+            if (game.state !== 'playing' || !game.cur || game.cur.type === 'O') return;
+            const p = game.cur, to = (p.rot + dir + 4) % 4, table = p.type === 'I' ? KICKS_I : KICKS;
+            for (const [kx, ky] of table[p.rot + '>' + to]) {
+                if (fits(p, to, p.x + kx, p.y - ky)) { p.x += kx; p.y -= ky; p.rot = to; resetLock(); sfx.rotate(); return; }
+            }
+        }
+        function softDrop() {
+            if (game.state !== 'playing' || !game.cur) return;
+            if (fits(game.cur, game.cur.rot, game.cur.x, game.cur.y + 1)) { game.cur.y++; game.fall = 0; addScore(1); sfx.soft(); }
+        }
+        function ghostY() { let y = game.cur.y; while (fits(game.cur, game.cur.rot, game.cur.x, y + 1)) y++; return y; }
+        function hardDrop() {
+            if (game.state !== 'playing' || !game.cur) return;
+            const y = ghostY(), dist = y - game.cur.y;
+            trail = { cells: cells(game.cur), dist, color: COLORS[game.cur.type], t: 0 };
+            game.cur.y = y; addScore(dist * 2); sfx.hard();
+            const board = $('board');
+            if (!reduce) { board.classList.remove('shake'); void board.offsetWidth; board.classList.add('shake'); }
+            lockPiece();
+        }
+        function holdPiece() {
+            if (game.state !== 'playing' || !game.cur || game.holdUsed) return;
+            const t = game.cur.type;
+            game.holdUsed = true; sfx.hold();
+            if (game.hold) { const h = game.hold; game.hold = t; spawn(h); }
+            else { game.hold = t; spawn(); }
+            drawSide();
+        }
+        function lockPiece() {
+            const p = game.cur;
+            let above = true;
+            cells(p).forEach(([x, y]) => { if (y >= 0) game.board[y][x] = p.type; if (y >= HIDDEN) above = false; });
+            game.cur = null; game.holdUsed = false;
+            if (above) { gameOver(); return; }   // фигура легла целиком выше поля
+            const full = [];
+            for (let y = 0; y < ROWS; y++) if (game.board[y].every(Boolean)) full.push(y);
+            if (full.length) {
+                game.state = 'clearing';
+                game.clearing = { rows: full, t: 0 };
+                scoreClear(full.length);
+                burst(full);
+            } else {
+                game.combo = -1; sfx.lock();
+                spawn();
+            }
+        }
+        function finishClear() {
+            const rows = game.clearing.rows;
+            game.board = game.board.filter((_, y) => !rows.includes(y));
+            while (game.board.length < ROWS) game.board.unshift(Array(COLS).fill(null));
+            game.clearing = null; game.state = 'playing';
+            spawn();
+        }
+        function addScore(n) { game.score += n; $('sScore').textContent = fmt(game.score); }
+        function scoreClear(n) {
+            game.combo++;
+            const tetris = n === 4;
+            let pts = [0, 100, 300, 500, 800][n] * game.level;
+            if (tetris && game.b2b) { pts = Math.round(pts * 1.5); popup(TEXT.b2b, 'small', 0.62); }
+            game.b2b = tetris;
+            if (game.combo > 0) { pts += 50 * game.combo * game.level; popup(TEXT.combo.replace('{n}', game.combo + 1), 'small', 0.7); }
+            addScore(pts);
+            popup([TEXT.single, TEXT.double, TEXT.triple, TEXT.tetris][n - 1], tetris ? 'big' : 'mid', 0.42);
+            sfx.clear(n, game.combo);
+            const before = game.level;
+            game.lines += n;
+            game.level = 1 + Math.floor(game.lines / 10);
+            $('sLines').textContent = game.lines;
+            if (game.level > before) {
+                $('sLevel').textContent = game.level; bump('sLevel');
+                setTimeout(() => { popup(TEXT.level.replace('{n}', game.level), 'mid', 0.28); sfx.level(); }, 380);
+                setHue();
+            }
+            bump('sScore');
+        }
+        function bump(id) { const el = $(id); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+        function setHue() {
+            const hues = ['167, 139, 250', '56, 189, 248', '52, 211, 153', '251, 191, 36', '244, 114, 182', '129, 140, 248', '248, 113, 113'];
+            document.documentElement.style.setProperty('--glow', hues[(game.level - 1) % hues.length]);
+        }
+
+        function newGame() {
+            audioInit();
+            game.board = emptyBoard(); game.queue = []; fillBag(); fillBag();
+            Object.assign(game, { hold: null, holdUsed: false, score: 0, lines: 0, level: 1, combo: -1, b2b: false, time: 0, clearing: null });
+            particles.length = 0; trail = null;
+            $('sScore').textContent = '0'; $('sLevel').textContent = '1'; $('sLines').textContent = '0'; $('sTime').textContent = '0:00';
+            setHue();
+            show(null);
+            if (document.activeElement && document.activeElement.blur) document.activeElement.blur();   // пробел не нажмёт «Играть» ещё раз
+            game.state = 'playing';
+            spawn();
+            sfx.start();
+            musicStart(true);
+        }
+        function pause(on) {
+            if (on && game.state === 'playing') { game.state = 'paused'; show('ovPause'); musicStop(); }
+            else if (!on && game.state === 'paused') {
+                game.state = 'playing'; show(null); audioInit(); musicStart(false);
+                if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+            }
+        }
+        function gameOver() {
+            game.state = 'over'; game.cur = null;
+            musicStop(); sfx.over();
+            $('oScore').textContent = fmt(game.score); $('oLines').textContent = game.lines; $('oLevel').textContent = game.level; $('oTime').textContent = clock(game.time);
+            const status = $('oStatus');
+            status.className = 'tt-status'; status.textContent = '';
+            show('ovOver');
+            if (game.score > 0) saveScore(status);
+        }
+        function show(id) { ['ovStart', 'ovPause', 'ovOver'].forEach(o => { $(o).hidden = o !== id; }); if (id) { const b = $(id).querySelector('.tt-btn'); if (b) b.focus({ preventScroll: true }); } }
+
+        /* ---------- Сохранение результата и топ-5 ---------- */
+        function saveScore(status) {
+            status.textContent = TEXT.saving;
+            fetch(SCORE_URL, {
+                method: 'POST', credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF, 'Accept': 'application/json' },
+                body: JSON.stringify({ score: game.score, lines: game.lines, level: game.level, duration: Math.max(1, Math.round(game.time)) }),
+            }).then(r => r.json().catch(() => null).then(d => ({ ok: r.ok, d }))).then(({ ok, d }) => {
+                if (!ok || !d || !d.ok) { status.textContent = (d && d.error) || TEXT.not_saved; status.classList.add('is-error'); return; }
+                renderTop(d.top, d.me, true);
+                const parts = [];
+                if (d.in_top && d.record) parts.push(TEXT.top);
+                else if (d.record) parts.push(TEXT.record);
+                if (d.me && d.me.place) parts.push(TEXT.place.replace('{n}', d.me.place));
+                status.textContent = parts.join(' · ') || TEXT.saved;
+                if (d.record) { sfx.record(); best.value = d.me.best; $('sBest').textContent = fmt(best.value); }
+            }).catch(() => { status.textContent = TEXT.not_saved; status.classList.add('is-error'); });
+        }
+        function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML.replace(/"/g, '&quot;'); }
+        function renderTop(top, me, highlight) {
+            const list = $('topList');
+            if (!top.length) { list.innerHTML = '<li class="tt-empty">' + esc(TEXT.empty) + '</li>'; return; }
+            list.innerHTML = top.map(r => '<li class="tt-row' + (r.me ? ' is-me' + (highlight ? ' is-new' : '') : '') + '">' +
+                '<span class="tt-place">' + r.place + '</span>' +
+                '<span class="tt-ava">' + (r.photo ? '<img src="' + esc(r.photo) + '" alt="">' : '<span class="notranslate">' + esc(r.initial) + '</span>') + '</span>' +
+                '<span class="tt-who"><b class="notranslate">' + esc(r.name) + (r.me ? ' <span class="tt-you">· ' + esc(TEXT.you) + '</span>' : '') + '</b><span><i class="fas fa-layer-group"></i> ' + r.lines + ' · ' + esc(r.date) + '</span></span>' +
+                '<span class="tt-score">' + fmt(r.score) + '</span></li>').join('');
+            if (me && me.place) { $('myBest').textContent = fmt(me.best); $('myPlace').textContent = me.place; $('myLine').hidden = false; $('myNone').hidden = true; }
+        }
+        document.querySelectorAll('#topList .tt-score, #myBest').forEach(el => { if (el.textContent.trim()) el.textContent = fmt(+el.textContent); });
+        $('sBest').textContent = fmt(best.value);
+
+        /* ================= Рисование ================= */
+        const cv = $('boardCv'), g = cv.getContext('2d');
+        const holdCv = $('holdCv'), nextCv = $('nextCv');
+        let cell = 30, DPR = Math.min(2, window.devicePixelRatio || 1), sprites = {}, trail = null;
+        const particles = [];
+
+        function shade(hex, k) {
+            const n = parseInt(hex.slice(1), 16), r = n >> 16, gg = n >> 8 & 255, b = n & 255;
+            const f = v => Math.round(k > 0 ? v + (255 - v) * k : v * (1 + k));
+            return 'rgb(' + f(r) + ',' + f(gg) + ',' + f(b) + ')';
+        }
+        function blockSprite(color, size) {
+            const c = document.createElement('canvas'); c.width = c.height = Math.ceil(size * DPR);
+            const x = c.getContext('2d'); x.scale(DPR, DPR);
+            const pad = Math.max(1, size * 0.06), r = size * 0.2, w = size - pad * 2;
+            const grad = x.createLinearGradient(0, 0, size, size);
+            grad.addColorStop(0, shade(color, 0.35)); grad.addColorStop(0.55, color); grad.addColorStop(1, shade(color, -0.28));
+            x.fillStyle = grad;
+            x.beginPath(); x.roundRect ? x.roundRect(pad, pad, w, w, r) : x.rect(pad, pad, w, w); x.fill();
+            x.fillStyle = 'rgba(255,255,255,.28)';
+            x.beginPath(); x.roundRect ? x.roundRect(pad + w * 0.14, pad + w * 0.1, w * 0.72, w * 0.18, r * 0.6) : x.rect(pad + w * 0.14, pad + w * 0.1, w * 0.72, w * 0.18); x.fill();
+            x.strokeStyle = 'rgba(255,255,255,.18)'; x.lineWidth = 1;
+            x.beginPath(); x.roundRect ? x.roundRect(pad + 0.5, pad + 0.5, w - 1, w - 1, r) : x.rect(pad + 0.5, pad + 0.5, w - 1, w - 1); x.stroke();
+            return c;
+        }
+        function buildSprites() {
+            sprites = {};
+            Object.entries(COLORS).forEach(([k, c]) => { sprites[k] = blockSprite(c, cell); sprites[k + 's'] = blockSprite(c, small()); });
+        }
+        function small() { return innerWidth < 980 ? 11 : 20; }
+        function layout() {
+            DPR = Math.min(2, window.devicePixelRatio || 1);
+            const mobile = innerWidth < 980;
+            const byH = Math.floor((innerHeight - (mobile ? 330 : 120)) / 20);
+            const byW = Math.floor((Math.min(innerWidth, 520) - (mobile ? 40 : 0)) / 10);
+            cell = Math.max(16, Math.min(34, mobile ? Math.min(byH, byW) : byH));
+            cv.width = cell * COLS * DPR; cv.height = cell * (ROWS - HIDDEN) * DPR;
+            cv.style.width = cell * COLS + 'px'; cv.style.height = cell * (ROWS - HIDDEN) + 'px';
+            const s = small();
+            [[holdCv, 4.8, 3.2], [nextCv, 4.8, mobile ? 3.4 : 10]].forEach(([c, w, h]) => {
+                c.width = s * w * DPR; c.height = s * h * DPR; c.style.width = s * w + 'px'; c.style.height = s * h + 'px';
+            });
+            buildSprites();
+            drawSide();
+        }
+        function drawMini(ctx, type, cx, cy, size, alpha) {
+            if (!type) return;
+            const shape = SHAPES[type][0];
+            const xs = shape.map(c => c[0]), ys = shape.map(c => c[1]);
+            const w = Math.max(...xs) - Math.min(...xs) + 1, h = Math.max(...ys) - Math.min(...ys) + 1;
+            ctx.globalAlpha = alpha == null ? 1 : alpha;
+            shape.forEach(([x, y]) => ctx.drawImage(sprites[type + 's'], cx + (x - Math.min(...xs) - w / 2) * size, cy + (y - Math.min(...ys) - h / 2) * size, size, size));
+            ctx.globalAlpha = 1;
+        }
+        function drawSide() {
+            const s = small();
+            [holdCv, nextCv].forEach(c => { const x = c.getContext('2d'); x.setTransform(DPR, 0, 0, DPR, 0, 0); x.clearRect(0, 0, c.width, c.height); });
+            const hx = holdCv.getContext('2d');
+            drawMini(hx, game.hold, s * 2.4, s * 1.6, s, game.holdUsed ? 0.35 : 1);
+            const nx = nextCv.getContext('2d'), mobile = innerWidth < 980;
+            (mobile ? game.queue.slice(0, 1) : game.queue.slice(0, 3)).forEach((t, i) => drawMini(nx, t, s * 2.4, s * (1.7 + i * 3.2), s, i ? 0.75 : 1));
+        }
+        function burst(rows) {
+            if (reduce) return;
+            rows.forEach(y => {
+                for (let x = 0; x < COLS; x++) {
+                    const color = COLORS[game.board[y][x]] || '#fff';
+                    for (let k = 0; k < 3; k++) particles.push({ x: (x + 0.5) * cell, y: (y - HIDDEN + 0.5) * cell, vx: (Math.random() - 0.5) * 340, vy: -Math.random() * 300 - 60,
+                        life: 0.7 + Math.random() * 0.5, t: 0, size: cell * (0.12 + Math.random() * 0.16), color });
+                }
+            });
+        }
+        function popup(text, size, at) {
+            if (!text) return;
+            const el = document.createElement('div');
+            el.className = 'tt-pop ' + size; el.textContent = text; el.style.top = (at * 100) + '%';
+            $('fx').appendChild(el);
+            el.addEventListener('animationend', () => el.remove());
+        }
+        function render(dt) {
+            g.setTransform(DPR, 0, 0, DPR, 0, 0);
+            const W = cell * COLS, H = cell * (ROWS - HIDDEN);
+            g.clearRect(0, 0, W, H);
+            g.strokeStyle = 'rgba(255,255,255,.045)'; g.lineWidth = 1;
+            g.beginPath();
+            for (let x = 1; x < COLS; x++) { g.moveTo(x * cell + 0.5, 0); g.lineTo(x * cell + 0.5, H); }
+            for (let y = 1; y < ROWS - HIDDEN; y++) { g.moveTo(0, y * cell + 0.5); g.lineTo(W, y * cell + 0.5); }
+            g.stroke();
+            const clearing = game.clearing;
+            for (let y = HIDDEN; y < ROWS; y++) {
+                if (clearing && clearing.rows.includes(y)) continue;
+                for (let x = 0; x < COLS; x++) { const c = game.board[y] && game.board[y][x]; if (c) g.drawImage(sprites[c], x * cell, (y - HIDDEN) * cell, cell, cell); }
+            }
+            if (clearing) {   // сгорающие линии: вспышка и сжатие к центру
+                const p = Math.min(1, clearing.t / 0.32);
+                clearing.rows.forEach(y => {
+                    const w = W * (1 - p * p);
+                    g.fillStyle = 'rgba(255,255,255,' + (0.9 * (1 - p)) + ')';
+                    g.fillRect((W - w) / 2, (y - HIDDEN) * cell + 2, w, cell - 4);
+                    g.globalAlpha = 1 - p;
+                    for (let x = 0; x < COLS; x++) { const c = game.board[y][x]; if (c) g.drawImage(sprites[c], x * cell, (y - HIDDEN) * cell, cell, cell); }
+                    g.globalAlpha = 1;
+                });
+            }
+            if (trail && !reduce) {   // след от сброса
+                trail.t += dt;
+                const a = Math.max(0, 1 - trail.t / 0.22);
+                if (a <= 0) trail = null;
+                else trail.cells.forEach(([x, y]) => {
+                    const top = (y - HIDDEN) * cell, grad = g.createLinearGradient(0, top, 0, top + trail.dist * cell);
+                    grad.addColorStop(0, 'rgba(255,255,255,0)'); grad.addColorStop(1, trail.color);
+                    g.globalAlpha = a * 0.35; g.fillStyle = grad; g.fillRect(x * cell + cell * 0.2, top, cell * 0.6, trail.dist * cell + cell);
+                    g.globalAlpha = 1;
+                });
+            }
+            const p = game.cur;
+            if (p) {
+                const gy = ghostY();
+                g.strokeStyle = COLORS[p.type]; g.fillStyle = COLORS[p.type]; g.lineWidth = 2;
+                cells(p, p.rot, p.x, gy).forEach(([x, y]) => {
+                    if (y < HIDDEN) return;
+                    g.globalAlpha = 0.12; g.fillRect(x * cell + 3, (y - HIDDEN) * cell + 3, cell - 6, cell - 6);
+                    g.globalAlpha = 0.55; g.strokeRect(x * cell + 3, (y - HIDDEN) * cell + 3, cell - 6, cell - 6);
+                });
+                g.globalAlpha = 1;
+                g.shadowColor = COLORS[p.type]; g.shadowBlur = reduce ? 0 : 14;
+                cells(p).forEach(([x, y]) => { if (y >= HIDDEN) g.drawImage(sprites[p.type], x * cell, (y - HIDDEN) * cell, cell, cell); });
+                g.shadowBlur = 0;
+            }
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const q = particles[i];
+                q.t += dt; q.vy += 700 * dt; q.x += q.vx * dt; q.y += q.vy * dt;
+                if (q.t >= q.life) { particles.splice(i, 1); continue; }
+                g.globalAlpha = 1 - q.t / q.life; g.fillStyle = q.color;
+                g.fillRect(q.x - q.size / 2, q.y - q.size / 2, q.size, q.size);
+            }
+            g.globalAlpha = 1;
+        }
+
+        /* ================= Цикл и управление ================= */
+        const held = { dir: 0, since: 0, last: 0, down: false, downLast: 0 };
+        const DAS = 0.15, ARR = 0.04, SOFT = 0.035;
+        let last = performance.now(), clockShown = -1;
+        function frame(now) {
+            const dt = Math.min(0.05, (now - last) / 1000); last = now;
+            if (game.state === 'playing') {
+                game.time += dt;
+                const sec = Math.floor(game.time);
+                if (sec !== clockShown) { clockShown = sec; $('sTime').textContent = clock(sec); }
+                if (held.dir) {
+                    held.since += dt;
+                    if (held.since >= DAS && held.since - held.last >= ARR) { held.last = held.since; move(held.dir); }
+                }
+                if (held.down) { held.downLast += dt; if (held.downLast >= SOFT) { held.downLast = 0; softDrop(); } }
+                if (game.cur) {
+                    if (grounded()) {
+                        game.fall = 0;
+                        game.lock += dt;
+                        if (game.lock >= 0.5) lockPiece();
+                    } else {
+                        game.lock = 0;
+                        game.fall += dt;
+                        while (game.cur && game.fall >= speed() && !grounded()) { game.fall -= speed(); game.cur.y++; }
+                    }
+                }
+            } else if (game.state === 'clearing') {
+                game.clearing.t += dt;
+                if (game.clearing.t >= 0.34) finishClear();
+            }
+            render(dt);
+            requestAnimationFrame(frame);
+        }
+        function startDir(dir) { if (held.dir === dir) return; held.dir = dir; held.since = 0; held.last = 0; move(dir); }
+        function stopDir(dir) { if (held.dir === dir) held.dir = 0; }
+        const KEYS = {
+            ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'down', ArrowUp: 'rotate', KeyX: 'rotate', KeyZ: 'ccw', ControlLeft: 'ccw',
+            Space: 'drop', KeyC: 'hold', ShiftLeft: 'hold', ShiftRight: 'hold', KeyP: 'pause', Escape: 'pause', KeyM: 'music', Enter: 'enter',
+        };
+        function act(a, on) {
+            if (a === 'left') return on ? startDir(-1) : stopDir(-1);
+            if (a === 'right') return on ? startDir(1) : stopDir(1);
+            if (a === 'down') { held.down = on; held.downLast = 0; if (on) softDrop(); return; }
+            if (!on) return;
+            if (a === 'rotate') rotate(1);
+            else if (a === 'ccw') rotate(-1);
+            else if (a === 'drop') hardDrop();
+            else if (a === 'hold') holdPiece();
+            else if (a === 'pause') pause(game.state === 'playing');
+            else if (a === 'music') toggleMusic();
+            else if (a === 'enter' && (game.state === 'idle' || game.state === 'over')) newGame();
+            else if (a === 'enter' && game.state === 'paused') pause(false);
+        }
+        document.addEventListener('keydown', e => {
+            const a = KEYS[e.code];
+            if (!a || (e.target.closest && e.target.closest('select, input'))) return;
+            if (a === 'enter' && e.target.tagName === 'BUTTON') return;
+            e.preventDefault();
+            if (e.repeat) return;
+            act(a, true);
+        });
+        document.addEventListener('keyup', e => { const a = KEYS[e.code]; if (a === 'left' || a === 'right' || a === 'down') act(a, false); });
+        // Кнопки на телефоне: влево, вправо и вниз — зажимать
+        document.querySelectorAll('.tt-pad').forEach(btn => {
+            const a = btn.dataset.act, hold = a === 'left' || a === 'right' || a === 'down';
+            btn.addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); btn.classList.add('is-down'); act(a, true); if (hold) btn.setPointerCapture(e.pointerId); });
+            const up = () => { btn.classList.remove('is-down'); if (hold) act(a, false); };
+            btn.addEventListener('pointerup', up); btn.addEventListener('pointercancel', up); btn.addEventListener('lostpointercapture', up);
+        });
+        // Касание поля: короткое — повернуть, свайп вниз — сбросить
+        let touch = null;
+        cv.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') touch = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+        cv.addEventListener('pointerup', e => {
+            if (!touch) return;
+            const dx = e.clientX - touch.x, dy = e.clientY - touch.y; touch = null;
+            if (dy > 60 && Math.abs(dy) > Math.abs(dx)) hardDrop();
+            else if (Math.abs(dx) > 30) move(dx > 0 ? 1 : -1);
+            else rotate(1);
+        });
+        window.addEventListener('blur', () => { held.dir = 0; held.down = false; pause(true); });
+        document.addEventListener('visibilitychange', () => { if (document.hidden) pause(true); });
+
+        $('playBtn').addEventListener('click', newGame);
+        $('againBtn').addEventListener('click', newGame);
+        $('restartBtn').addEventListener('click', newGame);
+        $('resumeBtn').addEventListener('click', () => pause(false));
+
+        /* ---------- Настройки звука ---------- */
+        const trackSel = $('trackSel'), vol = $('musicVol'), musicBtn = $('musicBtn'), sfxBtn = $('sfxBtn');
+        trackSel.value = settings.track; vol.value = settings.vol;
+        function paintSound() {
+            musicBtn.classList.toggle('is-off', !settings.music);
+            sfxBtn.classList.toggle('is-off', !settings.sfx);
+            sfxBtn.innerHTML = '<i class="fas ' + (settings.sfx ? 'fa-volume-high' : 'fa-volume-xmark') + '"></i>';
+            store.set('tt-sound', settings);
+            applySound();
+        }
+        function toggleMusic() {
+            settings.music = !settings.music; paintSound();
+            if (settings.music && game.state === 'playing') { audioInit(); musicStart(false); } else if (!settings.music) musicStop();
+        }
+        musicBtn.addEventListener('click', toggleMusic);
+        sfxBtn.addEventListener('click', () => { settings.sfx = !settings.sfx; audioInit(); paintSound(); });
+        trackSel.addEventListener('change', () => { settings.track = trackSel.value; paintSound(); if (game.state === 'playing') { audioInit(); musicStop(); musicStart(true); } trackSel.blur(); });
+        vol.addEventListener('input', () => { settings.vol = +vol.value; if (!settings.music && settings.vol > 0) settings.music = true; paintSound(); });
+        paintSound();
+
+        addEventListener('resize', layout);
+        layout();
+        render(0);
+        requestAnimationFrame(frame);
+        $('playBtn').focus({ preventScroll: true });
+        window.__tt = { game, newGame, hardDrop, act, audio: A, settings };   // для автопроверок
+    })();
+    </script>
+</body>
+</html>
