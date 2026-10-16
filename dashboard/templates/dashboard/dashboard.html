@@ -63,6 +63,25 @@
         .gcard-tools a, .gcard-tools button { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-2); color: var(--muted);
             border: 1px solid var(--line); transition: color .2s ease, background .2s ease; }
         .gcard-tools a:hover, .gcard-tools button:hover { color: var(--ink); background: var(--surface-3); }
+        /* ---------- Цитата дня ---------- */
+        .quote-card { position: relative; overflow: hidden; display: flex; align-items: flex-start; gap: 20px; }
+        .quote-mark { position: absolute; right: 22px; top: -46px; font-family: Georgia, 'Times New Roman', serif; font-size: 240px; line-height: 1;
+            color: var(--accent); opacity: .07; pointer-events: none; user-select: none; }
+        .quote-icon { width: 52px; height: 52px; border-radius: 16px; flex-shrink: 0; display: grid; place-items: center; font-size: 22px;
+            background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-line);
+            animation: quote-pop .7s var(--spring) .35s both; transition: transform var(--spring-dur) var(--spring); }
+        .quote-card:hover .quote-icon { transform: rotate(-8deg) scale(1.06); }
+        @keyframes quote-pop { from { transform: scale(.5) rotate(-20deg); opacity: 0; } to { transform: none; opacity: 1; } }
+        .quote-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 9999px;
+            background: var(--accent-soft); color: var(--accent-ink); box-shadow: inset 0 0 0 1px var(--accent-line); }
+        .quote-text { position: relative; font-size: clamp(18px, 2.1vw, 24px); font-weight: 700; line-height: 1.4; color: var(--ink); max-width: 60rem; text-wrap: pretty; }
+        .quote-author { margin-top: 10px; font-size: 14px; font-weight: 600; color: var(--muted); }
+        @media (max-width: 640px) {
+            .quote-card { gap: 14px; }
+            .quote-icon { width: 42px; height: 42px; border-radius: 13px; font-size: 18px; }
+            .quote-mark { font-size: 170px; top: -30px; right: 10px; }
+        }
+        @media (prefers-reduced-motion: reduce) { .quote-icon { animation: none; } }
     </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
@@ -119,6 +138,22 @@
                     <p class="text-sm text-gray-400 mt-3" id="nextLesson">&nbsp;</p>
                 </div>
             </div>
+        </section>
+
+        <!-- Цитата дня: меняется каждый день, в основном смешные (dashboard/quotes.py) -->
+        <section class="panel quote-card p-6 sm:p-8 mb-6" aria-labelledby="quoteTitle">
+            <span class="quote-mark" aria-hidden="true">&ldquo;</span>
+            <div class="quote-icon" aria-hidden="true">
+                <i class="fas {% if quote.kind == 'wise' %}fa-lightbulb{% else %}fa-face-laugh-squint{% endif %}"></i>
+            </div>
+            <figure class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-3 mb-3">
+                    <p class="eyebrow" id="quoteTitle">Цитата дня</p>
+                    <span class="quote-tag"><span aria-hidden="true">{% if quote.kind == 'wise' %}🦉{% else %}😄{% endif %}</span><span>{% if quote.kind == 'wise' %}мудрая{% else %}смешная{% endif %}</span></span>
+                </div>
+                <blockquote class="quote-text">{{ quote.text }}</blockquote>
+                <figcaption class="quote-author">— {{ quote.author }}</figcaption>
+            </figure>
         </section>
 
         <!-- Лента дня -->

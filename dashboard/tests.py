@@ -1222,6 +1222,45 @@ def mock_attr(obj, name, value):
 
 
 
+
+class QuoteOfTheDayTests(CRMTestCase):
+    """Цитата дня на главной (dashboard/quotes.py)"""
+
+    def test_one_quote_per_day(self):
+        import re
+        from datetime import date
+        from .quotes import QUOTES, quote_for
+        day = date(2026, 10, 16)
+        self.assertEqual(quote_for(day), quote_for(day))
+        week = [quote_for(day + timedelta(days=i))['text'] for i in range(len(QUOTES))]
+        self.assertEqual(len(set(week)), len(QUOTES))            # пока не прошли все — без повторов
+        self.assertEqual(quote_for(day + timedelta(days=len(QUOTES))), quote_for(day))
+        self.assertEqual(len({q.ru for q in QUOTES}), len(QUOTES))
+        fun = sum(q.kind == 'fun' for q in QUOTES)
+        self.assertGreater(fun / len(QUOTES), .6)                # в основном смешные
+        self.assertTrue(all(q.kind in ('fun', 'wise') for q in QUOTES))
+        # Две мудрые подряд не идут
+        kinds = [quote_for(day + timedelta(days=i))['kind'] for i in range(len(QUOTES) + 1)]
+        self.assertFalse(any(a == b == 'wise' for a, b in zip(kinds, kinds[1:])))
+        cyr = re.compile('[А-Яа-яЁё]')
+        for q in QUOTES:
+            self.assertTrue(q.ru_author and q.en_author, q.ru)
+            self.assertIsNone(cyr.search(q.en + q.en_author), q.en)
+        self.assertIsNone(cyr.search(quote_for(day, 'en')['text']))
+
+    def test_dashboard_shows_quote(self):
+        from .quotes import quote_for
+        quote = quote_for()
+        for user in (self.admin, self.teacher, self.accountant, self.manager):
+            self.login(user)
+            response = self.client.get('/dashboard/')
+            self.assertContains(response, 'Цитата дня')
+            self.assertContains(response, quote['author'])
+        self.client.cookies['ee_lang'] = 'en'
+        response = self.client.get('/dashboard/')
+        self.assertContains(response, 'Quote of the day')
+        self.assertContains(response, quote_for(lang='en')['author'])
+
 class BackupTests(TransactionTestCase):
     """Без обёртки-транзакции TestCase: SQLite не даёт снять копию посреди открытой записи"""
     def setUp(self):
