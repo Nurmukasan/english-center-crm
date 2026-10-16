@@ -90,10 +90,31 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
-        <!-- Приветствие + часы -->
-        <section class="grid lg:grid-cols-[1fr_auto] gap-6 items-stretch mb-6">
-            <div class="panel p-7 sm:p-9 relative overflow-hidden">
-                <p class="eyebrow mb-4"><i class="far fa-calendar mr-2"></i><span>{{ today_label }}</span></p>
+        <!-- Приветствие + часы. Фон — погода в Алматы прямо сейчас (partials/weather.html) -->
+        <section class="wx-row grid lg:grid-cols-[1fr_auto] gap-6 items-stretch mb-6">
+            <div class="panel wx-card p-7 sm:p-9" data-wx-card="hero">
+                <canvas class="wx-canvas" aria-hidden="true"></canvas>
+                <div class="wx-top mb-4">
+                    <p class="eyebrow"><i class="far fa-calendar mr-2"></i><span>{{ today_label }}</span></p>
+                    <div class="wx-chip-wrap">
+                        <button type="button" class="wx-chip" id="wxChip" aria-describedby="wxPop" hidden>
+                            <i class="fas fa-cloud" id="wxIcon" aria-hidden="true"></i><b id="wxTemp"></b><span class="wx-chip-label" id="wxLabel"></span>
+                        </button>
+                        <div class="wx-pop" id="wxPop" role="tooltip">
+                            <p class="wx-pop-title">Погода в Алматы</p>
+                            <p class="wx-pop-now" id="wxPopNow"></p>
+                            <p class="wx-pop-row" id="wxFeelsRow"><span>Ощущается как</span><b id="wxFeels"></b></p>
+                            <p class="wx-pop-row" id="wxWindRow"><span>Ветер</span><b><span id="wxWind"></span> м/с</b></p>
+                            <p class="wx-pop-row" id="wxHumRow"><span>Влажность</span><b><span id="wxHum"></span>%</b></p>
+                            <p class="wx-pop-row" id="wxSunRow"><span>Восход и закат</span><b><span id="wxSunrise"></span> · <span id="wxSunset"></span></b></p>
+                            <p class="wx-pop-src">
+                                <span>Прогноз на ближайший час</span><span id="wxUpdatedWrap"> · <span>обновлён в</span> <span id="wxUpdated"></span></span><br>
+                                <span>Данные:</span> <a href="https://www.met.no/en" target="_blank" rel="noopener">MET Norway</a> (CC BY 4.0)
+                                <span id="wxDemo" hidden><br>Это пример. <a href="{% url 'dashboard' %}">Показать настоящую погоду</a></span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
                 <h2 class="text-3xl sm:text-5xl font-bold text-white leading-tight">
                     <span id="greeting">Привет</span>,<br class="sm:hidden">
                     <span class="grad-text notranslate">{{ request.user.first_name|default:request.user.username }}</span>
@@ -125,7 +146,8 @@
                 </div>
             </div>
 
-            <div class="panel p-7 sm:p-9 flex items-center gap-6 lg:min-w-[340px]">
+            <div class="panel wx-card p-7 sm:p-9 flex items-center gap-6 lg:min-w-[340px]" data-wx-card="clock">
+                <canvas class="wx-canvas" aria-hidden="true"></canvas>
                 <div class="relative w-24 h-24 flex-shrink-0">
                     <svg class="sec-ring w-24 h-24 -rotate-90" viewBox="0 0 100 100" aria-hidden="true">
                         <circle class="track" cx="50" cy="50" r="44" fill="none" stroke-width="6"/>
@@ -488,6 +510,8 @@
             }
         });
     </script>
+    {# Погода — после основного скрипта: приветствие и часы уже написаны, место под текст считается верно #}
+    {% include 'dashboard/partials/weather.html' %}
 
 </body>
 </html>

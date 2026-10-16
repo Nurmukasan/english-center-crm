@@ -453,6 +453,10 @@ def dashboard(request):
         group__in=base_groups.filter(group_type='individual'), student__is_active=True
     ).count()
     context['quote'] = quote_for(today, current_language(request))
+    # Погода Алматы — фон панелей приветствия и часов. Без запроса в интернет: из кэша и по солнцу,
+    # свежий прогноз страница подгрузит сама (/api/weather/)
+    from . import weather
+    context['weather'] = weather.snapshot(fetch=False, demo=request.GET.get('weather') or None, demo_time=request.GET.get('time'))
     return render(request, 'dashboard/dashboard.html', context)
 
 
