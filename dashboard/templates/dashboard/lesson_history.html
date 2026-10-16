@@ -1,3 +1,4 @@
+{% load i18n %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -5,189 +6,298 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>История уроков — Enjoy English</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = { darkMode: 'class' }
-    </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>tailwind.config = { darkMode: 'class' }</script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
-        * { font-family: 'Inter', sans-serif; }
-        .fade-in { animation: fadeIn 0.4s ease; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        .tnum { font-variant-numeric: tabular-nums; }
+
+        /* ---------- Урок за прошедшую дату ---------- */
+        .addpast { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 16px; padding: 16px 20px; margin-bottom: 20px; }
+        .addpast-title { font-size: 15px; font-weight: 800; color: var(--ink); }
+        .addpast-desc { font-size: 13px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+        .addpast-controls { display: flex; gap: 10px; }
+        html.ee .addpast-controls .ee-input { width: 172px; }
+
+        /* ---------- Список уроков по месяцам ---------- */
+        .month-head { display: flex; align-items: center; gap: 10px; padding: 10px 20px; background: var(--surface-2); border-bottom: 1px solid var(--line); }
+        .lesson + .month-head { border-top: 1px solid var(--line); }
+        .month-title { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+        .month-count { font-size: 12px; font-weight: 600; color: var(--muted); }
+        .month-count::before { content: '· '; }
+
+        .lesson { scroll-margin-top: 96px; transition: background-color .2s ease; }
+        .lesson + .lesson { border-top: 1px solid var(--line); }
+        .lesson:target { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+        .lesson-row { display: flex; align-items: center; gap: 14px; padding: 14px 20px; }
+        .lesson-open { display: flex; align-items: center; gap: 14px; flex: 1 1 0; min-width: 0; text-align: left; }
+        button.lesson-open { cursor: pointer; }
+        button.lesson-open:hover .ltopic { color: var(--accent-ink); }
+        .ldate { width: 48px; flex-shrink: 0; text-align: center; border-radius: 12px; padding: 5px 0; background: var(--surface-2); border: 1px solid var(--line); }
+        .ldate b { display: block; font-size: 18px; font-weight: 800; color: var(--ink); line-height: 1.15; }
+        .ldate span { display: block; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+        .ltopic { display: block; font-size: 15px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color .2s ease; }
+        .ltopic.is-empty { color: var(--faint); font-weight: 600; }
+        .lmeta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; margin-top: 3px; font-size: 12px; font-weight: 600; color: var(--muted); }
+        .lmeta .sep { color: var(--faint); }
+        .lmeta .ee-tag { padding: 1px 8px; font-size: 11px; }
+
+        .lstats { display: flex; align-items: center; gap: 18px; flex-shrink: 0; }
+        .lrate { display: flex; align-items: center; gap: 8px; width: 104px; }
+        .lbar { flex: 1; height: 6px; border-radius: 9999px; overflow: hidden; background: var(--surface-3); }
+        .lbar i { display: block; height: 100%; border-radius: inherit; background: var(--ok); }
+        .lbar.is-mid i { background: var(--warn); }
+        .lbar.is-low i { background: var(--bad); }
+        .lrate b { font-size: 13px; font-weight: 800; color: var(--ink); }
+        .lchips { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--ink-2); }
+        .lchips > span { display: inline-flex; align-items: center; gap: 5px; min-width: 32px; white-space: nowrap; }
+        .lchips > span.is-zero { opacity: .35; }
+        .lchips i { font-size: 11px; }
+        .c-ok i { color: var(--ok); }
+        .c-late i { color: var(--warn); }
+        .c-bad i { color: var(--bad); }
+        .c-hw i { color: var(--accent); }
+        .c-star i { color: #f59e0b; }
+        .lactions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+        .lchev i { transition: transform .25s ease; }
+        .lesson.is-open .lchev i { transform: rotate(180deg); }
+        .lesson.is-cancelled .ldate, .lesson.is-cancelled .ltopic { opacity: .55; }
+        .lesson.is-cancelled .ltopic { text-decoration: line-through; text-decoration-color: var(--faint); }
+
+        /* Кто был и кто не был */
+        .lstudents { display: grid; gap: 14px; padding: 2px 20px 18px 82px; }
+        .lgroup-title { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+        .lgroup-title.c-ok i { color: var(--ok); }
+        .lgroup-title.c-bad i { color: var(--bad); }
+        @media (min-width: 640px) { .lstudents { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+        @media (max-width: 767px) {
+            .addpast { padding: 16px; }
+            .addpast-controls { width: 100%; }
+            html.ee .addpast-controls .ee-input { width: auto; flex: 1; min-width: 0; }
+            .lesson-row { flex-wrap: wrap; gap: 10px 12px; padding: 14px 16px; }
+            .lesson-open { order: 1; gap: 12px; }
+            .lactions { order: 2; }
+            .lstats { order: 3; width: 100%; padding-left: 60px; justify-content: space-between; gap: 12px; }
+            .lstats:empty { display: none; }
+            .lstudents { padding: 0 16px 16px; }
+            .month-head { padding: 10px 16px; }
+        }
+
+        /* ---------- Окно правки урока ---------- */
+        .ed-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 10px 12px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line); }
+        .ed-name { flex: 1 1 0; min-width: 0; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .att { --idx: 2; position: relative; display: grid; grid-template-columns: repeat(3, 1fr); width: 264px; flex-shrink: 0; padding: 3px;
+            border-radius: 11px; background: var(--surface); border: 1px solid var(--line); }
+        .att::before { content: ''; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 3); border-radius: 8px;
+            transform: translateX(calc(var(--idx) * 100%)); background: var(--att-bg); box-shadow: inset 0 0 0 1px var(--att-ring);
+            transition: transform var(--spring-dur) var(--spring), background .3s ease, box-shadow .3s ease; }
+        .att[data-status="present"] { --idx: 0; --att-bg: var(--ok-soft); --att-ring: var(--ok-line); }
+        .att[data-status="late"] { --idx: 1; --att-bg: var(--warn-soft); --att-ring: var(--warn-line); }
+        .att[data-status="absent"] { --idx: 2; --att-bg: var(--bad-soft); --att-ring: var(--bad-line); }
+        .att button { position: relative; z-index: 1; height: 32px; border-radius: 8px; font-size: 12.5px; font-weight: 700; color: var(--faint); transition: color .2s ease; }
+        .att button:hover { color: var(--ink-2); }
+        .att[data-status="present"] [data-status="present"] { color: var(--ok-ink); }
+        .att[data-status="late"] [data-status="late"] { color: var(--warn-ink); }
+        .att[data-status="absent"] [data-status="absent"] { color: var(--bad-ink); }
+        .hw-toggle { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 10px; flex-shrink: 0; cursor: pointer;
+            font-size: 12.5px; font-weight: 800; background: var(--surface); border: 1px solid var(--line); transition: color .2s ease, background .2s ease, border-color .2s ease; }
+        html.ee .hw-toggle { color: var(--faint); }
+        html.ee .hw-toggle:hover { color: var(--ink-2); }
+        html.ee .hw-toggle:has(input:checked) { color: var(--ok-ink); background: var(--ok-soft); border-color: var(--ok-line); }
+        .hw-toggle:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .stepper { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+        .stepper button { width: 30px; height: 30px; border-radius: 9px; font-weight: 800; font-size: 15px; line-height: 1; transition: transform var(--spring-dur) var(--spring), background .2s ease; }
+        .stepper button:active { transform: scale(.88); }
+        .stepper .minus { color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); }
+        .stepper .plus { color: var(--accent-ink); background: var(--accent-soft); border: 1px solid var(--accent-line); }
+        .stepper .val { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 40px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+        .stepper .val i { font-size: 11px; color: #f59e0b; }
+        @media (max-width: 640px) {
+            .ed-name { order: 1; }
+            .stepper { order: 2; }
+            .att { order: 3; flex: 1 1 200px; width: auto; }
+            .hw-toggle { order: 4; }
         }
     </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
-<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+<body class="min-h-screen">
     {% include 'dashboard/partials/shell.html' %}
-    
-    
-    <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <div class="flex items-center gap-4">
-                <a href="{% url 'group_detail' group.id %}" class="text-gray-300 hover:text-white">
-                    <i class="fas fa-arrow-left"></i> Назад
-                </a>
-                <div class="flex items-center gap-2">
-                    <i class="fas fa-history text-2xl text-indigo-400"></i>
-                    <h1 class="text-xl font-bold text-white">История: {{ group.name }}</h1>
+
+    <header class="sticky top-0 z-40">
+        <div class="ee-head max-w-5xl mx-auto px-4 sm:px-6">
+            <div class="ee-head-main">
+                <a href="{% url 'group_detail' group.id %}" class="head-back" aria-label="Назад"><i class="fas fa-arrow-left"></i></a>
+                <span class="head-icon"><i class="fas fa-clock-rotate-left"></i></span>
+                <div class="min-w-0">
+                    <h1 class="head-title">История уроков</h1>
+                    <p class="head-sub notranslate">{{ group.name }}</p>
                 </div>
-            </div>
-            <div class="flex items-center gap-2 md:gap-4">
-                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
-                    <i class="fas fa-moon dark:hidden text-gray-300"></i>
-                    <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
-                </button>
-                <a href="{% url 'logout' %}" class="text-red-400 text-sm">
-                    <i class="fas fa-sign-out-alt"></i> Выйти
-                </a>
             </div>
         </div>
     </header>
-    
-    <main class="max-w-5xl mx-auto px-4 py-8 fade-in">
+
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+
+        {% if lesson_data %}
+        <!-- Итоги: считаются по списку ниже -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+            <div class="ee-stat"><i class="fas fa-book-open"></i><div><b id="statHeld" class="tnum">—</b><span>Уроков проведено</span></div></div>
+            <div class="ee-stat"><i class="fas fa-user-check"></i><div><b id="statRate" class="tnum">—</b><span>Посещаемость</span></div></div>
+            <div class="ee-stat"><i class="fas fa-book"></i><div><b id="statHw" class="tnum">—</b><span>Сделали ДЗ</span></div></div>
+            <div class="ee-stat"><i class="fas fa-star"></i><div><b id="statStars" class="tnum">—</b><span>Звёзд выдано</span></div></div>
+        </div>
+        {% endif %}
 
         {% if can_edit %}
         <!-- Урок за прошедшую дату -->
-        <form method="POST" action="{% url 'add_past_lesson' group.id %}"
-              class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 p-5 mb-6 flex flex-wrap items-end gap-3">
+        <form method="POST" action="{% url 'add_past_lesson' group.id %}" class="panel addpast">
             {% csrf_token %}
-            <div class="flex-1 min-w-[220px]">
-                <p class="font-bold text-gray-800 dark:text-white"><i class="fas fa-calendar-plus text-indigo-400 mr-1"></i> Забыли отметить урок?</p>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Выберите дату — урок появится в истории, и его можно будет заполнить.</p>
+            <span class="ee-sec-icon"><i class="fas fa-calendar-plus"></i></span>
+            <div class="flex-1 min-w-[200px]">
+                <p class="addpast-title">Забыли отметить урок?</p>
+                <p class="addpast-desc">Выберите дату — урок появится в истории, и его можно будет заполнить.</p>
             </div>
-            <input type="date" name="date" max="{{ today|date:'Y-m-d' }}" value="{{ today|date:'Y-m-d' }}" required
-                   class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
-            <button type="submit" class="bg-indigo-500 text-white px-5 py-2.5 rounded-lg font-medium">
-                <i class="fas fa-plus mr-1"></i> Добавить урок
-            </button>
+            <div class="addpast-controls">
+                <input type="date" name="date" max="{{ today|date:'Y-m-d' }}" value="{{ today|date:'Y-m-d' }}" required class="ee-input" aria-label="Дата урока">
+                <button type="submit" class="ee-btn ee-btn-primary"><i class="fas fa-plus"></i>Добавить урок</button>
+            </div>
         </form>
         {% endif %}
 
-        <div class="space-y-4">
-            {% for data in lesson_data %}
+        <div class="panel overflow-hidden">
+            {% language 'ru' %}
+            {% regroup lesson_data by lesson.date|date:"Y-m" as months %}
+            {% for month in months %}
+            <div class="month-head">
+                <span class="month-title">{{ month.list.0.lesson.date|date:"F Y" }}</span>
+                <span class="month-count">Уроков: {{ month.list|length }}</span>
+            </div>
+            {% for data in month.list %}
             {% with lesson=data.lesson %}
-            <div id="lesson-{{ lesson.id }}" class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors scroll-mt-28">
+            {% widthratio data.present_count data.total_count 100 as rate %}
+            <article id="lesson-{{ lesson.id }}" class="lesson{% if lesson.is_cancelled %} is-cancelled{% endif %}"
+                     data-cancelled="{% if lesson.is_cancelled %}1{% else %}0{% endif %}" data-total="{{ data.total_count }}"
+                     data-present="{{ data.present_count }}" data-hw="{{ data.homework_count }}" data-stars="{{ data.stars_total }}">
+                <div class="lesson-row">
+                    {% if lesson.is_cancelled %}<div class="lesson-open">{% else %}
+                    <button type="button" class="lesson-open" onclick="toggleStudents({{ lesson.id }})">{% endif %}
+                        <span class="ldate" title="{{ lesson.date|date:'d.m.Y' }}"><b>{{ lesson.date|date:"j" }}</b><span>{{ lesson.date|date:"b" }}</span></span>
+                        <span class="min-w-0 flex-1">
+                            {% if lesson.topic %}<span class="ltopic notranslate">{{ lesson.topic }}</span>{% else %}<span class="ltopic is-empty">Без темы</span>{% endif %}
+                            <span class="lmeta">
+                                <span>{{ lesson.date|date:"l" }}</span>
+                                {% if lesson.date == today %}<span class="ee-tag">Сегодня</span>{% endif %}
+                                {% if lesson.is_cancelled %}<span class="ee-tag ee-tag-muted"><i class="fas fa-ban"></i>отменён</span>{% endif %}
+                                {% if lesson.edited_by %}<span class="sep" aria-hidden="true">·</span><span><i class="fas fa-pen mr-1 text-[10px]"></i>изменил(а) <span class="notranslate">{{ lesson.edited_by.username }}</span>, {{ lesson.edited_at|date:"d.m H:i" }}</span>{% endif %}
+                            </span>
+                        </span>
+                    {% if lesson.is_cancelled %}</div>{% else %}</button>{% endif %}
 
-                <div class="flex flex-wrap items-center gap-4 p-5 sm:p-6">
-                    <button type="button" onclick="toggleStudents({{ lesson.id }})" class="flex items-center gap-4 flex-1 min-w-[200px] text-left">
-                        <i class="fas {% if lesson.is_cancelled %}fa-ban text-gray-500{% else %}fa-book-open text-indigo-400{% endif %} text-2xl"></i>
-                        <div class="min-w-0">
-                            <p class="font-bold text-gray-800 dark:text-white text-lg">
-                                {{ lesson.date|date:"d.m.Y" }}
-                                {% if lesson.is_cancelled %}<span class="ml-2 align-middle text-xs font-bold px-2 py-0.5 rounded-full bg-gray-500/20 text-gray-400">отменён</span>{% endif %}
-                            </p>
-                            {% if lesson.topic %}<p class="text-gray-500 dark:text-gray-400 text-sm truncate">{{ lesson.topic }}</p>{% endif %}
-                            {% if lesson.edited_by %}<p class="text-xs text-gray-500 mt-0.5"><i class="fas fa-pen mr-1"></i>изменил(а) <span class="notranslate">{{ lesson.edited_by.username }}</span>, {{ lesson.edited_at|date:"d.m H:i" }}</p>{% endif %}
-                        </div>
-                    </button>
+                    <div class="lstats">{% if not lesson.is_cancelled %}
+                        <span class="lrate" title="Был(и)">
+                            <span class="lbar{% if rate|add:0 < 50 %} is-low{% elif rate|add:0 < 80 %} is-mid{% endif %}"><i style="width: {{ rate }}%"></i></span>
+                            <b class="tnum">{{ data.present_count }}/{{ data.total_count }}</b>
+                        </span>
+                        <span class="lchips tnum">
+                            <span class="c-ok{% if not data.present_count %} is-zero{% endif %}" title="Был(и)"><i class="fas fa-check"></i>{{ data.present_count }}</span>
+                            <span class="c-late{% if not data.late_count %} is-zero{% endif %}" title="Из них опоздали"><i class="fas fa-clock"></i>{{ data.late_count }}</span>
+                            <span class="c-bad{% if not data.absent_count %} is-zero{% endif %}" title="Не был(и)"><i class="fas fa-xmark"></i>{{ data.absent_count }}</span>
+                            <span class="c-hw{% if not data.homework_count %} is-zero{% endif %}" title="Сделали ДЗ"><i class="fas fa-book"></i>{{ data.homework_count }}</span>
+                            <span class="c-star{% if not data.stars_total %} is-zero{% endif %}" title="Звёзд за урок"><i class="fas fa-star"></i>{{ data.stars_total }}</span>
+                        </span>
+                    {% endif %}</div>
 
-                    {% if not lesson.is_cancelled %}
-                    <div class="flex gap-3 text-sm font-medium">
-                        <span class="text-green-500" title="Был(и)"><i class="fas fa-check mr-1"></i>{{ data.present_count }}</span>
-                        {% if data.late_count %}<span class="text-amber-400" title="Из них опоздали"><i class="fas fa-clock mr-1"></i>{{ data.late_count }}</span>{% endif %}
-                        <span class="text-red-500" title="Не был(и)"><i class="fas fa-times mr-1"></i>{{ data.absent_count }}</span>
-                        <span class="text-emerald-300" title="Сделали ДЗ"><i class="fas fa-book mr-1"></i>{{ data.homework_count }}</span>
-                        {% if data.stars_total %}<span class="text-yellow-400" title="Звёзд за урок"><i class="fas fa-star mr-1"></i>{{ data.stars_total }}</span>{% endif %}
-                    </div>
-                    {% endif %}
-
-                    {% if can_edit %}
-                    <div class="flex gap-2">
+                    <div class="lactions">
+                        {% if can_edit %}
                         {% if not lesson.is_cancelled %}
-                        <button type="button" onclick="openEditor({{ lesson.id }})"
-                                class="bg-white border border-orange-200 text-orange-700 hover:bg-orange-50 px-4 py-2 rounded-lg text-sm font-medium transition">
-                            <i class="fas fa-pen mr-1"></i> Изменить
+                        <button type="button" onclick="openEditor({{ lesson.id }})" class="ee-btn ee-btn-sm ee-btn-soft" title="Изменить" aria-label="Изменить">
+                            <i class="fas fa-pen"></i><span class="hidden sm:inline">Изменить</span>
                         </button>
                         {% endif %}
                         <form method="POST" action="{% url 'toggle_lesson_cancel' lesson.id %}"
                               {% if not lesson.is_cancelled %}data-confirm="Отменить урок {{ lesson.date|date:'d.m.Y' }}? Отметки этого урока удалятся, в статистику он не попадёт." onsubmit="return confirm(this.dataset.confirm)"{% endif %}>
                             {% csrf_token %}
-                            <button type="submit"
-                                    class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition">
-                                {% if lesson.is_cancelled %}<i class="fas fa-rotate-left mr-1"></i> Вернуть урок{% else %}<i class="fas fa-ban mr-1"></i> Отменить{% endif %}
-                            </button>
+                            {% if lesson.is_cancelled %}
+                            <button type="submit" class="ee-btn ee-btn-sm ee-btn-ok"><i class="fas fa-rotate-left"></i>Вернуть урок</button>
+                            {% else %}
+                            <button type="submit" class="ee-icon-btn is-danger" title="Отменить урок" aria-label="Отменить урок"><i class="fas fa-ban"></i></button>
+                            {% endif %}
                         </form>
+                        {% endif %}
+                        {% if not lesson.is_cancelled %}
+                        <button type="button" class="ee-icon-btn lchev" onclick="toggleStudents({{ lesson.id }})" aria-expanded="false" aria-controls="students-{{ lesson.id }}" title="Кто был" aria-label="Кто был">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        {% endif %}
                     </div>
-                    {% endif %}
                 </div>
 
                 {% if not lesson.is_cancelled %}
-                <div class="px-6 pb-4">
-                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-                        <div class="bg-green-500 h-2 rounded-full transition-all"
-                             style="width: {% if data.total_count %}{% widthratio data.present_count data.total_count 100 %}%{% else %}0%{% endif %}"></div>
-                    </div>
-                </div>
-
-                <div id="students-{{ lesson.id }}" class="hidden border-t border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700/30">
-                    {% if data.present_students %}
-                    <div class="p-6">
-                        <p class="text-sm font-bold text-green-700 dark:text-green-400 mb-3">
-                            <i class="fas fa-check-circle mr-1"></i>Были ({{ data.present_count }}):
-                        </p>
-                        <div class="flex flex-wrap gap-2">
-                            {% for name in data.present_students %}
-                            <span class="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 px-3 py-1.5 rounded-full text-sm font-medium notranslate">{{ name }}</span>
-                            {% endfor %}
+                <div id="students-{{ lesson.id }}" class="hidden">
+                    <div class="lstudents">
+                        <div>
+                            <p class="lgroup-title c-ok"><i class="fas fa-circle-check"></i>Были ({{ data.present_count }}):</p>
+                            <div class="flex flex-wrap gap-1.5">
+                                {% for name in data.present_students %}
+                                <span class="ee-tag {% if '(опоздал)' in name %}ee-tag-warn{% else %}ee-tag-ok{% endif %} notranslate">{{ name }}</span>
+                                {% empty %}
+                                <span class="text-sm text-gray-400">—</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div>
+                            <p class="lgroup-title c-bad"><i class="fas fa-circle-xmark"></i>Не были ({{ data.absent_count }}):</p>
+                            <div class="flex flex-wrap gap-1.5">
+                                {% for name in data.absent_students %}
+                                <span class="ee-tag ee-tag-bad notranslate">{{ name }}</span>
+                                {% empty %}
+                                <span class="text-sm text-gray-400">—</span>
+                                {% endfor %}
+                            </div>
                         </div>
                     </div>
-                    {% endif %}
-                    {% if data.absent_students %}
-                    <div class="px-6 pb-6 {% if not data.present_students %}pt-6{% endif %}">
-                        <p class="text-sm font-bold text-red-700 dark:text-red-400 mb-3">
-                            <i class="fas fa-times-circle mr-1"></i>Не были ({{ data.absent_count }}):
-                        </p>
-                        <div class="flex flex-wrap gap-2">
-                            {% for name in data.absent_students %}
-                            <span class="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400 px-3 py-1.5 rounded-full text-sm font-medium notranslate">{{ name }}</span>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
                 </div>
                 {% endif %}
-            </div>
+            </article>
             {% endwith %}
+            {% endfor %}
             {% empty %}
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-12 text-center text-gray-400 shadow-md border border-gray-300 dark:border-gray-600">
-                <i class="fas fa-inbox text-5xl mb-3"></i>
-                <p>Уроков пока не было</p>
+            <div class="ee-empty">
+                <i class="fas fa-inbox"></i>
+                <b>Уроков пока не было</b>
             </div>
             {% endfor %}
+            {% endlanguage %}
         </div>
 
     </main>
 
     {% if can_edit %}
     <!-- Правка урока -->
-    <div id="editorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-2xl max-h-[90vh] flex flex-col">
+    <div id="editorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
+        <div class="bg-white rounded-2xl p-5 sm:p-6 w-full max-w-3xl max-h-[90vh] flex flex-col">
             <div class="flex items-start justify-between gap-4 mb-4">
-                <div>
-                    <h3 class="text-lg font-bold text-gray-800 dark:text-white"><i class="fas fa-pen text-indigo-400 mr-2"></i>Урок <span id="editorDate"></span></h3>
-                    <p class="text-sm text-gray-400">Отметки сохранятся задним числом, в истории будет видно, кто менял.</p>
+                <div class="flex items-start gap-3 min-w-0">
+                    <span class="ee-sec-icon"><i class="fas fa-pen"></i></span>
+                    <div class="min-w-0">
+                        <h3 id="editorTitle" class="ee-sec-title">Урок <span id="editorDate" class="tnum"></span></h3>
+                        <p class="ee-sec-desc">Отметки сохранятся задним числом, в истории будет видно, кто менял.</p>
+                    </div>
                 </div>
-                <button type="button" onclick="closeEditor()" class="text-gray-400 hover:text-white text-xl"><i class="fas fa-xmark"></i></button>
+                <button type="button" onclick="closeEditor()" class="ee-icon-btn" title="Закрыть" aria-label="Закрыть"><i class="fas fa-xmark"></i></button>
             </div>
-            <input type="text" id="editorTopic" maxlength="200" placeholder="Тема урока (необязательно)"
-                   class="w-full px-4 py-2.5 mb-4 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
-            <div class="flex items-center gap-2 mb-2 text-xs font-bold text-gray-500">
-                <span class="flex-1">Ученик</span>
-                <span class="w-[204px] text-center hidden sm:block">Посещаемость</span>
-                <span class="w-12 text-center">ДЗ</span>
-                <span class="w-[92px] text-center">Звёзды</span>
+            <input type="text" id="editorTopic" maxlength="200" placeholder="Тема урока (необязательно)" aria-label="Тема урока (необязательно)" class="ee-input mb-4">
+            <div class="flex items-center justify-between gap-3 mb-2">
+                <span class="eyebrow">Ученик</span>
+                <button type="button" onclick="markAllPresent()" class="ee-btn ee-btn-sm ee-btn-soft"><i class="fas fa-check-double"></i>Все были</button>
             </div>
             <div id="editorRows" class="space-y-2 overflow-y-auto pr-1 flex-1"></div>
-            <div class="flex gap-3 mt-5">
-                <button type="button" id="editorSave" onclick="saveEditor()"
-                        class="flex-1 bg-indigo-500 text-white py-3 rounded-lg font-medium">
-                    <i class="fas fa-save mr-1"></i> Сохранить
+            <div class="flex flex-wrap justify-end gap-3 mt-5">
+                <button type="button" onclick="closeEditor()" class="ee-btn ee-btn-soft flex-1 sm:flex-none">Отмена</button>
+                <button type="button" id="editorSave" onclick="saveEditor()" class="ee-btn ee-btn-primary flex-1 sm:flex-none">
+                    <i class="fas fa-floppy-disk"></i>Сохранить
                 </button>
-                <button type="button" onclick="closeEditor()"
-                        class="px-6 py-3 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-white rounded-lg font-medium">Отмена</button>
             </div>
         </div>
     </div>
@@ -196,17 +306,31 @@
     {% endif %}
 
     <script>
-        function toggleTheme() {
-            document.documentElement.classList.toggle('dark');
-        }
-
+        // Кто был и кто не был: раскрыть под уроком
         function toggleStudents(id) {
             const div = document.getElementById(`students-${id}`);
-            if (div) div.classList.toggle('hidden');
+            if (!div) return;
+            const open = div.classList.toggle('hidden') === false;
+            const lesson = div.closest('.lesson');
+            if (lesson) lesson.classList.toggle('is-open', open);
+            document.querySelectorAll(`[aria-controls="students-${id}"]`).forEach(b => b.setAttribute('aria-expanded', open));
         }
+
+        // Итоги по всем проведённым урокам
+        (function () {
+            const held = Array.from(document.querySelectorAll('.lesson[data-total]')).filter(r => r.dataset.cancelled !== '1');
+            const sum = key => held.reduce((s, r) => s + (Number(r.dataset[key]) || 0), 0);
+            const total = sum('total');
+            const put = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+            put('statHeld', held.length);
+            put('statRate', total ? Math.round(sum('present') * 100 / total) + '%' : '—');
+            put('statHw', total ? Math.round(sum('hw') * 100 / total) + '%' : '—');
+            put('statStars', sum('stars'));
+        })();
         {% if can_edit %}
         const LESSONS = JSON.parse(document.getElementById('editor-data').textContent);
-        const STATUS = [['present', 'Был', 'bg-green-500'], ['late', 'Опоздал', 'bg-amber-500'], ['absent', 'Не был', 'bg-red-500']];
+        const STATUS = [['present', 'Был'], ['late', 'Опоздал'], ['absent', 'Не был']];
+        const TEXT = { hw: 'ДЗ', less: 'Меньше', more: 'Больше', stars: 'Звёзды' };
         let editing = null;
 
         function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
@@ -217,30 +341,33 @@
             document.getElementById('editorDate').textContent = editing.date;
             document.getElementById('editorTopic').value = editing.topic;
             document.getElementById('editorRows').innerHTML = editing.rows.map((r, i) => `
-                <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 p-2.5 rounded-lg border border-gray-200 dark:border-gray-600" data-i="${i}">
-                    <span class="flex-1 min-w-[120px] font-medium text-gray-800 dark:text-white notranslate">${esc(r.name)}</span>
-                    <div class="flex gap-1">
-                        ${STATUS.map(([value, label, color]) => `
-                            <button type="button" data-status="${value}" data-color="${color}" onclick="setStatus(${i}, '${value}')"
-                                class="status-btn px-2.5 py-1.5 rounded-md text-xs font-bold transition ${r.status === value ? color + ' text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300'}">${label}</button>`).join('')}
+                <div class="ed-row" data-i="${i}">
+                    <span class="ed-name notranslate" title="${esc(r.name)}">${esc(r.name)}</span>
+                    <div class="att" data-status="${r.status}" role="group">
+                        ${STATUS.map(([value, label]) => `
+                            <button type="button" data-status="${value}" onclick="setStatus(${i}, '${value}')" aria-pressed="${r.status === value}" class="status-btn">${label}</button>`).join('')}
                     </div>
-                    <label class="w-12 flex justify-center"><input type="checkbox" class="w-5 h-5" ${r.homework ? 'checked' : ''} onchange="editing.rows[${i}].homework = this.checked"></label>
-                    <div class="flex items-center gap-1 w-[92px] justify-center">
-                        <button type="button" onclick="stepStars(${i}, -1)" class="w-7 h-7 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-white">−</button>
-                        <span class="w-6 text-center font-bold text-yellow-400" id="stars-${i}">${r.stars}</span>
-                        <button type="button" onclick="stepStars(${i}, 1)" class="w-7 h-7 rounded-md bg-yellow-500 text-white">+</button>
+                    <label class="hw-toggle"><input type="checkbox" class="sr-only" ${r.homework ? 'checked' : ''} onchange="editing.rows[${i}].homework = this.checked"><i class="fas fa-book"></i>${TEXT.hw}</label>
+                    <div class="stepper" title="${TEXT.stars}">
+                        <button type="button" onclick="stepStars(${i}, -1)" class="minus" aria-label="${TEXT.less}">−</button>
+                        <span class="val"><i class="fas fa-star"></i><span id="stars-${i}">${r.stars}</span></span>
+                        <button type="button" onclick="stepStars(${i}, 1)" class="plus" aria-label="${TEXT.more}">+</button>
                     </div>
                 </div>`).join('');
             document.getElementById('editorModal').classList.remove('hidden');
+            document.getElementById('editorTopic').focus();
         }
 
         function setStatus(i, value) {
             editing.rows[i].status = value;
-            document.querySelectorAll(`#editorRows [data-i="${i}"] .status-btn`).forEach(b => {
-                const on = b.dataset.status === value;
-                b.className = 'status-btn px-2.5 py-1.5 rounded-md text-xs font-bold transition ' +
-                    (on ? b.dataset.color + ' text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300');
-            });
+            const row = document.querySelector(`#editorRows [data-i="${i}"]`);
+            row.querySelector('.att').dataset.status = value;
+            row.querySelectorAll('.status-btn').forEach(b => b.setAttribute('aria-pressed', b.dataset.status === value));
+        }
+
+        function markAllPresent() {
+            if (!editing) return;
+            editing.rows.forEach((r, i) => { if (r.status === 'absent') setStatus(i, 'present'); });
         }
 
         function stepStars(i, delta) {
@@ -275,11 +402,16 @@
             .catch(() => { alert('Нет связи с сервером'); btn.disabled = false; });
         }
 
+        // Закрыть окно: Esc или клик по затемнению
+        const modal = document.getElementById('editorModal');
+        modal.addEventListener('mousedown', e => { if (e.target === modal) closeEditor(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeEditor(); });
+
         // Открыть урок сразу (после «Добавить урок»)
         const openId = new URLSearchParams(location.search).get('open');
         if (openId && LESSONS[openId]) openEditor(openId);
         {% endif %}
     </script>
-    
+
 </body>
 </html>

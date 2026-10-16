@@ -7,16 +7,35 @@
     <title>Расписание — Enjoy English</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
-        .fade-in { animation: fadeIn 0.4s ease; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        /* ---------- Сводка ---------- */
+        .sched-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .sched-stats .ee-stat { background: var(--surface); box-shadow: var(--shadow); }
+        .sched-stats .ee-stat.hidden { display: none; }
+        .sched-stats .ee-stat.is-bad { border-color: var(--bad-line); background: var(--bad-soft); }
+        .sched-stats .ee-stat.is-bad > i { color: #fff; background: var(--bad); }
+        .sched-stats .ee-stat.is-bad b { color: var(--bad-ink); }
+        .sched-stats .ee-stat.is-bad span { color: var(--bad-ink); opacity: .8; }
+        @media (max-width: 640px) {
+            .sched-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+            .sched-stats .ee-stat { padding: 12px; gap: 10px; }
+            .sched-stats .ee-stat > i { width: 34px; height: 34px; font-size: 14px; }
         }
+
+        /* ---------- Фильтр по учителям ---------- */
+        .cal-bar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+        .cal-bar.hidden { display: none; }
+        .cal-bar-label { flex-shrink: 0; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+        .cal-bar .ee-seg { min-width: 0; }
+        .ee-seg > .chip { gap: 8px; }
+        .chip-dot { width: 9px; height: 9px; border-radius: 9999px; flex-shrink: 0; background: var(--c-border); transition: opacity .2s ease; }
+        .chip.off .chip-dot { opacity: .35; }
+        @media (max-width: 640px) { .cal-bar-label { display: none; } .cal-bar { padding: 10px 12px; } }
+
         /* Сетка расписания */
-        .cal-scroll { overflow: auto; max-height: calc(100vh - 230px); min-height: 420px; }
+        /* Не ниже 420px на низком экране, но без пустого места, если занятий мало */
+        .cal-scroll { overflow: auto; max-height: max(420px, calc(100vh - 262px)); }
         .cal-head { position: sticky; top: 0; z-index: 20; }
         .cal-gutter { position: sticky; left: 0; z-index: 15; }
         .cal-corner { position: sticky; left: 0; top: 0; z-index: 25; }
@@ -27,8 +46,7 @@
                 linear-gradient(to bottom, var(--line-half) 1px, transparent 1px);
             background-size: 100% var(--hour-h), 100% calc(var(--hour-h) / 2);
         }
-        :root { --hour-h: 64px; --line-hour: #d1d5db; --line-half: #eef0f3; }
-        .dark { --line-hour: #4b5563; --line-half: #374151; }
+        :root { --hour-h: 64px; --line-hour: #e2dfdb; --line-half: #f1efec; }
         .lesson {
             position: absolute; box-sizing: border-box; padding: 2px;
             transition: transform .15s ease, z-index 0s;
@@ -43,8 +61,6 @@
         .lesson.conflict .lesson-card { outline: 2px solid #dc2626; outline-offset: -2px; }
         .now-line { position: absolute; left: 0; right: 0; height: 2px; background: var(--accent); z-index: 11; pointer-events: none; }
         .now-line::before { content: ''; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
-        .chip.off { opacity: .4; }
-        .chip.off .chip-dot { background: transparent !important; }
         /* Цвета учителей: спокойные землистые оттенки — только чтобы различать учителей */
         .c0 { --c-bg:#fff1e6; --c-border:#f97316; --c-text:#9a3412; }
         .c1 { --c-bg:#f1f0ee; --c-border:#78716c; --c-text:#292524; }
@@ -56,76 +72,60 @@
         .c7 { --c-bg:#f3eff5; --c-border:#8b7a99; --c-text:#3b2f47; }
         .c8 { --c-bg:#fbefec; --c-border:#c2776b; --c-text:#7f2a1d; }
         .c9 { --c-bg:#f3f4ec; --c-border:#8c9161; --c-text:#3f4220; }
-        :root { --line-hour: #e2dfdb; --line-half: #f1efec; }
     </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
-<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+<body class="min-h-screen">
     {% include 'dashboard/partials/shell.html' %}
 
-    <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
-        <div class="max-w-full mx-auto px-4 py-4 flex justify-between items-center">
-            <div class="flex items-center gap-4">
-                <a href="{% url 'dashboard' %}" class="text-gray-300 hover:text-white transition">
-                    <i class="fas fa-arrow-left"></i> Назад
-                </a>
-                <div class="flex items-center gap-2">
-                    <i class="fas fa-calendar text-2xl text-orange-500"></i>
-                    <h1 class="text-xl font-bold text-white">Расписание на неделю</h1>
+    <header class="sticky top-0 z-40">
+        <div class="ee-head max-w-full mx-auto px-4 sm:px-6">
+            <div class="ee-head-main">
+                <a href="{% url 'dashboard' %}" class="head-back" aria-label="Назад"><i class="fas fa-arrow-left"></i></a>
+                <span class="head-icon"><i class="fas fa-calendar-week"></i></span>
+                <div class="min-w-0">
+                    <h1 class="head-title">Расписание на неделю</h1>
+                    <p class="head-sub">{{ days.0.date }} – {{ days.6.date }}</p>
                 </div>
             </div>
-            <div class="flex items-center gap-2 md:gap-4">
-                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
-                    <i class="fas fa-moon dark:hidden text-gray-300"></i>
-                    <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
-                </button>
-                <a href="{% url 'logout' %}" class="text-red-400 text-sm">
-                    <i class="fas fa-sign-out-alt"></i> Выйти
-                </a>
+            <div class="ee-head-actions">
+                {% if role == 'admin' or role == 'developer' or role == 'manager' %}
+                <a href="{% url 'add_group' %}" class="head-btn is-main" title="Новая группа" aria-label="Новая группа"><i class="fas fa-plus"></i><span class="hidden sm:inline">Новая группа</span></a>
+                {% endif %}
             </div>
         </div>
     </header>
-    
-    <main class="max-w-full mx-auto px-4 py-6 fade-in">
 
-        <!-- Сводка + фильтр по учителям -->
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 p-4 mb-4 transition-colors">
-            <div class="flex flex-wrap items-center gap-3 mb-3">
-                <span class="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
-                    <i class="fas fa-chalkboard mr-1"></i> Занятий в неделю: <b>{{ lessons_count }}</b>
-                </span>
-                <span class="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
-                    <i class="fas fa-users mr-1"></i> Групп: <b>{{ groups_count }}</b>
-                </span>
-                {% if role != 'teacher' %}
-                <span class="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
-                    <i class="fas fa-chalkboard-teacher mr-1"></i> Учителей: <b>{{ teachers_count }}</b>
-                </span>
-                {% endif %}
-                <span id="conflictBadge" class="hidden bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-3 py-1 rounded-full text-sm font-medium"
-                      title="У одного учителя пересекаются занятия">
-                    <i class="fas fa-exclamation-triangle mr-1"></i> Накладки: <b id="conflictCount">0</b>
-                </span>
-            </div>
-            <div class="flex flex-wrap items-center gap-2" id="teacherFilter">
-                <span class="text-sm text-gray-500 dark:text-gray-400 mr-1">Учителя:</span>
-                <button type="button" id="chipAll"
-                    class="px-3 py-1 rounded-full text-sm font-medium bg-gray-800 text-white dark:bg-white dark:text-gray-800 transition">
-                    Все
-                </button>
+    <main class="max-w-full mx-auto px-4 sm:px-6 py-5 sm:py-6">
+
+        <!-- Сводка -->
+        <div class="sched-stats">
+            <div class="ee-stat"><i class="fas fa-chalkboard"></i><div><b>{{ lessons_count }}</b><span>Занятий в неделю</span></div></div>
+            <div class="ee-stat"><i class="fas fa-users"></i><div><b>{{ groups_count }}</b><span>Групп</span></div></div>
+            {% if role != 'teacher' %}
+            <div class="ee-stat"><i class="fas fa-chalkboard-user"></i><div><b>{{ teachers_count }}</b><span>Учителей</span></div></div>
+            {% endif %}
+            <div id="conflictBadge" class="ee-stat is-bad hidden" title="У одного учителя пересекаются занятия">
+                <i class="fas fa-triangle-exclamation"></i><div><b id="conflictCount">0</b><span>Накладки</span></div>
             </div>
         </div>
 
         <!-- Календарь -->
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
+        <section class="panel overflow-hidden">
+            <div class="cal-bar" id="teacherFilter">
+                <span class="cal-bar-label">Учителя:</span>
+                <div class="ee-seg" id="teacherSeg" role="group" aria-label="Учителя">
+                    <button type="button" id="chipAll" class="is-on" aria-pressed="true">Все</button>
+                </div>
+            </div>
             <div class="cal-scroll" id="calScroll">
                 <div id="calendar" class="relative"></div>
             </div>
-            <div id="emptyState" class="hidden p-12 text-center text-gray-400">
-                <i class="fas fa-calendar-times text-5xl mb-3"></i>
-                <p>Занятий в расписании пока нет</p>
+            <div id="emptyState" class="hidden ee-empty">
+                <i class="fas fa-calendar-xmark"></i>
+                <b>Занятий в расписании пока нет</b>
             </div>
-        </div>
+        </section>
 
     </main>
 
@@ -133,11 +133,6 @@
     {{ days|json_script:"days-data" }}
 
     <script>
-        function toggleTheme() {
-            document.documentElement.classList.toggle('dark');
-        }
-        
-
         const DATA = JSON.parse(document.getElementById('schedule-data').textContent);
         const DAYS = JSON.parse(document.getElementById('days-data').textContent);
         const HOUR_H = 64;                 // высота часа, px (как --hour-h)
@@ -145,6 +140,8 @@
         const LANE_MIN_W = 118;            // минимальная ширина одного параллельного занятия
         const DAY_MIN_W = 150;
         const hidden = new Set();          // скрытые учителя
+        // Названия дней — строками здесь, чтобы английская версия их перевела (имена в данных не переводятся)
+        const DAY_NAMES = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
 
         const colorOf = {};
         DATA.teachers.forEach((t, i) => colorOf[t.id] = 'c' + (i % 10));
@@ -227,21 +224,21 @@
             let html = `<div style="display:grid;width:max-content;grid-template-columns:${cols}">`;
 
             // Шапка
-            html += `<div class="cal-corner bg-gray-100 dark:bg-gray-700 border-b-2 border-gray-300 dark:border-gray-600"></div>`;
+            html += `<div class="cal-corner bg-gray-100 border-b-2 border-gray-300"></div>`;
             perDay.forEach(p => {
                 const t = p.day.is_today;
-                html += `<div class="cal-head px-2 py-3 text-center border-b-2 border-l border-gray-300 dark:border-gray-600
-                            ${t ? 'bg-orange-50 text-orange-700' : 'bg-gray-100 dark:bg-gray-700'}" ${t ? 'id="todayHead"' : ''}>
-                    <p class="font-bold ${t ? 'text-indigo-600 dark:text-indigo-300' : 'text-gray-800 dark:text-white'}">${p.day.name}</p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">${p.day.date}
+                html += `<div class="cal-head px-2 py-3 text-center border-b-2 border-l border-gray-300
+                            ${t ? 'bg-orange-50 text-orange-700' : 'bg-gray-100'}" ${t ? 'id="todayHead"' : ''}>
+                    <p class="font-bold ${t ? 'text-indigo-600' : 'text-gray-800'}">${DAY_NAMES[p.day.num] || p.day.name}</p>
+                    <p class="text-xs text-gray-500">${p.day.date}
                         · ${p.items.length ? p.items.length + ' зан.' : 'нет занятий'}</p>
                 </div>`;
             });
 
             // Шкала времени
-            html += `<div class="cal-gutter bg-gray-100 dark:bg-gray-700" style="height:${bodyH}px">`;
+            html += `<div class="cal-gutter bg-gray-100" style="height:${bodyH}px">`;
             for (let h = first; h < last; h++) {
-                html += `<div class="absolute right-2 text-xs font-semibold text-gray-500 dark:text-gray-300"
+                html += `<div class="absolute right-2 text-xs font-semibold text-gray-500"
                               style="top:${(h - first) * HOUR_H + 2}px">${h}:00</div>`;
             }
             html += `</div>`;
@@ -249,7 +246,7 @@
             // Колонки дней
             perDay.forEach(p => {
                 const t = p.day.is_today;
-                html += `<div class="day-col border-l border-gray-300 dark:border-gray-600 ${t ? 'bg-orange-50/40' : ''}"
+                html += `<div class="day-col border-l border-gray-300 ${t ? 'bg-orange-50/40' : ''}"
                               style="height:${bodyH}px">`;
                 p.items.forEach(it => {
                     const top = (it.start - first * 60) * PX_PER_MIN;
@@ -284,15 +281,17 @@
             cal.innerHTML = html;
         }
 
+        // Фильтр по учителям — переключатель: «Все» или один учитель
         function buildFilter() {
             const box = document.getElementById('teacherFilter');
+            const seg = document.getElementById('teacherSeg');
             if (DATA.teachers.length < 2) { box.classList.add('hidden'); return; }
             DATA.teachers.forEach(t => {
                 const b = document.createElement('button');
                 b.type = 'button';
-                b.className = `chip ${colorOf[t.id]} px-3 py-1 rounded-full text-sm font-medium border transition flex items-center gap-1.5 notranslate`;
-                b.style.cssText = 'background:var(--c-bg);color:var(--c-text);border-color:var(--c-border)';
-                b.innerHTML = `<span class="chip-dot w-2.5 h-2.5 rounded-full border-2" style="background:var(--c-border);border-color:var(--c-border)"></span>${esc(t.name)}`;
+                b.className = `chip ${colorOf[t.id]} notranslate`;
+                b.setAttribute('aria-pressed', 'false');
+                b.innerHTML = `<span class="chip-dot" aria-hidden="true"></span>${esc(t.name)}`;
                 b.onclick = () => {
                     // Клик — показать только этого учителя; повторный — вернуть всех
                     const onlyThis = hidden.size === DATA.teachers.length - 1 && !hidden.has(t.id);
@@ -300,14 +299,23 @@
                     if (!onlyThis) DATA.teachers.forEach(o => { if (o.id !== t.id) hidden.add(o.id); });
                     syncChips(); render();
                 };
-                box.appendChild(b);
+                seg.appendChild(b);
             });
             document.getElementById('chipAll').onclick = () => { hidden.clear(); syncChips(); render(); };
         }
 
         function syncChips() {
             const chips = document.querySelectorAll('#teacherFilter .chip');
-            DATA.teachers.forEach((t, i) => chips[i].classList.toggle('off', hidden.has(t.id)));
+            const all = hidden.size === 0;
+            DATA.teachers.forEach((t, i) => {
+                const shown = !hidden.has(t.id);
+                chips[i].classList.toggle('off', !shown);
+                chips[i].classList.toggle('is-on', shown && !all);
+                chips[i].setAttribute('aria-pressed', String(shown && !all));
+            });
+            const chipAll = document.getElementById('chipAll');
+            chipAll.classList.toggle('is-on', all);
+            chipAll.setAttribute('aria-pressed', String(all));
         }
 
         buildFilter();
@@ -323,8 +331,6 @@
                 sc.scrollLeft = today.offsetLeft - 64;
             }
         });
-        
     </script>
-    
 </body>
 </html>

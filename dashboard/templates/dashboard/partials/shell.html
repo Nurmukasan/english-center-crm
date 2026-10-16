@@ -2,7 +2,7 @@
 Оболочка CRM: боковая панель навигации (на телефоне — док снизу), фон и командная палитра Ctrl+K.
 Подключается сразу после <body> на каждой странице CRM.
 {% endcomment %}
-{% with role=request.user.profile.role|default:'admin' url_name=request.resolver_match.url_name %}
+{% with role=request.user.profile.role|default:'admin' url_name=request.resolver_match.url_name %}{# page — имя страницы в пробелах: « profile » не совпадёт с « student_profile » #}{% with page=' '|add:url_name|add:' ' %}
 <div class="ee-mesh" aria-hidden="true">
     <div class="ee-blob b1"></div><div class="ee-blob b2"></div><div class="ee-blob b3"></div><div class="ee-grid"></div>
 </div>
@@ -16,7 +16,7 @@
         <span class="ee-rail-glow" id="eeRailGlow" aria-hidden="true"></span>
 
         <a href="{% url 'dashboard' %}" data-label="Главная"
-           class="ee-rail-item {% if url_name in 'dashboard group_detail lesson_history add_group edit_group' %}is-active{% endif %}">
+           class="ee-rail-item {% if page in ' dashboard group_detail lesson_history add_group edit_group ' %}is-active{% endif %}">
             <i class="fas fa-house"></i><span>Главная</span>
         </a>
         {% if role == 'teacher' or role == 'developer' or role == 'admin' or role == 'manager' %}
@@ -27,29 +27,29 @@
         {% endif %}
         {% if role != 'accountant' %}
         <a href="{% url 'students_list' %}" data-label="Ученики"
-           class="ee-rail-item {% if url_name in 'students_list student_profile add_student edit_student add_existing_student_to_group' %}is-active{% endif %}">
+           class="ee-rail-item {% if page in ' students_list student_profile add_student edit_student add_existing_student_to_group ' %}is-active{% endif %}">
             <i class="fas fa-user-graduate"></i><span>Ученики</span>
         </a>
         {% endif %}
         <a href="{% url 'individual_lessons' %}" data-label="Индивидуальные"
-           class="ee-rail-item {% if url_name in 'individual_lessons add_individual' %}is-active{% endif %}">
+           class="ee-rail-item {% if page in ' individual_lessons add_individual ' %}is-active{% endif %}">
             <i class="fas fa-chalkboard-user"></i><span>Индивидуальные</span>
         </a>
         {% if role == 'admin' or role == 'accountant' or role == 'developer' or role == 'manager' %}
         <a href="{% url 'payments_page' %}" data-label="Оплаты"
-           class="ee-rail-item {% if url_name in 'payments_page payment_management' %}is-active{% endif %}">
+           class="ee-rail-item {% if page in ' payments_page payment_management ' %}is-active{% endif %}">
             <i class="fas fa-coins"></i><span>Оплаты</span>
         </a>
         {% endif %}
         {% if role == 'admin' or role == 'accountant' or role == 'developer' %}
         <a href="{% url 'broadcast_page' %}" data-label="Рассылки"
-           class="ee-rail-item {% if url_name in 'broadcast_page broadcast_detail' %}is-active{% endif %}">
+           class="ee-rail-item {% if page in ' broadcast_page broadcast_detail ' %}is-active{% endif %}">
             <i class="fas fa-paper-plane"></i><span>Рассылки</span>
         </a>
         {% endif %}
         {% if role == 'admin' or role == 'developer' %}
         <a href="{% url 'books_status' %}" data-label="Книги"
-           class="ee-rail-item {% if url_name in 'books_status book_detail' %}is-active{% endif %}">
+           class="ee-rail-item {% if page in ' books_status book_detail ' %}is-active{% endif %}">
             <i class="fas fa-book-open"></i><span>Книги</span>
         </a>
         <a href="{% url 'star_rating' %}" data-label="Рейтинг звёзд"
@@ -270,5 +270,5 @@
     });
 })();
 </script>
-{% endwith %}
+{% endwith %}{% endwith %}
 {% include 'dashboard/partials/google_kk.html' %}

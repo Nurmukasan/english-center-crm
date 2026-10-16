@@ -1,4 +1,4 @@
-{% comment %}Одно сообщение во «Входящих» (админ) или в «Отправленных» (учитель). m — InboxMessage после inbox.decorate{% endcomment %}
+{% comment %}Одно сообщение во «Входящих» (админ, менеджер) или в «Отправленных» (учитель). m — InboxMessage после inbox.decorate{% endcomment %}
 <article class="panel msg cat-{{ m.category }}{% if m.direction %} dir-{{ m.direction }}{% endif %}{% if is_inbox and not m.read_at %} is-new{% endif %}">
     <span class="micon"><i class="fas {% if m.category == 'complaint' %}fa-triangle-exclamation{% elif m.category == 'comment' %}fa-comment{% elif m.direction == 'up' %}fa-arrow-trend-up{% else %}fa-arrow-trend-down{% endif %}"></i></span>
     <div class="min-w-0 flex-1">
@@ -10,7 +10,7 @@
         </div>
         {% if m.text %}<p class="mtext notranslate">{{ m.text }}</p>{% elif m.category == 'calibration' %}<p class="mtext text-gray-500">Без комментария</p>{% endif %}
         {% if is_inbox %}
-        <p class="mfrom">от <span class="notranslate">{{ m.author.username|default:"—" }}</span></p>
+        <p class="mfrom">от <span class="notranslate">{{ m.author.username|default:"—" }}</span>{% if m.read_by %}<span class="mread" title="Прочитано"><i class="fas fa-check-double"></i> <span class="notranslate">{{ m.read_by.username }}</span></span>{% endif %}</p>
         {% else %}
         <p class="mfrom">
             {% if m.resolution %}<span class="status read"><i class="fas fa-check"></i>{{ m.resolution }}</span>

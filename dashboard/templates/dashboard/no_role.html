@@ -7,21 +7,34 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        .nr-brand { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 18px; font-size: 15px; font-weight: 800; color: var(--ink); }
+        .nr-logo { width: 40px; height: 40px; border-radius: 9999px; overflow: hidden; background: #fff; box-shadow: 0 0 0 1px var(--line), var(--shadow-sm); }
+        .nr-logo img { width: 100%; height: 100%; object-fit: cover; }
+        .nr-card { padding: 36px 32px 30px; text-align: center; }
+        .nr-icon { width: 72px; height: 72px; margin: 0 auto 20px; border-radius: 22px; display: grid; place-items: center; font-size: 28px;
+            color: var(--warn-ink); background: var(--warn-soft); box-shadow: inset 0 0 0 1px var(--warn-line); }
+        .nr-title { font-size: 22px; font-weight: 800; line-height: 1.25; color: var(--ink); }
+        .nr-text { margin-top: 10px; font-size: 15px; line-height: 1.6; color: var(--muted); }
+        .nr-text b { color: var(--ink); font-weight: 800; }
+        .nr-path { display: inline-block; padding: 1px 8px; border-radius: 8px; font-size: 13.5px; font-weight: 700; white-space: nowrap;
+            color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line); }
+        @media (max-width: 640px) { .nr-card { padding: 30px 20px 22px; } }
+    </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
-    <main class="max-w-md w-full">
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-2xl shadow-md border border-gray-300 dark:border-gray-600 p-8 text-center">
-            <div class="w-16 h-16 rounded-2xl bg-amber-500/15 text-amber-300 grid place-items-center text-2xl mx-auto mb-5">
-                <i class="fas fa-user-lock"></i>
-            </div>
-            <h2 class="text-xl font-bold text-white mb-3">Роль ещё не назначена</h2>
-            <p class="text-gray-400 mb-6">
-                Учётная запись <b class="text-white notranslate">{{ request.user.username }}</b> есть, но доступа к CRM пока нет.
-                Попросите администратора назначить роль: <span class="text-gray-300">/admin/ → Профили</span>.
+    <main class="w-full max-w-md">
+        <div class="nr-brand"><span class="nr-logo"><img src="/media/logo/logo.png" alt=""></span>Enjoy English</div>
+        <div class="panel nr-card">
+            <div class="nr-icon"><i class="fas fa-user-lock"></i></div>
+            <h1 class="nr-title">Роль ещё не назначена</h1>
+            <p class="nr-text">
+                Учётная запись <b class="notranslate">{{ request.user.username }}</b> есть, но доступа к CRM пока нет.
+                Попросите администратора назначить роль: <span class="nr-path">/admin/ → Профили</span>.
             </p>
-            <a href="{% url 'logout' %}" class="inline-flex items-center gap-2 bg-indigo-500 text-white px-6 py-3 rounded-lg font-medium">
-                <i class="fas fa-arrow-right-from-bracket"></i> Выйти
+            <a href="{% url 'logout' %}" class="ee-btn ee-btn-primary w-full mt-7">
+                <i class="fas fa-arrow-right-from-bracket"></i>Выйти
             </a>
         </div>
     </main>

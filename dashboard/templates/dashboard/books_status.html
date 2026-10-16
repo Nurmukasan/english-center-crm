@@ -6,133 +6,141 @@
     <title>Книги — Enjoy English</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
-        * { font-family: 'Inter', sans-serif; }
-        .fade-in { animation: fadeIn 0.4s ease; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        .tnum { font-variant-numeric: tabular-nums; }
+
+        /* ---------- Заголовок карточки ---------- */
+        .card-head { display: flex; align-items: center; gap: 12px; padding: 18px 22px; border-bottom: 1px solid var(--line); }
+        .card-icon { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; flex-shrink: 0; font-size: 15px; }
+        .card-icon.is-warn { color: var(--warn-ink); background: var(--warn-soft); }
+        .card-title { font-size: 16px; font-weight: 800; color: var(--ink); line-height: 1.3; }
+
+        /* ---------- Запросы книг ---------- */
+        .req-list { max-height: 520px; overflow-y: auto; }
+        .req-row { display: flex; align-items: center; gap: 14px; padding: 14px 22px; transition: background-color .2s ease; }
+        .req-row + .req-row { border-top: 1px solid var(--line); }
+        .req-row:hover { background: var(--surface-2); }
+        .req-name { font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .req-meta { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 2px; font-size: 12px; font-weight: 600; color: var(--muted); }
+        .req-meta i { color: var(--faint); margin-right: 5px; }
+        .req-note { display: flex; align-items: flex-start; gap: 7px; margin-top: 7px; font-size: 13px; color: var(--ink-2); line-height: 1.45;
+            white-space: pre-line; overflow-wrap: anywhere; }
+        .req-note i { color: var(--accent); margin-top: 3px; font-size: 12px; }
+        .req-list .ee-empty.hidden { display: none; }
+
+        /* ---------- Карточки книг ---------- */
+        .books { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+        .book-card { display: flex; align-items: stretch; gap: 16px; padding: 14px; color: inherit;
+            transition: transform var(--spring-dur) var(--spring), border-color .2s ease, box-shadow .3s ease; }
+        .book-card:hover { transform: translateY(-2px); border-color: var(--accent-line); box-shadow: var(--shadow-lg); }
+        .book-cover { width: 88px; height: 118px; flex-shrink: 0; border-radius: 12px; overflow: hidden; display: grid; place-items: center;
+            font-size: 30px; color: var(--accent-300); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); }
+        .book-cover img { width: 100%; height: 100%; object-fit: cover; }
+        .book-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        .book-title { font-size: 15px; font-weight: 800; color: var(--ink); line-height: 1.3;
+            display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; transition: color .2s ease; }
+        .book-card:hover .book-title { color: var(--accent-ink); }
+        .book-nums { margin-top: auto; padding-top: 10px; display: grid; gap: 4px; font-size: 13px; }
+        .book-nums > div { display: flex; justify-content: space-between; gap: 10px; }
+        .book-nums dt { color: var(--muted); }
+        .book-nums dd { font-weight: 800; color: var(--ink); }
+        .book-nums dd.is-ok { color: var(--ok-ink); }
+        .book-nums dd.is-bad { color: var(--bad-ink); }
+        .book-nums dd.is-zero { color: var(--faint); }
+
+        @media (max-width: 640px) {
+            .card-head { padding: 16px; }
+            /* Кнопка «Выдана» уходит под текст запроса */
+            .req-list { max-height: none; }
+            .req-row { flex-wrap: wrap; align-items: flex-start; padding: 14px 16px; gap: 12px; }
+            .req-main { flex-basis: calc(100% - 52px); }
+            .req-row > .ee-btn { margin-left: 52px; }
+            .books { grid-template-columns: 1fr; gap: 12px; }
         }
-        .hover-scale { transition: all 0.3s ease; }
-        .hover-scale:hover { transform: translateY(-3px); box-shadow: 0 12px 25px rgba(0,0,0,0.12); }
     </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
-<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+<body class="min-h-screen">
     {% include 'dashboard/partials/shell.html' %}
 
-    <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <div class="flex items-center gap-4">
-                <a href="{% url 'dashboard' %}" class="text-gray-300 hover:text-white">
-                    <i class="fas fa-arrow-left"></i> Назад
-                </a>
-                <div class="flex items-center gap-2">
-                    <i class="fas fa-book text-2xl text-amber-400"></i>
-                    <h1 class="text-xl font-bold text-white">Книги</h1>
+    <header class="sticky top-0 z-40">
+        <div class="ee-head max-w-6xl mx-auto px-4 sm:px-6">
+            <div class="ee-head-main">
+                <a href="{% url 'dashboard' %}" class="head-back" aria-label="Назад"><i class="fas fa-arrow-left"></i></a>
+                <span class="head-icon"><i class="fas fa-book-open"></i></span>
+                <div class="min-w-0">
+                    <h1 class="head-title">Книги</h1>
                 </div>
-            </div>
-            <div class="flex items-center gap-2 md:gap-4">
-                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
-                    <i class="fas fa-moon dark:hidden text-gray-300"></i>
-                    <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
-                </button>
-                <a href="{% url 'logout' %}" class="text-red-400 text-sm">
-                    <i class="fas fa-sign-out-alt"></i> Выйти
-                </a>
             </div>
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
         <!-- Запросы книг от учителей -->
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden mb-8 transition-colors">
-            <div class="px-6 py-4 border-b border-gray-300 dark:border-gray-600 bg-red-50 dark:bg-red-900/20">
-                <h3 class="font-bold text-red-700 dark:text-red-400">
-                    <i class="fas fa-hourglass-half mr-1"></i>
-                    Запросы книг (<span id="requestsCount">{{ book_requests|length }}</span>)
-                </h3>
+        <section class="panel overflow-hidden">
+            <div class="card-head">
+                <span class="card-icon is-warn"><i class="fas fa-hourglass-half"></i></span>
+                <h2 class="card-title flex-1 min-w-0">Запросы книг</h2>
+                <span class="ee-tag ee-tag-warn tnum" id="requestsCount">{{ book_requests|length }}</span>
             </div>
-            <div class="p-4 space-y-2 max-h-[500px] overflow-y-auto" id="requestsList">
+            <div class="req-list relative" id="requestsList">
                 {% for e in book_requests %}
-                <div class="flex items-center gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
-                     id="request-{{ e.id }}">
-                    <div class="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center shrink-0">
-                        <i class="fas fa-user text-amber-600 dark:text-amber-400"></i>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <p class="font-medium text-gray-800 dark:text-white truncate">{{ e.student.name }}</p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
-                            <i class="fas fa-users mr-1"></i>{{ e.group.name }}
-                            {% if e.group.teacher %} · <i class="fas fa-chalkboard-teacher mr-1"></i>{{ e.group.teacher.get_full_name|default:e.group.teacher.username }}{% endif %}
+                <div class="req-row" id="request-{{ e.id }}">
+                    <span class="ee-avatar notranslate" aria-hidden="true">{{ e.student.name|slice:":1"|upper }}</span>
+                    <div class="req-main flex-1 min-w-0">
+                        <p class="req-name notranslate">{{ e.student.name }}</p>
+                        <p class="req-meta">
+                            <span class="notranslate"><i class="fas fa-users"></i>{{ e.group.name }}</span>
+                            {% if e.group.teacher %}<span class="notranslate"><i class="fas fa-chalkboard-user"></i>{{ e.group.teacher.get_full_name|default:e.group.teacher.username }}</span>{% endif %}
                         </p>
                         {% if e.book_comment %}
-                        <p class="text-sm text-gray-700 dark:text-gray-300 mt-1 whitespace-pre-line break-words">
-                            <i class="fas fa-comment text-amber-500 mr-1"></i>{{ e.book_comment }}
-                        </p>
+                        <p class="req-note"><i class="fas fa-comment"></i><span class="notranslate">{{ e.book_comment }}</span></p>
                         {% elif e.book %}
-                        <p class="text-sm text-gray-700 dark:text-gray-300 mt-1">
-                            <i class="fas fa-book text-amber-500 mr-1"></i>{{ e.book.title }}
-                        </p>
+                        <p class="req-note"><i class="fas fa-book"></i><span class="notranslate">{{ e.book.title }}</span></p>
                         {% endif %}
                     </div>
-                    <button onclick="giveBook({{ e.id }})"
-                            class="bg-green-500 text-white px-4 py-2 rounded-lg text-xs font-medium hover:bg-green-600 transition whitespace-nowrap">
-                        <i class="fas fa-check mr-1"></i>Выдана
+                    <button type="button" onclick="giveBook({{ e.id }})" class="ee-btn ee-btn-sm ee-btn-ok">
+                        <i class="fas fa-check"></i>Выдана
                     </button>
                 </div>
-                {% empty %}
-                <p class="text-center text-gray-400 py-8" id="requestsEmpty">
-                    <i class="fas fa-smile text-4xl mb-2 block"></i>
-                    Запросов нет
-                </p>
                 {% endfor %}
-            </div>
-        </div>
-
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {% for stat in book_stats %}
-            <a href="{% url 'book_detail' stat.book.id %}"
-               class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden hover-scale transition-colors cursor-pointer block">
-
-                <div class="aspect-[3/4] bg-orange-50 flex items-center justify-center overflow-hidden">
-                    {% if stat.book.photo %}
-                    <img src="{{ stat.book.photo.url }}" alt="{{ stat.book.title }}" class="w-full h-full object-cover">
-                    {% else %}
-                    <i class="fas fa-book-open text-6xl text-orange-300"></i>
-                    {% endif %}
+                <div class="ee-empty {% if book_requests %}hidden{% endif %}" id="requestsEmpty">
+                    <i class="far fa-face-smile"></i>
+                    <b>Запросов нет</b>
                 </div>
+            </div>
+        </section>
 
-                <div class="p-4">
-                    <p class="font-bold text-gray-800 dark:text-white text-sm truncate" title="{{ stat.book.title }}">
-                        {{ stat.book.title }}
-                    </p>
-
-                    <div class="mt-3 space-y-1 text-xs">
-                        <div class="flex justify-between">
-                            <span class="text-gray-500 dark:text-gray-400">На складе</span>
-                            <span class="font-medium text-gray-700 dark:text-gray-300">{{ stat.book.quantity }} шт.</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-500 dark:text-gray-400">Выдано</span>
-                            <span class="font-bold text-green-600">{{ stat.students_with_book }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-500 dark:text-gray-400">Требуется</span>
-                            <span class="font-bold {% if stat.students_need_book > 0 %}text-red-600{% else %}text-gray-400{% endif %}">
-                                {{ stat.students_need_book }}
-                            </span>
-                        </div>
-                    </div>
+        <!-- Книги -->
+        <h2 class="ee-section-title"><i class="fas fa-book" aria-hidden="true"></i>Книги</h2>
+        <div class="books">
+            {% for stat in book_stats %}
+            <a href="{% url 'book_detail' stat.book.id %}" class="panel book-card">
+                <span class="book-cover">
+                    {% if stat.book.photo %}
+                    <img src="{{ stat.book.photo.url }}" alt="" loading="lazy">
+                    {% else %}
+                    <i class="fas fa-book-open" aria-hidden="true"></i>
+                    {% endif %}
+                </span>
+                <div class="book-body">
+                    <p class="book-title notranslate" title="{{ stat.book.title }}">{{ stat.book.title }}</p>
+                    {% if stat.missing > 0 %}
+                    <p class="mt-2"><span class="ee-tag ee-tag-bad"><i class="fas fa-triangle-exclamation"></i>Не хватает {{ stat.missing }} шт.</span></p>
+                    {% endif %}
+                    <dl class="book-nums tnum">
+                        <div><dt>На складе</dt><dd>{{ stat.book.quantity }} шт.</dd></div>
+                        <div><dt>Выдано</dt><dd class="{% if stat.students_with_book %}is-ok{% else %}is-zero{% endif %}">{{ stat.students_with_book }}</dd></div>
+                        <div><dt>Требуется</dt><dd class="{% if stat.students_need_book > 0 %}is-bad{% else %}is-zero{% endif %}">{{ stat.students_need_book }}</dd></div>
+                    </dl>
                 </div>
             </a>
             {% empty %}
-            <div class="col-span-full bg-gray-50 dark:bg-gray-800 rounded-xl p-12 text-center text-gray-400 shadow-md border border-gray-300 dark:border-gray-600">
-                <i class="fas fa-inbox text-5xl mb-3"></i>
-                <p>Книг пока нет</p>
+            <div class="panel ee-empty col-span-full">
+                <i class="fas fa-book-open"></i>
+                <b>Книг пока нет</b>
             </div>
             {% endfor %}
         </div>
@@ -140,9 +148,6 @@
     </main>
 
     <script>
-        function toggleTheme() {
-            document.documentElement.classList.toggle('dark');
-        }
         function giveBook(enrollmentId) {
             fetch('/enrollment/toggle-book/', {
                 method: 'POST',
@@ -161,7 +166,10 @@
                 const row = document.getElementById('request-' + enrollmentId);
                 if (row) row.remove();
                 const count = document.getElementById('requestsCount');
-                count.textContent = Math.max(0, parseInt(count.textContent) - 1);
+                const left = Math.max(0, parseInt(count.textContent) - 1);
+                count.textContent = left;
+                // Запросов не осталось — показываем пустое состояние
+                document.getElementById('requestsEmpty').classList.toggle('hidden', left > 0);
             });
         }
     </script>
