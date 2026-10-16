@@ -48,6 +48,7 @@ Tailwind «светлый / dark:» — тёмный режим больше н�
         --spring-soft: cubic-bezier(.22, 1, .36, 1);
         --spring-soft-dur: 800ms;
     }
+{# Свой цвет у роли: менеджер — бирюзовый, админ — фиолетовый, остальные — оранжевый #}
 {% if request.user.profile.role == 'manager' %}
     :root {
         --accent: #0d9488;
@@ -60,6 +61,19 @@ Tailwind «светлый / dark:» — тёмный режим больше н�
         --accent-select: #c3f0e7;
         --accent-rgb: 13, 148, 136;
         --accent-glow: 45, 212, 191;
+    }
+{% elif request.user.profile.role == 'admin' or request.user.is_superuser and not request.user.profile.role %}
+    :root {
+        --accent: #8b5cf6;
+        --accent-hover: #7c3aed;
+        --accent-ink: #6d28d9;
+        --accent-soft: #f5f3ff;
+        --accent-line: #ddd6fe;
+        --accent-100: #ede9fe;
+        --accent-300: #c4b5fd;
+        --accent-select: #ddd6fe;
+        --accent-rgb: 139, 92, 246;
+        --accent-glow: 167, 139, 250;
     }
 {% endif %}
     html.ee { background: var(--bg); color-scheme: light; }

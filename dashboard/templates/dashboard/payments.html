@@ -39,6 +39,8 @@
         .stat.is-wait > i { color: var(--wait); }
         .stat.is-bad > i { color: var(--nopr); }
         button.stat:hover { border-color: var(--bad-line); }
+        .stat b em { font-style: normal; }
+        @media (min-width: 641px) { .stat.is-cash { grid-column: 1 / -1; } }
 
         /* ---------- График года ---------- */
         .ychart { position: relative; display: grid; grid-template-columns: 44px 1fr; }
@@ -272,9 +274,9 @@
                             <i class="fas fa-hourglass-half"></i>
                             <div><b id="statWait">{{ wait_total }}</b><span>ждём оплату</span></div>
                         </div>
-                        <div class="stat" title="Сколько из собранного принято наличными">
+                        <div class="stat is-cash" title="Сколько из собранного принято наличными">
                             <i class="fas fa-money-bill-wave"></i>
-                            <div><b class="notranslate whitespace-nowrap"><span id="statCash">{{ cash_str }}</span> ₸</b><span>наличными</span></div>
+                            <div><b class="notranslate whitespace-nowrap"><em id="statCash">{{ cash_str }}</em> ₸</b><span>наличными</span></div>
                         </div>
                         {% if no_price %}
                         <button type="button" class="stat is-bad text-left" onclick="setStatus('noprice')">

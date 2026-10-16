@@ -120,10 +120,22 @@ class ManagerTests(CRMTestCase):
                                 {'student_id': self.other_student.id, 'year': year, 'month': month}).json()
         self.assertTrue(data['success'])
 
-    def test_manager_has_green_accent(self):
-        self.assertContains(self.client.get('/payments/'), '--accent: #0d9488;')
-        self.login(self.admin)
-        self.assertNotContains(self.client.get('/payments/'), '--accent: #0d9488;')
+    def test_role_accent_colors(self):
+        violet, teal = '--accent: #8b5cf6;', '--accent: #0d9488;'
+        response = self.client.get('/payments/')
+        self.assertContains(response, teal)
+        self.assertNotContains(response, violet)
+        for admin in (self.admin, make_user('boss', superuser=True)):
+            self.login(admin)
+            response = self.client.get('/payments/')
+            self.assertContains(response, violet)
+            self.assertNotContains(response, teal)
+        # Учитель и бухгалтер — оранжевый, без своей палитры
+        for user in (self.teacher, self.accountant):
+            self.login(user)
+            response = self.client.get('/dashboard/')
+            self.assertNotContains(response, violet)
+            self.assertNotContains(response, teal)
 
     def test_manager_has_no_stats_broadcasts_books_and_rating(self):
         for url in ['/accountant-stats/', '/broadcast/', '/books-status/', '/star-rating/']:
