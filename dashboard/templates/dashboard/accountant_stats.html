@@ -96,6 +96,8 @@
         .split i:first-child { border-radius: 9999px 3px 3px 9999px; background: var(--money); }
         .split i:last-child { border-radius: 3px 9999px 9999px 3px; background: var(--ink-2); }
         .split i:only-child { border-radius: 9999px; }
+        .paysplit { margin-top: 10px; }
+        .paysplit .split { height: 8px; }
 
         /* ---------- Рейтинг групп ---------- */
         .search { display: flex; align-items: center; gap: 10px; padding: 0 12px; height: 40px; border-radius: 12px; flex: 1 1 200px; max-width: 280px;
@@ -220,6 +222,17 @@
             <div class="panel kpi">
                 <p class="eyebrow"><i class="fas fa-coins"></i>Собрано за период</p>
                 <p class="kpi-value notranslate"><span data-count="{{ stats.total }}">{{ stats.total_str }}</span> <small>₸</small></p>
+                {% if stats.total %}
+                <div class="paysplit" title="Банк — {{ stats.bank_str }} ₸, наличные — {{ stats.cash_str }} ₸">
+                    <div class="split" role="img" aria-label="Банк {{ stats.bank_share }}%, наличные {{ stats.cash_share }}%">
+                        {% if stats.bank_share %}<i data-w="{{ stats.bank_share }}"></i>{% endif %}{% if stats.cash_share %}<i data-w="{{ stats.cash_share }}"></i>{% endif %}
+                    </div>
+                    <p class="legend mt-2">
+                        <span><i style="background: var(--money)"></i>Банк <b class="text-gray-800">{{ stats.bank_share }}%</b></span>
+                        <span><i style="background: var(--ink-2)"></i>Наличные <b class="text-gray-800">{{ stats.cash_share }}%</b></span>
+                    </p>
+                </div>
+                {% endif %}
                 <p class="kpi-sub">{{ start.name }} — {{ end.name }}</p>
             </div>
             <div class="panel kpi">
@@ -286,13 +299,14 @@
                 <summary class="table-toggle cursor-pointer"><i class="fas fa-table mr-1"></i>Таблица по месяцам</summary>
                 <div class="overflow-x-auto mt-3">
                     <table class="mtable">
-                        <thead><tr><th>Месяц</th><th>Ожидалось</th><th>Собрано</th><th>%</th><th>Оплатили</th><th>Не оплатили</th></tr></thead>
+                        <thead><tr><th>Месяц</th><th>Ожидалось</th><th>Собрано</th><th>Наличными</th><th>%</th><th>Оплатили</th><th>Не оплатили</th></tr></thead>
                         <tbody>
                             {% for c in stats.chart %}
                             <tr class="{% if c.is_current %}is-current{% endif %}">
                                 <td>{{ c.name }}{% if c.is_current %} · идёт{% endif %}</td>
                                 <td class="notranslate">{% if c.has_data %}{{ c.expected_str }} ₸{% else %}—{% endif %}</td>
                                 <td class="notranslate">{% if c.has_data %}{{ c.collected_str }} ₸{% else %}—{% endif %}</td>
+                                <td class="notranslate">{% if c.cash %}{{ c.cash_str }} ₸{% else %}—{% endif %}</td>
                                 <td>{% if c.rate is not None %}{{ c.rate }}%{% else %}—{% endif %}</td>
                                 <td>{% if c.has_data %}{{ c.paid }} / {{ c.total }}{% else %}—{% endif %}</td>
                                 <td class="notranslate">{% if c.debt %}{{ c.debt_str }} ₸{% else %}—{% endif %}</td>
@@ -499,9 +513,11 @@
                             title: items => D.names[items[0].dataIndex] + (D.current[items[0].dataIndex] ? ' · ' + D.text.current : ''),
                             label: item => money ? `${item.dataset.label}: ${fmt(item.raw)} ${D.text.tenge}` : `${item.dataset.label}: ${item.raw}`,
                             afterBody: items => {
-                                const i = items[0].dataIndex;
-                                if (!money || !D.debt[i]) return '';
-                                return `${D.text.debt}: ${fmt(D.debt[i])} ${D.text.tenge}`;
+                                const i = items[0].dataIndex, lines = [];
+                                if (!money) return lines;
+                                if (D.cash[i]) lines.push(`${D.text.cash}: ${fmt(D.cash[i])} ${D.text.tenge}`);
+                                if (D.debt[i]) lines.push(`${D.text.debt}: ${fmt(D.debt[i])} ${D.text.tenge}`);
+                                return lines;
                             },
                         },
                     },

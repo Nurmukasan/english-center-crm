@@ -57,6 +57,12 @@
             <i class="fas fa-trophy"></i><span>Рейтинг</span>
         </a>
         {% endif %}
+        {% if role != 'accountant' %}
+        <a href="{% url 'inbox_page' %}" data-label="Сообщения"
+           class="ee-rail-item {% if url_name == 'inbox_page' %}is-active{% endif %}">
+            <i class="fas fa-inbox"></i>{% if inbox_unread %}<b class="ee-rail-badge notranslate" aria-label="Новых: {{ inbox_unread }}">{% if inbox_unread > 99 %}99+{% else %}{{ inbox_unread }}{% endif %}</b>{% endif %}<span>Сообщения</span>
+        </a>
+        {% endif %}
         {% if role == 'admin' or role == 'accountant' or role == 'developer' %}
         <a href="{% url 'accountant_stats' %}" data-label="Статистика"
            class="ee-rail-item {% if url_name == 'accountant_stats' %}is-active{% endif %}">

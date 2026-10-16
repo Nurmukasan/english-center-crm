@@ -49,6 +49,17 @@ class Group(models.Model):
         ('group', 'Групповая'),
         ('individual', 'Индивидуальная'),
     ]
+    # Уровень по возрастанию: по нему калибровка подсказывает группу сильнее или слабее
+    LEVEL_CHOICES = [
+        (1, 'Starter — дети'),
+        (2, 'Beginner A1'),
+        (3, 'Elementary A2'),
+        (4, 'Pre-Intermediate'),
+        (5, 'Intermediate B1'),
+        (6, 'Upper-Intermediate B2'),
+        (7, 'Advanced C1'),
+        (8, 'Proficiency C2'),
+    ]
     
     name = models.CharField(max_length=100, verbose_name="Название группы")
     group_type = models.CharField(max_length=20, choices=GROUP_TYPE_CHOICES, default='group', verbose_name="Тип")
@@ -66,6 +77,7 @@ class Group(models.Model):
     photo = models.ImageField(upload_to='group_photos/', blank=True, null=True, verbose_name="Фото группы")
     whatsapp_chat_id = models.CharField(max_length=60, blank=True, verbose_name="Чат WhatsApp",
                                         help_text="ID группы в WhatsApp (…@g.us) — для рассылок в групповой чат")
+    level = models.PositiveSmallIntegerField(choices=LEVEL_CHOICES, null=True, blank=True, verbose_name="Уровень")
 
     def __str__(self):
         return self.name
@@ -182,6 +194,11 @@ class Payment(models.Model):
     is_partial = models.BooleanField(default=False, verbose_name="Частичная оплата")
     paid_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата оплаты")
     marked_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='marked_payments')
+    METHOD_CHOICES = [
+        ('bank', 'Банк'),
+        ('cash', 'Наличные'),
+    ]
+    method = models.CharField(max_length=10, choices=METHOD_CHOICES, default='bank', verbose_name="Способ оплаты")
     
     def remaining_amount(self):
         return self.amount - self.paid_amount
@@ -214,6 +231,36 @@ class LevelCalibration(models.Model):
     class Meta:
         verbose_name = "Калибровка уровня"
         verbose_name_plural = "Калибровки уровня"
+        ordering = ['-created_at']
+
+
+class InboxMessage(models.Model):
+    """Сообщение админу об ученике: комментарий или жалоба учителя, калибровка уровня"""
+    CATEGORY_CHOICES = [
+        ('complaint', 'Жалоба'),
+        ('comment', 'Комментарий'),
+        ('calibration', 'Калибровка'),
+    ]
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, verbose_name="Категория")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='inbox_messages', verbose_name="Ученик")
+    group = models.ForeignKey(Group, on_delete=models.SET_NULL, null=True, blank=True, related_name='inbox_messages', verbose_name="Группа")
+    calibration = models.OneToOneField(LevelCalibration, on_delete=models.CASCADE, null=True, blank=True, related_name='message')
+    text = models.TextField(blank=True, verbose_name="Текст")
+    author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='sent_inbox_messages', verbose_name="От кого")
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True, verbose_name="Прочитано")
+    read_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    # Решение по сообщению: «Переведён в …», «Оставлен в группе»
+    resolution = models.CharField(max_length=200, blank=True, verbose_name="Решение")
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+
+    def __str__(self):
+        return f"{self.get_category_display()}: {self.student.name}"
+
+    class Meta:
+        verbose_name = "Сообщение"
+        verbose_name_plural = "Сообщения"
         ordering = ['-created_at']
 
 

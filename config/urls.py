@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
-from dashboard import broadcasts, views
+from dashboard import broadcasts, inbox, views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -41,6 +41,7 @@ urlpatterns = [
     path('group/<int:group_id>/edit/', views.edit_group, name='edit_group'),
     path('payments/', views.payments_page, name='payments_page'),
     path('payments/group/<int:group_id>/toggle/', views.toggle_student_payment, name='toggle_student_payment'),
+    path('payments/group/<int:group_id>/method/', views.set_payment_method, name='set_payment_method'),
     path('book/<int:book_id>/read/', views.book_reader, name='book_reader'),
     path('books/<int:book_id>/', views.book_detail, name='book_detail'),
     path('group/<int:group_id>/homework/', views.mark_homework, name='mark_homework'),
@@ -59,6 +60,11 @@ urlpatterns = [
     path('broadcast/whatsapp/groups/', broadcasts.whatsapp_groups, name='whatsapp_groups'),
     path('broadcast/whatsapp/qr/', broadcasts.whatsapp_qr, name='whatsapp_qr'),
     path('broadcast/whatsapp/bind/', broadcasts.bind_group_chat, name='bind_group_chat'),
+    path('messages/', inbox.inbox_page, name='inbox_page'),
+    path('messages/send/', inbox.send_message, name='send_message'),
+    path('messages/read-all/', inbox.read_all, name='inbox_read_all'),
+    path('messages/<int:message_id>/read/', inbox.toggle_read, name='inbox_toggle_read'),
+    path('messages/<int:message_id>/resolve/', inbox.resolve_calibration, name='inbox_resolve'),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

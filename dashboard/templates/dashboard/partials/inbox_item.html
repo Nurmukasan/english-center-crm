@@ -1,0 +1,70 @@
+{% comment %}Одно сообщение во «Входящих» (админ) или в «Отправленных» (учитель). m — InboxMessage после inbox.decorate{% endcomment %}
+<article class="panel msg cat-{{ m.category }}{% if m.direction %} dir-{{ m.direction }}{% endif %}{% if is_inbox and not m.read_at %} is-new{% endif %}">
+    <span class="micon"><i class="fas {% if m.category == 'complaint' %}fa-triangle-exclamation{% elif m.category == 'comment' %}fa-comment{% elif m.direction == 'up' %}fa-arrow-trend-up{% else %}fa-arrow-trend-down{% endif %}"></i></span>
+    <div class="min-w-0 flex-1">
+        <div class="mhead">
+            <span class="mcat">{% if m.category == 'calibration' %}{% if m.direction == 'up' %}Сильнее группы{% else %}Слабее группы{% endif %}{% else %}{{ m.get_category_display }}{% endif %}</span>
+            <a href="{% url 'student_profile' m.student.id %}" class="mstudent notranslate">{{ m.student.name }}</a>
+            {% if m.group %}<span class="mgroup">· <span class="notranslate">{{ m.group.name }}</span>{% if m.group.level and m.group.get_level_display not in m.group.name %} · {{ m.group.get_level_display }}{% endif %}</span>{% endif %}
+            <span class="mwhen">{{ m.when }}</span>
+        </div>
+        {% if m.text %}<p class="mtext notranslate">{{ m.text }}</p>{% elif m.category == 'calibration' %}<p class="mtext text-gray-500">Без комментария</p>{% endif %}
+        {% if is_inbox %}
+        <p class="mfrom">от <span class="notranslate">{{ m.author.username|default:"—" }}</span></p>
+        {% else %}
+        <p class="mfrom">
+            {% if m.resolution %}<span class="status read"><i class="fas fa-check"></i>{{ m.resolution }}</span>
+            {% elif m.read_at %}<span class="status read"><i class="fas fa-check-double"></i>Прочитано</span>
+            {% else %}<span class="status wait"><i class="fas fa-clock"></i>Ещё не прочитано</span>{% endif %}
+        </p>
+        {% endif %}
+
+        {% if is_inbox and m.category == 'calibration' %}
+            {% if m.resolved_at %}
+            <p class="resolved"><i class="fas fa-circle-check"></i>{{ m.resolution }} · <span class="notranslate">{{ m.resolved_by.username|default:"—" }}</span> · {{ m.resolved_at|date:"d.m.Y" }}</p>
+            {% else %}
+            <div class="calib">
+                {% if m.repeats > 1 %}<p class="repeat"><i class="fas fa-repeat"></i>Уже {{ m.repeats }} калибр. в эту сторону за 2 месяца</p>{% endif %}
+                <p class="calib-title">{% if m.direction == 'up' %}Перевести в группу сильнее{% else %}Перевести в группу слабее{% endif %}</p>
+                {% if m.no_levels %}<p class="calib-note">У групп не указан уровень — показаны все. Уровень задаётся в «Изменить группу».</p>{% endif %}
+                {% if m.suggestions %}
+                <div class="targets">
+                    {% for g in m.suggestions %}
+                    <form method="POST" action="{% url 'inbox_resolve' m.id %}"
+                          data-confirm="Перевести {{ m.student.name }} в «{{ g.name }}»?" onsubmit="return confirm(this.dataset.confirm)">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="move">
+                        <input type="hidden" name="group_id" value="{{ g.id }}">
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button type="submit" class="target">
+                            <b class="notranslate">{{ g.name }}</b>
+                            {% if not g.level %}<span>уровень не указан</span>{% elif g.get_level_display not in g.name %}<span>{{ g.get_level_display }}</span>{% endif %}
+                            <span><span class="notranslate">{{ g.teacher.username|default:"без учителя" }}</span> · {{ g.size }} уч.</span>
+                            {% if g.schedule_short %}<span>{{ g.schedule_short }}</span>{% endif %}
+                            <em><i class="fas fa-arrow-right-arrow-left"></i> Перевести</em>
+                        </button>
+                    </form>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <form method="POST" action="{% url 'inbox_resolve' m.id %}" class="calib-row">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <select name="group_id" aria-label="Другая группа">
+                        <option value="">Другая группа…</option>
+                        {% for g in all_groups %}{% if g.id != m.group_id %}<option class="notranslate" value="{{ g.id }}">{{ g.name }}{% if g.level and g.get_level_display not in g.name %} — {{ g.get_level_display }}{% endif %}</option>{% endif %}{% endfor %}
+                    </select>
+                    <button type="submit" name="action" value="move" class="small-btn is-main" onclick="if (!this.form.group_id.value) { alert('Выберите группу'); return false; }"><i class="fas fa-arrow-right-arrow-left"></i>Перевести</button>
+                    <button type="submit" name="action" value="keep" class="small-btn"><i class="fas fa-hand"></i>Оставить в группе</button>
+                </form>
+            </div>
+            {% endif %}
+        {% endif %}
+    </div>
+    {% if is_inbox %}
+    <button type="button" class="read-btn" onclick="toggleRead(this)" data-url="{% url 'inbox_toggle_read' m.id %}">
+        <span class="t-unread"><i class="fas fa-check"></i> Прочитано</span>
+        <span class="t-read"><i class="fas fa-rotate-left"></i> Вернуть в новые</span>
+    </button>
+    {% endif %}
+</article>
