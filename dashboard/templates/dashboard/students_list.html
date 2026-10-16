@@ -6,216 +6,176 @@
     <title>Ученики — Enjoy English</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
-        * { font-family: 'Inter', sans-serif; }
-        .fade-in { animation: fadeIn 0.4s ease; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        /* Сортировка по клику на заголовок */
-        .sort-link { display: inline-flex; align-items: center; gap: 6px; color: inherit; border-radius: 6px; }
+        /* ---------- Поиск и фильтры ---------- */
+        .search { position: relative; flex: 1; min-width: 0; }
+        .search > i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--faint); pointer-events: none; }
+        html.ee .search > .ee-input { padding-left: 42px; }
+        .filters label { display: block; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+        html.ee .filters select { width: 100%; height: 40px; padding: 0 30px 0 12px; border-radius: 11px; font-size: 14px; }
+        html.ee .filters select.is-set { border-color: var(--accent) !important; background-color: var(--accent-soft) !important; }
+
+        /* ---------- Массовый архив ---------- */
+        .bulk { position: sticky; top: 76px; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 12px 10px 18px; margin-bottom: 14px;
+            border-radius: 16px; background: var(--surface); border: 1px solid var(--bad-line); box-shadow: var(--shadow-lg); }
+        .bulk.hidden { display: none; }
+        .bulk b { font-variant-numeric: tabular-nums; }
+
+        /* ---------- Таблица ---------- */
+        .who { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        .who-name { font-weight: 700; color: var(--ink); }
+        a.who-name:hover { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; }
+        .who-meta { font-size: 12px; color: var(--muted); margin-top: 1px; }
+        .sort-link { display: inline-flex; align-items: center; gap: 6px; color: inherit; }
         .sort-link i { font-size: 11px; opacity: 0; transition: opacity .2s ease; }
-        .sort-link:hover { color: var(--ink, #1f2937); }
+        .sort-link:hover { color: var(--ink); }
         .sort-link:hover i { opacity: .5; }
-        .sort-link.is-on { color: var(--accent-ink, #4338ca); font-weight: 700; }
+        .sort-link.is-on { color: var(--accent-ink); }
         .sort-link.is-on i { opacity: 1; }
         /* Разделитель месяцев при сортировке по дате */
-        .month-row td { background: var(--surface-2, #f3f4f6); border-bottom: 1px solid var(--line, #e5e7eb); }
-        .month-title { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2, #374151); }
-        .month-count { font-size: 12px; font-weight: 600; color: var(--muted, #6b7280); margin-left: 4px; }
+        .ee-table tr.month-row td, .ee-table tr.month-row:hover td { background: var(--surface-2); padding-top: 10px; padding-bottom: 10px; }
+        .month-title { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+        .month-count { font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 4px; }
         .month-count::before { content: '· '; }
         .added-new { font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 9999px; letter-spacing: .02em;
-            background: var(--accent-soft, #e0e7ff); color: var(--accent-ink, #4338ca); box-shadow: inset 0 0 0 1px var(--accent-line, transparent); }
+            background: var(--accent-soft); color: var(--accent-ink); box-shadow: inset 0 0 0 1px var(--accent-line); }
+        .row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; white-space: nowrap; }
     </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
-<body class="bg-gray-200 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+<body class="min-h-screen">
     {% include 'dashboard/partials/shell.html' %}
 
-    <header class="bg-gray-800 shadow-lg sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <div class="flex items-center gap-4">
-                <a href="{% url 'dashboard' %}" class="text-gray-300 hover:text-white">
-                    <i class="fas fa-arrow-left"></i> Назад
-                </a>
-                <div class="flex items-center gap-2">
-                    <i class="fas fa-users text-2xl text-indigo-400"></i>
-                    <h1 class="text-xl font-bold text-white">Ученики</h1>
+    <header class="sticky top-0 z-40">
+        <div class="ee-head max-w-7xl mx-auto px-4 sm:px-6">
+            <div class="ee-head-main">
+                <a href="{% url 'dashboard' %}" class="head-back" aria-label="Назад"><i class="fas fa-arrow-left"></i></a>
+                <span class="head-icon"><i class="fas fa-user-graduate"></i></span>
+                <div class="min-w-0">
+                    <h1 class="head-title">Ученики</h1>
+                    <p class="head-sub">Найдено: <b>{{ total_found }}</b></p>
                 </div>
             </div>
-            <div class="flex items-center gap-2 md:gap-4">
+            <div class="ee-head-actions">
                 {% if role != 'teacher' %}
-                <a href="{% url 'add_student' %}" class="bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-600 transition">
-                    <i class="fas fa-user-plus mr-1"></i> Добавить
-                </a>
+                <a href="{% url 'add_student' %}" class="head-btn is-main"><i class="fas fa-user-plus"></i><span class="hidden sm:inline">Добавить</span></a>
                 {% endif %}
-                <button onclick="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-700 transition">
-                    <i class="fas fa-moon dark:hidden text-gray-300"></i>
-                    <i class="fas fa-sun hidden dark:inline text-yellow-400"></i>
-                </button>
-                <a href="{% url 'logout' %}" class="text-red-400 text-sm">
-                    <i class="fas fa-sign-out-alt"></i> Выйти
-                </a>
             </div>
         </div>
     </header>
-    
-    <main class="max-w-7xl mx-auto px-4 py-8 fade-in">
-        
-        {% if role == 'admin' or role == 'developer' or role == 'manager' %}
-        <!-- Учатся / Архив -->
-        <div class="flex gap-2 mb-4">
-            <a href="{% url 'students_list' %}"
-               class="px-4 py-2 rounded-full text-sm font-bold transition {% if not show_archive %}bg-indigo-500 text-white{% else %}bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700{% endif %}">
-                <i class="fas fa-user-graduate mr-1"></i> Учатся
-            </a>
-            <a href="{% url 'students_list' %}?archived=1"
-               class="px-4 py-2 rounded-full text-sm font-bold transition {% if show_archive %}bg-indigo-500 text-white{% else %}bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700{% endif %}">
-                <i class="fas fa-box-archive mr-1"></i> Архив{% if archived_count %} · {{ archived_count }}{% endif %}
-            </a>
-        </div>
-        {% endif %}
 
-        <!-- Фильтры -->
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 p-5 mb-6 transition-colors">
-            <form method="GET" id="filtersForm">
-                {% if show_archive %}<input type="hidden" name="archived" value="1">{% endif %}
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
-                <!-- Поиск -->
-                <div class="mb-4">
-                    <input type="text" name="search" value="{{ search_query }}"
-                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                           placeholder="🔍 Поиск по имени...">
+        <!-- Поиск и фильтры -->
+        <form method="GET" id="filtersForm" class="panel p-4 sm:p-5 mb-5">
+            {% if show_archive %}<input type="hidden" name="archived" value="1">{% endif %}
+            <div class="flex flex-col lg:flex-row lg:items-center gap-3">
+                {% if role == 'admin' or role == 'developer' or role == 'manager' %}
+                <nav class="ee-seg flex-shrink-0" aria-label="Учатся или в архиве">
+                    <a href="{% url 'students_list' %}" class="{% if not show_archive %}is-on{% endif %}"><i class="fas fa-user-graduate"></i>Учатся</a>
+                    <a href="{% url 'students_list' %}?archived=1" class="{% if show_archive %}is-on{% endif %}"><i class="fas fa-box-archive"></i>Архив{% if archived_count %} <b>{{ archived_count }}</b>{% endif %}</a>
+                </nav>
+                {% endif %}
+                <div class="search">
+                    <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                    <input type="search" name="search" value="{{ search_query }}" class="ee-input" placeholder="Найти ученика…" aria-label="Найти ученика…">
                 </div>
-
-                <!-- Селекты -->
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                            <i class="fas fa-users mr-1"></i>Группа
-                        </label>
-                        <select name="group" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            <option value="">Все группы</option>
-                            <option value="none" {% if group_filter == 'none' %}selected{% endif %}>🚫 Без группы</option>
-                            {% for g in available_groups %}
-                            <option value="{{ g.id }}" {% if group_filter == g.id|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                            <i class="fas fa-graduation-cap mr-1"></i>Класс
-                        </label>
-                        <select name="grade" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            <option value="">Все классы</option>
-                            {% for g in grades_options %}
-                            <option value="{{ g }}" {% if grade_filter == g %}selected{% endif %}>{{ g }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                            <i class="fas fa-school mr-1"></i>Школа
-                        </label>
-                        <select name="school" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            <option value="">Все школы</option>
-                            {% for s in schools_options %}
-                            <option value="{{ s }}" {% if school_filter == s %}selected{% endif %}>{{ s }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                            <i class="fas fa-birthday-cake mr-1"></i>Возраст
-                        </label>
-                        <select name="age" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            <option value="">Любой</option>
-                            {% for a in ages_options %}
-                            <option value="{{ a }}" {% if age_filter == a|stringformat:"s" %}selected{% endif %}>{{ a }} лет</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class="col-span-2 md:col-span-1">
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                            <i class="fas fa-arrow-down-wide-short mr-1"></i>Сортировка
-                        </label>
-                        <select name="sort" onchange="this.form.submit()" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            <option value="name" {% if sort == 'name' %}selected{% endif %}>По имени (А–Я)</option>
-                            <option value="new" {% if sort == 'new' %}selected{% endif %}>Сначала новые</option>
-                            <option value="old" {% if sort == 'old' %}selected{% endif %}>Сначала старые</option>
-                        </select>
-                    </div>
-
-                </div>
-
-                <!-- Кнопки + счётчик -->
-                <div class="flex items-center gap-3 flex-wrap">
-                    <button type="submit" class="bg-indigo-500 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-indigo-600 transition text-sm">
-                        <i class="fas fa-filter mr-1"></i> Применить
-                    </button>
+                <div class="flex gap-2 flex-shrink-0">
+                    <button type="submit" class="ee-btn ee-btn-primary flex-1 lg:flex-none"><i class="fas fa-filter"></i>Применить</button>
                     {% if has_filters %}
-                    <a href="{% url 'students_list' %}{% if show_archive %}?archived=1{% endif %}" class="bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 px-6 py-2.5 rounded-lg font-medium hover:bg-gray-400 dark:hover:bg-gray-500 transition text-sm">
-                        <i class="fas fa-times mr-1"></i> Сбросить
-                    </a>
+                    <a href="{% url 'students_list' %}{% if show_archive %}?archived=1{% endif %}" class="ee-btn ee-btn-soft flex-1 lg:flex-none"><i class="fas fa-xmark"></i>Сбросить</a>
                     {% endif %}
-                    <span class="text-sm text-gray-500 dark:text-gray-400 ml-auto">
-                        Найдено: <b class="text-gray-800 dark:text-white">{{ total_found }}</b>
-                    </span>
                 </div>
+            </div>
 
-            </form>
-        </div>
-        
+            <div class="filters grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
+                <div>
+                    <label for="fGroup">Группа</label>
+                    <select name="group" id="fGroup" onchange="this.form.submit()" class="{% if group_filter %}is-set{% endif %}">
+                        <option value="">Все группы</option>
+                        <option value="none" {% if group_filter == 'none' %}selected{% endif %}>🚫 Без группы</option>
+                        {% for g in available_groups %}
+                        <option value="{{ g.id }}" class="notranslate" {% if group_filter == g.id|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="fGrade">Класс</label>
+                    <select name="grade" id="fGrade" onchange="this.form.submit()" class="{% if grade_filter %}is-set{% endif %}">
+                        <option value="">Все классы</option>
+                        {% for g in grades_options %}
+                        <option value="{{ g }}" {% if grade_filter == g %}selected{% endif %}>{{ g }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="fSchool">Школа</label>
+                    <select name="school" id="fSchool" onchange="this.form.submit()" class="{% if school_filter %}is-set{% endif %}">
+                        <option value="">Все школы</option>
+                        {% for s in schools_options %}
+                        <option value="{{ s }}" class="notranslate" {% if school_filter == s %}selected{% endif %}>{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="fAge">Возраст</label>
+                    <select name="age" id="fAge" onchange="this.form.submit()" class="{% if age_filter %}is-set{% endif %}">
+                        <option value="">Любой</option>
+                        {% for a in ages_options %}
+                        <option value="{{ a }}" {% if age_filter == a|stringformat:"s" %}selected{% endif %}>{{ a }} лет</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-span-2 md:col-span-1">
+                    <label for="fSort">Сортировка</label>
+                    <select name="sort" id="fSort" onchange="this.form.submit()">
+                        <option value="name" {% if sort == 'name' %}selected{% endif %}>По имени (А–Я)</option>
+                        <option value="new" {% if sort == 'new' %}selected{% endif %}>Сначала новые</option>
+                        <option value="old" {% if sort == 'old' %}selected{% endif %}>Сначала старые</option>
+                    </select>
+                </div>
+            </div>
+        </form>
+
         {% if role == 'admin' or role == 'developer' or role == 'manager' %}{% if not show_archive %}
         <form method="POST" action="{% url 'bulk_archive_students' %}" id="bulkForm"
               data-confirm="Перенести выбранных учеников в архив? Они уйдут из всех групп, история оплат и посещаемости сохранится."
               onsubmit="return confirm(this.dataset.confirm)">
             {% csrf_token %}
         </form>
-        <div id="bulkBar" class="hidden sticky top-20 z-30 mb-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl px-5 py-3 flex items-center gap-3 flex-wrap shadow-md">
-            <span class="text-sm text-gray-700 dark:text-gray-200">Выбрано: <b id="bulkCount">0</b></span>
-            <button type="button" onclick="clearSelection()" class="text-sm text-gray-500 dark:text-gray-400 hover:underline">Снять выбор</button>
-            <button type="submit" form="bulkForm"
-                class="ml-auto bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-600 transition">
-                <i class="fas fa-box-archive mr-1"></i> В архив
-            </button>
+        <div id="bulkBar" class="bulk hidden">
+            <span class="text-sm text-gray-700">Выбрано: <b id="bulkCount">0</b></span>
+            <button type="button" onclick="clearSelection()" class="text-sm font-bold text-gray-500 hover:underline">Снять выбор</button>
+            <button type="submit" form="bulkForm" class="ee-btn ee-btn-sm ee-btn-danger ml-auto"><i class="fas fa-box-archive"></i>В архив</button>
         </div>
         {% endif %}{% endif %}
 
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl shadow-md border border-gray-300 dark:border-gray-600 overflow-hidden transition-colors">
-            <div class="overflow-x-auto">
-                <table class="w-full">
+        <div class="panel relative overflow-hidden">
+            <div class="relative overflow-x-auto">
+                <table class="ee-table">
                     <thead>
-                        <tr class="bg-gray-100 dark:bg-gray-700/50 text-left border-b border-gray-300 dark:border-gray-600">
+                        <tr>
                             {% if role == 'admin' or role == 'developer' or role == 'manager' %}{% if not show_archive %}
-                            <th class="pl-6 py-3 w-8">
-                                <input type="checkbox" id="selectAll" title="Выбрать всех" onchange="toggleAll(this.checked)"
-                                       class="w-4 h-4 accent-indigo-500 cursor-pointer">
+                            <th class="w-8 !pr-0">
+                                <input type="checkbox" id="selectAll" title="Выбрать всех" aria-label="Выбрать всех" onchange="toggleAll(this.checked)" class="w-4 h-4 cursor-pointer align-middle">
                             </th>
                             {% endif %}{% endif %}
-                            <th class="px-4 xl:px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400" {% if sort == 'name' %}aria-sort="ascending"{% endif %}>
+                            <th {% if sort == 'name' %}aria-sort="ascending"{% endif %}>
                                 <a href="{{ sort_urls.name }}" class="sort-link {% if sort == 'name' %}is-on{% endif %}" title="Сортировать по имени">
                                     <span>Имя</span><i class="fas fa-arrow-down-a-z" aria-hidden="true"></i>
                                 </a>
                             </th>
-                            <th class="px-4 xl:px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Телефон</th>
-                            <th class="px-4 xl:px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Группы</th>
-                            <th class="hidden sm:table-cell px-4 xl:px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap" {% if sort == 'new' %}aria-sort="descending"{% elif sort == 'old' %}aria-sort="ascending"{% endif %}>
+                            <th>Телефон</th>
+                            <th>Группы</th>
+                            <th class="hidden sm:table-cell" {% if sort == 'new' %}aria-sort="descending"{% elif sort == 'old' %}aria-sort="ascending"{% endif %}>
                                 <a href="{% if sort == 'new' %}{{ sort_urls.old }}{% else %}{{ sort_urls.new }}{% endif %}" class="sort-link {% if sort != 'name' %}is-on{% endif %}"
                                    title="{% if sort == 'new' %}Сначала старые{% else %}Сначала новые{% endif %}">
                                     <span>Добавлен</span><i class="fas {% if sort == 'old' %}fa-arrow-up-short-wide{% else %}fa-arrow-down-wide-short{% endif %}" aria-hidden="true"></i>
                                 </a>
                             </th>
                             {% if role == 'admin' or role == 'developer' or role == 'manager' %}
-                            <th class="px-4 xl:px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">Действия</th>
+                            <th class="text-right"><span class="sr-only">Действия</span></th>
                             {% endif %}
                         </tr>
                     </thead>
@@ -223,85 +183,80 @@
                         {% for data in student_data %}
                         {% if data.month_title %}
                         <tr class="month-row">
-                            <td colspan="{{ columns }}" class="px-4 xl:px-6 py-2.5">
+                            <td colspan="{{ columns }}">
                                 <span class="month-title">{{ data.month_title }}</span>
                                 <span class="month-count">{{ data.month_count }}</span>
                             </td>
                         </tr>
                         {% endif %}
-                        <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition">
+                        <tr>
                             {% if role == 'admin' or role == 'developer' or role == 'manager' %}{% if not show_archive %}
-                            <td class="pl-6 py-4 w-8">
-                                <input type="checkbox" name="student_ids" value="{{ data.student.id }}" form="bulkForm"
-                                       onchange="updateBulk()" class="student-check w-4 h-4 accent-indigo-500 cursor-pointer">
+                            <td class="w-8 !pr-0">
+                                <input type="checkbox" name="student_ids" value="{{ data.student.id }}" form="bulkForm" aria-label="{{ data.student.name }}"
+                                       onchange="updateBulk()" class="student-check w-4 h-4 cursor-pointer align-middle">
                             </td>
                             {% endif %}{% endif %}
-                            <td class="px-4 xl:px-6 py-4">
-                                <p class="font-medium text-gray-800 dark:text-white">{{ data.student.name }}</p>
-                                {% if data.student.school or data.student.grade or data.student.age %}
-                                <p class="text-xs text-gray-400">
-                                    {% if data.student.school %}{{ data.student.school }}{% endif %}
-                                    {% if data.student.grade %} • {{ data.student.grade }} класс{% endif %}
-                                    {% if data.student.age %} • {{ data.student.age }} лет{% endif %}
-                                </p>
-                                {% endif %}
-                                <!-- На телефоне колонки «Добавлен» нет — дата под именем -->
-                                <p class="sm:hidden text-xs text-gray-400 mt-1 flex items-center gap-1.5 whitespace-nowrap" title="{{ data.added.full }}">
-                                    <i class="far fa-calendar-plus" aria-hidden="true"></i><span>{{ data.added.label }}</span><span aria-hidden="true">·</span><span>{{ data.added.ago }}</span>
-                                    {% if data.added.is_new and not show_archive %}<span class="added-new">новый</span>{% endif %}
-                                </p>
+                            <td>
+                                <div class="who">
+                                    <span class="ee-avatar notranslate" aria-hidden="true">{{ data.student.name|slice:":1"|upper }}</span>
+                                    <div class="min-w-0">
+                                        <a href="{% url 'student_profile' data.student.id %}" class="who-name notranslate">{{ data.student.name }}</a>
+                                        {% if data.student.school or data.student.grade or data.student.age %}
+                                        <p class="who-meta">
+                                            {% if data.student.school %}<span class="notranslate">{{ data.student.school }}</span>{% endif %}
+                                            {% if data.student.grade %} • {{ data.student.grade }} класс{% endif %}
+                                            {% if data.student.age %} • {{ data.student.age }} лет{% endif %}
+                                        </p>
+                                        {% endif %}
+                                        <!-- На телефоне колонки «Добавлен» нет — дата под именем -->
+                                        <p class="sm:hidden who-meta mt-1 flex items-center gap-1.5 whitespace-nowrap" title="{{ data.added.full }}">
+                                            <i class="far fa-calendar-plus" aria-hidden="true"></i><span>{{ data.added.label }}</span><span aria-hidden="true">·</span><span>{{ data.added.ago }}</span>
+                                            {% if data.added.is_new and not show_archive %}<span class="added-new">новый</span>{% endif %}
+                                        </p>
+                                    </div>
+                                </div>
                             </td>
-                            <td class="px-4 xl:px-6 py-4 text-gray-600 dark:text-gray-300">
+                            <td class="text-sm text-gray-600">
                                 {% if data.student.phone or not data.student.parent_phone %}{% include 'dashboard/partials/phone.html' with phone=data.student.phone %}{% endif %}
                                 {% if data.student.parent_phone %}<p class="text-xs text-gray-400 mt-1">родитель: {% include 'dashboard/partials/phone.html' with phone=data.student.parent_phone %}</p>{% endif %}
                             </td>
-                            <td class="px-4 xl:px-6 py-4">
+                            <td>
                                 <div class="flex flex-wrap gap-1">
                                     {% for group_name in data.groups %}
-                                    <span class="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-2 py-1 rounded-full text-xs font-medium">
-                                        {{ group_name }}
-                                    </span>
+                                    <span class="ee-tag notranslate">{{ group_name }}</span>
                                     {% empty %}
                                     <span class="text-gray-400 text-sm">Нет групп</span>
                                     {% endfor %}
                                 </div>
                             </td>
-                            <td class="hidden sm:table-cell px-4 xl:px-6 py-4 whitespace-nowrap" title="{{ data.added.full }}">
-                                <p class="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                            <td class="hidden sm:table-cell whitespace-nowrap" title="{{ data.added.full }}">
+                                <p class="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                     <span>{{ data.added.label }}</span>
                                     {% if data.added.is_new and not show_archive %}<span class="added-new">новый</span>{% endif %}
                                 </p>
                                 <p class="text-xs text-gray-400 mt-0.5">{{ data.added.ago }}</p>
                             </td>
                             {% if role == 'admin' or role == 'developer' or role == 'manager' %}
-                            <td class="px-4 xl:px-6 py-4">
-                                <div class="flex gap-2 whitespace-nowrap">
+                            <td>
+                                <div class="row-actions">
                                     {% if show_archive %}
-                                    <span class="text-xs text-gray-400 self-center mr-1">в архиве с {{ data.student.archived_at|date:"d.m.Y" }}</span>
+                                    <span class="text-xs text-gray-400 mr-1">в архиве с {{ data.student.archived_at|date:"d.m.Y" }}</span>
                                     <form method="POST" action="{% url 'restore_student' data.student.id %}">
                                         {% csrf_token %}
-                                        <button type="submit"
-                                            class="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-green-200 transition">
-                                            <i class="fas fa-rotate-left mr-1"></i> Вернуть
-                                        </button>
+                                        <button type="submit" class="ee-btn ee-btn-sm ee-btn-ok"><i class="fas fa-rotate-left"></i>Вернуть</button>
                                     </form>
                                     {% else %}
-                                    <a href="{% url 'edit_student' data.student.id %}?return={{ request.get_full_path|urlencode }}"
-                                       class="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-200 transition">
-                                        <i class="fas fa-edit mr-1"></i> Изменить
+                                    <a href="{% url 'edit_student' data.student.id %}?return={{ request.get_full_path|urlencode }}" class="ee-btn ee-btn-sm ee-btn-soft">
+                                        <i class="fas fa-pen"></i>Изменить
                                     </a>
-                                    <a href="{% url 'add_existing_student_to_group' data.student.id %}"
-                                       class="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-indigo-200 transition">
-                                        <i class="fas fa-plus mr-1"></i> В группу
+                                    <a href="{% url 'add_existing_student_to_group' data.student.id %}" class="ee-icon-btn" title="В группу" aria-label="В группу">
+                                        <i class="fas fa-user-plus"></i>
                                     </a>
                                     <form method="POST" action="{% url 'archive_student' data.student.id %}"
                                           data-confirm="Перенести {{ data.student.name }} в архив? Ученик уйдёт из всех групп, история оплат и посещаемости сохранится."
                                           onsubmit="return confirm(this.dataset.confirm)">
                                         {% csrf_token %}
-                                        <button type="submit"
-                                            class="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-200 transition">
-                                            <i class="fas fa-box-archive mr-1"></i> В архив
-                                        </button>
+                                        <button type="submit" class="ee-icon-btn is-danger" title="В архив" aria-label="В архив"><i class="fas fa-box-archive"></i></button>
                                     </form>
                                     {% endif %}
                                 </div>
@@ -310,9 +265,10 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="{{ columns }}" class="px-6 py-12 text-center text-gray-400">
-                                <i class="fas fa-inbox text-5xl mb-3"></i>
-                                <p>Нет учеников</p>
+                            <td colspan="{{ columns }}">
+                                <div class="ee-empty"><i class="fas fa-user-graduate"></i><b>Нет учеников</b>
+                                    {% if has_filters %}<a href="{% url 'students_list' %}{% if show_archive %}?archived=1{% endif %}" class="ee-btn ee-btn-sm ee-btn-soft mt-3"><i class="fas fa-xmark"></i>Сбросить</a>{% endif %}
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -320,14 +276,10 @@
                 </table>
             </div>
         </div>
-        
-    </main>
-    
-    <script>
-        function toggleTheme() {
-            document.documentElement.classList.toggle('dark');
-        }
 
+    </main>
+
+    <script>
         // Массовый перенос в архив: галочки у учеников
         function checks() { return document.querySelectorAll('.student-check'); }
         function updateBulk() {
@@ -344,9 +296,6 @@
         function toggleAll(on) { checks().forEach(c => c.checked = on); updateBulk(); }
         function clearSelection() { toggleAll(false); }
         updateBulk();
-        
-        
     </script>
-    
 </body>
 </html>

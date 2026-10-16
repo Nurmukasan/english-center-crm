@@ -881,6 +881,9 @@ PHRASES = {
     'Сначала новые': 'Newest first',
     'Сначала старые': 'Oldest first',
     'Сортировать по имени': 'Sort by name',
+    'Учатся или в архиве': 'Studying or archived',
+    'Имя ученика': 'Student name',
+    'Найти группу…': 'Find a group…',
     'Добавлен': 'Added',
     'Добавлен {n} в {n}': 'Added {n} at {n}',
     'новый': 'new',
@@ -956,7 +959,7 @@ PHRASES = {
     'Сюда придут комментарии и жалобы учителей про учеников и калибровки уровня.': "Teachers' comments and complaints about students and level checks will arrive here.",
     'Написать админу': 'Message the admin',
     'Написать про ученика': 'Write about a student',
-    'Сообщение придёт админу во вкладку «Сообщения».': "The message will go to the admin's Messages tab.",
+    'Сообщение придёт админу и менеджерам во вкладку «Сообщения».': 'The message will go to the admin and managers in the Messages tab.',
     'Придёт во вкладку «Сообщения»': 'Goes to the Messages tab',
     'Сообщение': 'Message',
     'Например: стал пропускать домашку, хорошо отвечает на уроке, мешает другим…': 'For example: skips homework, answers well in class, distracts others…',
@@ -1078,3 +1081,10 @@ PATTERNS = [
     (r'Убрать (.+) из группы\? Оплаты и посещаемость останутся в истории\.',
      'Remove {0} from the group? Payments and attendance stay in the history.'),
 ]
+
+# ВРЕМЕННО, на время переделки страниц: переводы помощников из locale_en_a…d (потом переносятся выше)
+for _part in ('a', 'b', 'c', 'd'):
+    try:
+        PHRASES.update(__import__(f'dashboard.locale_en_{_part}', fromlist=['PHRASES']).PHRASES)
+    except ImportError:
+        pass

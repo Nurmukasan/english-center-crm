@@ -1,7 +1,7 @@
 """Сообщения админу об учениках: комментарии и жалобы учителей, калибровки уровня.
 
 Учитель (и менеджер) пишет про одного ученика — сообщение попадает во вкладку «Сообщения»
-админа со счётчиком непрочитанных. Калибровка уровня приходит туда же: в ней сразу
+админа и менеджеров со счётчиком непрочитанных (входящие общие: прочитал один — прочитано у всех). Калибровка уровня приходит туда же: в ней сразу
 подобраны группы сильнее или слабее, и ученика можно перевести одной кнопкой.
 """
 from datetime import timedelta
@@ -18,7 +18,7 @@ from .models import Enrollment, Group, InboxMessage, LevelCalibration, Payment, 
 from .views import MANAGE_ROLES, can_manage_group, crm_view, get_current_period, get_user_role, to_int
 
 # Кому приходят сообщения
-INBOX_ROLES = ('admin', 'developer')
+INBOX_ROLES = ('admin', 'developer', 'manager')
 # Кто пишет (учителю — только про учеников своих групп)
 SENDER_ROLES = ('teacher',) + MANAGE_ROLES
 CATEGORY_ORDER = ['complaint', 'comment', 'calibration']
@@ -29,7 +29,7 @@ def unread_count():
 
 
 def inbox_context(request):
-    """Контекст-процессор: {{ inbox_unread }} — для счётчика в меню у админа"""
+    """Контекст-процессор: {{ inbox_unread }} — для счётчика в меню у админа и менеджеров"""
     user = getattr(request, 'user', None)
     if not user or not user.is_authenticated or get_user_role(user) not in INBOX_ROLES:
         return {}
@@ -126,7 +126,8 @@ def decorate(items, now):
 
 @crm_view
 def inbox_page(request):
-    """Админу — входящие с фильтром по категории; учителю и менеджеру — отправленные и форма"""
+    """Админу и менеджерам — входящие с фильтром по категории (менеджер может и написать сам);
+    учителю — форма и отправленные"""
     role = get_user_role(request.user)
     now = timezone.now()
     if role in INBOX_ROLES:
@@ -141,10 +142,14 @@ def inbox_page(request):
         items = base if category == 'all' else base.filter(category=category)
         new = decorate(list(items.filter(read_at__isnull=True).order_by('-created_at')), now)
         old = decorate(list(items.filter(read_at__isnull=False).order_by('-created_at')[:100]), now)
+        can_compose = role == 'manager'   # менеджер и сам пишет про учеников
         return render(request, 'dashboard/inbox.html', {
             'role': role, 'is_inbox': True, 'category': category, 'new': new, 'old': old,
             'unread': unread, 'unread_total': sum(unread.values()), 'totals': totals, 'all_total': sum(totals.values()),
             'all_groups': Group.objects.filter(is_active=True, group_type='group').order_by('level', 'name'),
+            'can_compose': can_compose,
+            'choices': sender_students(request.user, role) if can_compose else [],
+            'preselect': request.GET.get('student', ''),
         })
     if role not in SENDER_ROLES:
         messages.error(request, 'У вас нет доступа')

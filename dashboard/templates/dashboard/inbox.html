@@ -90,6 +90,14 @@
         .send-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 46px; padding: 0 22px; border-radius: 12px; font-weight: 800; font-size: 15px;
             color: #fff; background: var(--accent); transition: background .2s ease; }
         .send-btn:hover { background: var(--accent-hover); }
+        /* Менеджер: форма свёрнута над входящими */
+        .compose-fold { padding: 14px 18px; }
+        .compose-fold > summary { display: flex; align-items: center; gap: 10px; cursor: pointer; list-style: none; font-weight: 800; color: var(--ink); }
+        .compose-fold > summary::-webkit-details-marker { display: none; }
+        .compose-fold > summary > i:first-child { color: var(--accent); }
+        .compose-fold .fold-arrow { margin-left: auto; font-size: 12px; color: var(--muted); transition: transform .25s ease; }
+        .compose-fold[open] .fold-arrow { transform: rotate(180deg); }
+        .mread { margin-left: 8px; color: var(--ok-ink); }
         .empty { padding: 48px 16px; text-align: center; color: var(--muted); }
         .empty i { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; margin: 0 auto 12px; font-size: 22px; color: var(--faint); background: var(--surface-2); }
 
@@ -124,7 +132,14 @@
 
     <main class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         {% if is_inbox %}
-        <!-- Входящие админа -->
+        {% if can_compose %}
+        <!-- Менеджер может и сам написать про ученика -->
+        <details class="panel composer compose-fold mb-5" {% if preselect %}open{% endif %}>
+            <summary><i class="fas fa-pen-to-square"></i><span>Написать про ученика</span><i class="fas fa-chevron-down fold-arrow" aria-hidden="true"></i></summary>
+            <div class="pt-4">{% include 'dashboard/partials/inbox_composer.html' %}</div>
+        </details>
+        {% endif %}
+        <!-- Входящие админа и менеджеров -->
         <nav class="seg mb-2" aria-label="Категория">
             <a href="?" class="{% if category == 'all' %}is-on{% endif %}">Все {% if unread_total %}<b class="is-new">{{ unread_total }}</b>{% else %}<b>{{ all_total }}</b>{% endif %}</a>
             <a href="?cat=complaint" class="{% if category == 'complaint' %}is-on{% endif %}"><i class="fas fa-triangle-exclamation"></i>Жалобы {% if unread.complaint %}<b class="is-new">{{ unread.complaint }}</b>{% else %}<b>{{ totals.complaint }}</b>{% endif %}</a>
@@ -146,34 +161,8 @@
         <!-- Учитель и менеджер: написать и отправленные -->
         <section class="panel p-5 sm:p-6 composer">
             <h2 class="text-lg font-bold">Написать про ученика</h2>
-            <p class="text-sm text-gray-500 mb-4">Сообщение придёт админу во вкладку «Сообщения».</p>
-            {% if choices %}
-            <form method="POST" action="{% url 'send_message' %}" class="space-y-4" id="composer">
-                {% csrf_token %}
-                <input type="hidden" name="group_id" id="groupId">
-                <label class="block text-sm font-bold">Ученик
-                    <select name="student_id" id="studentSelect" class="mt-1" required>
-                        <option value="">— выберите ученика —</option>
-                        {% for g, students in choices %}
-                        <optgroup label="{{ g.name }}" data-group="{{ g.id }}" class="notranslate">
-                            {% for s in students %}<option class="notranslate" value="{{ s.id }}" data-group="{{ g.id }}" {% if preselect == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
-                        </optgroup>
-                        {% endfor %}
-                    </select>
-                </label>
-                <fieldset class="cats">
-                    <legend class="sr-only">Категория</legend>
-                    <label><input type="radio" name="category" value="comment" checked><span><i class="fas fa-comment"></i>Комментарий</span></label>
-                    <label><input type="radio" name="category" value="complaint"><span><i class="fas fa-triangle-exclamation"></i>Жалоба</span></label>
-                </fieldset>
-                <label class="block text-sm font-bold">Сообщение
-                    <textarea name="text" rows="4" maxlength="2000" required class="mt-1" placeholder="Например: стал пропускать домашку, хорошо отвечает на уроке, мешает другим…"></textarea>
-                </label>
-                <button type="submit" class="send-btn"><i class="fas fa-paper-plane"></i>Отправить</button>
-            </form>
-            {% else %}
-            <p class="text-sm text-gray-500">У вас пока нет учеников в группах.</p>
-            {% endif %}
+            <p class="text-sm text-gray-500 mb-4">Сообщение придёт админу и менеджерам во вкладку «Сообщения».</p>
+            {% include 'dashboard/partials/inbox_composer.html' %}
         </section>
 
         <p class="section-title">Отправленные</p>

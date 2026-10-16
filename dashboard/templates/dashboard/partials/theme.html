@@ -326,6 +326,131 @@ Tailwind «светлый / dark:» — тёмный режим больше н�
     .chip-btn:hover { transform: translateY(-1px); border-color: var(--accent); color: var(--accent-ink); }
     .chip-btn i { color: var(--accent); }
 
+    /* ================= Набор блоков для страниц =================
+       Шапка: <header class="sticky top-0 z-40"><div class="ee-head max-w-6xl mx-auto px-4 sm:px-6">
+                 <div class="ee-head-main">[a.head-back] [span.head-icon] <div><h1 class="head-title">…</h1><p class="head-sub">…</p></div></div>
+                 <div class="ee-head-actions">[a.head-btn]…</div></div></header>
+       Форма:  <form class="panel ee-form"> <section class="ee-sec"> .ee-sec-head + поля .ee-label/.ee-input/.ee-hint </section> … <div class="ee-actions"> </form>
+       Выбор групп карточками: <div class="ee-picks"> <label class="ee-pick"><input type="checkbox"><span><b class="ee-pick-name"></b><span class="ee-pick-meta"></span></span></label>
+       Фильтр списка: <input data-ee-filter="#список"> — прячет элементы [data-ee-item], в тексте которых нет запроса */
+
+    /* ---------- Шапка страницы ---------- */
+    .ee-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; padding-bottom: 12px; }
+    .ee-head-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .ee-head-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .head-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; color: #fff; font-size: 17px; background: var(--accent); }
+    .head-back { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; color: var(--muted);
+        background: var(--surface); border: 1px solid var(--line); transition: background .2s ease, color .2s ease, transform var(--spring-dur) var(--spring); }
+    .head-back:hover { background: var(--surface-2); color: var(--ink); transform: translateX(-2px); }
+    .head-title { font-size: 20px; font-weight: 800; line-height: 1.2; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .head-sub { font-size: 12.5px; font-weight: 600; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .head-btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 12px; font-size: 13px; font-weight: 700; white-space: nowrap;
+        color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); transition: background .2s ease, color .2s ease, border-color .2s ease; }
+    .head-btn:hover { background: var(--surface-2); color: var(--ink); }
+    .head-btn i { color: var(--accent); }
+    .head-btn.is-main { color: #fff; background: var(--accent); border-color: var(--accent); }
+    .head-btn.is-main i { color: #fff; }
+    .head-btn.is-main:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+    @media (max-width: 640px) {
+        .ee-head .head-icon { display: none; }
+        .head-title { font-size: 17px; }
+        .head-btn { padding: 0 11px; }
+    }
+
+    /* ---------- Вкладки-переключатель ---------- */
+    .ee-seg { display: inline-flex; max-width: 100%; gap: 4px; padding: 4px; border-radius: 13px; background: var(--surface); border: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+    .ee-seg::-webkit-scrollbar { display: none; }
+    .ee-seg > a, .ee-seg > button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 9px; font-size: 13px; font-weight: 700; white-space: nowrap;
+        color: var(--muted); transition: background .2s ease, color .2s ease; }
+    .ee-seg > a:hover, .ee-seg > button:hover { color: var(--ink); background: var(--surface-2); }
+    .ee-seg > .is-on, .ee-seg > .is-on:hover { background: var(--accent-soft); color: var(--accent-ink); box-shadow: inset 0 0 0 1px var(--accent-line); }
+    .ee-seg b { font-size: 11px; padding: 1px 7px; border-radius: 9999px; background: var(--surface-3); color: var(--ink-2); }
+
+    /* ---------- Формы ---------- */
+    .ee-form { overflow: clip; }
+    .ee-sec { padding: 24px; }
+    .ee-sec + .ee-sec { border-top: 1px solid var(--line); }
+    .ee-sec-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
+    .ee-sec-icon { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; flex-shrink: 0; font-size: 15px; color: var(--accent-ink); background: var(--accent-soft); }
+    .ee-sec-title { font-size: 16px; font-weight: 800; color: var(--ink); line-height: 1.3; }
+    .ee-sec-desc { font-size: 13px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+    .ee-label { display: block; font-size: 13px; font-weight: 700; color: var(--ink-2); margin-bottom: 6px; }
+    .ee-label .req { color: var(--bad); margin-left: 2px; }
+    html.ee .ee-input { display: block; width: 100%; height: 46px; padding: 0 14px; border-radius: 12px; font-size: 15px; }
+    html.ee textarea.ee-input { height: auto; min-height: 96px; padding: 12px 14px; line-height: 1.5; }
+    html.ee select.ee-input { padding-right: 36px; }
+    .ee-hint { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
+    .ee-affix { position: relative; }
+    .ee-affix > .ee-suffix { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-weight: 800; color: var(--muted); pointer-events: none; }
+    html.ee .ee-affix > .ee-input { padding-right: 38px; }
+    .ee-actions { position: sticky; bottom: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 24px;
+        background: rgba(255, 255, 255, .92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--line); }
+    .ee-actions .ee-actions-note { margin-right: auto; font-size: 13px; color: var(--muted); }
+    @media (max-width: 767px) { .ee-actions { bottom: 84px; padding: 12px 16px; } .ee-actions .ee-btn { flex: 1; } .ee-sec { padding: 20px 16px; } }
+
+    /* ---------- Кнопки ---------- */
+    .ee-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 46px; padding: 0 20px; border-radius: 12px; cursor: pointer; white-space: nowrap;
+        font-size: 15px; font-weight: 800; border: 1px solid transparent;
+        transition: transform var(--spring-dur) var(--spring), background-color .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease; }
+    .ee-btn:hover { transform: translateY(-1px); }
+    .ee-btn:disabled { opacity: .55; cursor: default; transform: none; }
+    .ee-btn-primary { color: #fff; background: var(--accent); box-shadow: 0 8px 18px -10px rgba(var(--accent-rgb), .8); }
+    .ee-btn-primary:hover { background: var(--accent-hover); }
+    .ee-btn-soft { color: var(--ink-2); background: var(--surface); border-color: var(--line-strong); }
+    .ee-btn-soft:hover { color: var(--accent-ink); border-color: var(--accent); }
+    .ee-btn-soft i { color: var(--accent); }
+    .ee-btn-danger { color: var(--bad-ink); background: var(--bad-soft); border-color: var(--bad-line); }
+    .ee-btn-danger:hover { color: #fff; background: var(--bad); border-color: var(--bad); }
+    .ee-btn-ok { color: var(--ok-ink); background: var(--ok-soft); border-color: var(--ok-line); }
+    .ee-btn-ok:hover { color: #fff; background: var(--ok); border-color: var(--ok); }
+    .ee-btn-sm { height: 34px; padding: 0 12px; border-radius: 10px; font-size: 13px; font-weight: 700; gap: 6px; }
+    .ee-icon-btn { width: 34px; height: 34px; border-radius: 10px; display: inline-grid; place-items: center; flex-shrink: 0; font-size: 13px; cursor: pointer;
+        color: var(--muted); background: var(--surface); border: 1px solid var(--line); transition: color .2s ease, background .2s ease, border-color .2s ease; }
+    .ee-icon-btn:hover { color: var(--accent-ink); border-color: var(--accent-line); background: var(--accent-soft); }
+    .ee-icon-btn.is-danger:hover { color: var(--bad-ink); border-color: var(--bad-line); background: var(--bad-soft); }
+    .ee-icon-btn.is-ok:hover { color: var(--ok-ink); border-color: var(--ok-line); background: var(--ok-soft); }
+
+    /* ---------- Выбор карточками (группы, учителя, дни) ---------- */
+    .ee-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+    .ee-pick { position: relative; display: flex; align-items: flex-start; gap: 11px; padding: 12px 14px; border-radius: 14px; cursor: pointer;
+        background: var(--surface); border: 1px solid var(--line); transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease; }
+    .ee-pick:hover { border-color: var(--line-strong); background: var(--surface-2); }
+    .ee-pick > input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; cursor: pointer; }
+    .ee-pick:has(> input:checked) { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+    .ee-pick:has(> input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .ee-pick-name { display: block; font-size: 14px; font-weight: 700; color: var(--ink); line-height: 1.3; }
+    .ee-pick-meta { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+    [data-ee-item].is-hidden { display: none !important; }
+
+    /* ---------- Таблица ---------- */
+    /* Обёртку таблицы с прокруткой делайте relative: иначе .sr-only внутри растягивает страницу вбок */
+    .ee-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+    .ee-table th { text-align: left; white-space: nowrap; padding: 12px 16px; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+        color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--line); }
+    .ee-table td { padding: 14px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+    .ee-table tbody tr:last-child td { border-bottom: 0; }
+    .ee-table tbody tr:hover td { background: var(--surface-2); }
+
+    /* ---------- Метки, аватар, пустое состояние, мини-статистика ---------- */
+    .ee-tag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 9999px; font-size: 12px; font-weight: 700; line-height: 1.4; white-space: nowrap;
+        color: var(--accent-ink); background: var(--accent-soft); }
+    .ee-tag-muted { color: var(--ink-2); background: var(--surface-3); }
+    .ee-tag-ok { color: var(--ok-ink); background: var(--ok-soft); }
+    .ee-tag-warn { color: var(--warn-ink); background: var(--warn-soft); }
+    .ee-tag-bad { color: var(--bad-ink); background: var(--bad-soft); }
+    .ee-avatar { width: 40px; height: 40px; border-radius: 9999px; display: grid; place-items: center; flex-shrink: 0; overflow: hidden; font-weight: 800; font-size: 15px;
+        color: var(--accent-ink); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); }
+    .ee-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .ee-empty { text-align: center; padding: 48px 24px; color: var(--muted); }
+    .ee-empty > i { display: block; font-size: 34px; color: var(--faint); margin-bottom: 14px; }
+    .ee-empty > b { display: block; font-size: 16px; color: var(--ink); margin-bottom: 4px; }
+    .ee-stat { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--line); }
+    .ee-stat > i { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; flex-shrink: 0; font-size: 15px; color: var(--accent-ink); background: var(--accent-soft); }
+    .ee-stat b { display: block; font-size: 20px; font-weight: 800; color: var(--ink); line-height: 1.15; font-variant-numeric: tabular-nums; }
+    .ee-stat span { display: block; font-size: 12px; color: var(--muted); }
+    .ee-section-title { display: flex; align-items: center; gap: 10px; margin: 26px 4px 12px; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+    .ee-section-title::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
     /* ---------- Уведомления ---------- */
     .ee-toasts { position: fixed; z-index: 80; top: 18px; right: 18px; display: flex; flex-direction: column; gap: 10px; width: min(380px, calc(100vw - 36px)); }
     .ee-toast {
@@ -447,6 +572,18 @@ Tailwind «светлый / dark:» — тёмный режим больше н�
             mesh.innerHTML = '<div class="ee-blob b1"></div><div class="ee-blob b2"></div><div class="ee-blob b3"></div><div class="ee-grid"></div>';
             document.body.prepend(mesh);
         }
+
+        // Фильтр списка: input с data-ee-filter (селектор списка) прячет [data-ee-item] без совпадения
+        document.querySelectorAll('[data-ee-filter]').forEach(function (input) {
+            const box = document.querySelector(input.dataset.eeFilter);
+            if (!box) return;
+            input.addEventListener('input', function () {
+                const q = input.value.trim().toLowerCase();
+                box.querySelectorAll('[data-ee-item]').forEach(function (el) {
+                    el.classList.toggle('is-hidden', !!q && !el.textContent.toLowerCase().includes(q));
+                });
+            });
+        });
 
         /* ---------- Появление блоков со stagger ---------- */
         const main = document.querySelector('main');

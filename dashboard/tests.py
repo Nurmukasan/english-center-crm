@@ -1074,6 +1074,33 @@ class InboxTests(CRMTestCase):
         self.assertNotIn('inbox_unread', self.client.get('/dashboard/').context)
 
 
+    def test_manager_gets_inbox_and_can_write(self):
+        self.send(self.teacher, self.student, category='complaint')
+        self.login(self.manager)
+        response = self.client.get('/dashboard/')
+        self.assertEqual(response.context['inbox_unread'], 1)
+        self.assertContains(response, 'class="ee-rail-badge')
+        page = self.client.get(f'/messages/?student={self.other_student.id}')
+        self.assertTrue(page.context['is_inbox'])
+        self.assertEqual(len(page.context['new']), 1)
+        self.assertContains(page, 'id="composer"')                 # форма у менеджера тоже есть
+        self.assertContains(page, '<details class="panel composer compose-fold mb-5" open>')
+        message = InboxMessage.objects.get()
+        self.assertTrue(self.client.post(f'/messages/{message.id}/read/').json()['read'])
+        # Прочитал менеджер — у админа тоже прочитано, и видно кто
+        self.login(self.admin)
+        page = self.client.get('/messages/')
+        self.assertEqual(page.context['unread_total'], 0)
+        self.assertContains(page, 'class="mread"')
+        self.assertNotContains(page, 'id="composer"')               # админу писать самому себе незачем
+        # Менеджер пишет сам — сообщение во входящих
+        self.assertTrue(self.send(self.manager, self.other_student).json()['success'])
+        self.assertEqual(InboxMessage.objects.filter(author=self.manager).count(), 1)
+        # Бухгалтеру вкладка по-прежнему закрыта
+        self.login(self.accountant)
+        self.assertEqual(self.client.post(f'/messages/{message.id}/read/').status_code, 403)
+        self.assertNotIn('inbox_unread', self.client.get('/payments/').context)
+
 class CalibrationMoveTests(CRMTestCase):
     def setUp(self):
         super().setUp()
