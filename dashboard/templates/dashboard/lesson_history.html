@@ -333,7 +333,7 @@
         const TEXT = { hw: 'ДЗ', less: 'Меньше', more: 'Больше', stars: 'Звёзды' };
         let editing = null;
 
-        function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
         function openEditor(id) {
             editing = LESSONS[id];

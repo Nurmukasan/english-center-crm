@@ -483,7 +483,7 @@ class CleanupTests(CRMTestCase):
     def test_logout_drops_pending_messages(self):
         self.login(self.teacher)
         self.client.get(f'/group/{self.other_group.id}/')  # «нет доступа» — сообщение
-        self.client.get('/logout/')
+        self.client.post('/logout/')
         self.assertFalse(list(self.client.get('/').context['messages']))
 
 
@@ -1403,6 +1403,140 @@ class SetupWhatsAppTests(CRMTestCase):
         with mock.patch('dashboard.management.commands.setup_whatsapp.waha_status', side_effect=WhatsAppError('Нет связи')):
             with self.assertRaises(CommandError):
                 self.run_command('--key', 'abc')
+
+
+class SecurityTests(CRMTestCase):
+    """dashboard/security.py: IP, подбор пароля, журнал входов, выход, файлы, заголовки, пароли, сеансы"""
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+        cache.clear()
+
+    def test_client_ip_cannot_be_spoofed(self):
+        from django.test import RequestFactory
+        from .security import client_ip
+        rf = RequestFactory()
+        outside = rf.get('/', REMOTE_ADDR='8.8.4.4', HTTP_X_FORWARDED_FOR='1.1.1.1', HTTP_X_REAL_IP='2.2.2.2')
+        self.assertEqual(client_ip(outside), '8.8.4.4')        # чужим заголовкам не верим
+        nginx = rf.get('/', REMOTE_ADDR='127.0.0.1', HTTP_X_REAL_IP='198.51.100.7')
+        self.assertEqual(client_ip(nginx), '198.51.100.7')
+        chain = rf.get('/', REMOTE_ADDR='127.0.0.1', HTTP_X_FORWARDED_FOR='6.6.6.6, 198.51.100.8')
+        self.assertEqual(client_ip(chain), '198.51.100.8')         # последний — дописал наш nginx
+
+    def test_spoofed_header_does_not_bypass_ip_limit(self):
+        for i in range(30):
+            self.client.post('/', {'username': f'user{i}', 'password': 'x'}, REMOTE_ADDR='8.8.4.4', HTTP_X_FORWARDED_FOR=f'10.0.0.{i}')
+        response = self.client.post('/', {'username': 'admin', 'password': 'pass'}, REMOTE_ADDR='8.8.4.4', HTTP_X_FORWARDED_FOR='10.9.9.9')
+        self.assertNotIn('_auth_user_id', self.client.session)
+        self.assertContains(response, 'Слишком много неудачных попыток')
+
+    def test_login_journal(self):
+        from .models import LoginEvent
+        self.client.post('/', {'username': 'admin', 'password': 'wrong'}, HTTP_USER_AGENT='Mozilla/5.0 (iPhone) Safari/604')
+        self.client.post('/', {'username': 'admin', 'password': 'pass'}, HTTP_USER_AGENT='Mozilla/5.0 (Windows NT 10.0) Chrome/120 Safari/537')
+        failed, ok = LoginEvent.objects.order_by('created_at')
+        self.assertEqual((failed.success, failed.user, failed.username), (False, None, 'admin'))
+        self.assertEqual((ok.success, ok.user), (True, self.admin))
+        page = self.client.get('/profile/')
+        self.assertContains(page, 'Неверный пароль')
+        self.assertContains(page, 'Chrome · Windows')
+        self.assertContains(page, 'Safari · iPhone')
+        self.assertContains(page, 'Журнал входов в CRM')            # админу — журнал всей CRM
+        self.assertContains(page, 'неудачные попытки войти в ваш аккаунт')
+        self.login(self.teacher)
+        self.assertNotContains(self.client.get('/profile/'), 'Журнал входов в CRM')
+
+    def test_admin_login_is_throttled(self):
+        from .models import LoginEvent
+        superuser = make_user('boss', superuser=True)
+        for _ in range(10):
+            self.client.post('/admin/login/', {'username': 'boss', 'password': 'wrong', 'next': '/admin/'})
+        response = self.client.post('/admin/login/', {'username': 'boss', 'password': 'pass', 'next': '/admin/'})
+        self.assertEqual(response.status_code, 429)
+        self.assertNotIn('_auth_user_id', self.client.session)
+        self.assertEqual(LoginEvent.objects.filter(username='boss', success=False).count(), 11)
+        self.assertTrue(superuser.is_superuser)
+
+    def test_logout_only_by_button(self):
+        self.login(self.teacher)
+        page = self.client.get('/logout/')                            # ссылкой (или чужой картинкой) — не выходим
+        self.assertContains(page, 'Выйти из CRM?')
+        self.assertIn('_auth_user_id', self.client.session)
+        self.assertRedirects(self.client.post('/logout/'), '/', fetch_redirect_response=False)
+        self.assertNotIn('_auth_user_id', self.client.session)
+        dashboard = self.client.get('/dashboard/')
+        self.assertEqual(dashboard.status_code, 302)
+
+    def test_media_only_for_staff(self):
+        import os
+        import tempfile
+        root = tempfile.mkdtemp()
+        self.addCleanup(__import__('shutil').rmtree, root, True)
+        for folder in ('logo', 'profile_photos'):
+            os.makedirs(os.path.join(root, folder))
+            with open(os.path.join(root, folder, 'a.png'), 'wb') as f:
+                f.write(b'png')
+        with self.settings(MEDIA_ROOT=root):
+            self.assertEqual(self.client.get('/media/logo/a.png').status_code, 200)
+            self.assertEqual(self.client.get('/media/profile_photos/a.png').status_code, 404)
+            self.assertEqual(self.client.get('/media/../config/settings.py').status_code, 404)
+            self.login(self.teacher)
+            response = self.client.get('/media/profile_photos/a.png')
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response['X-Content-Type-Options'], 'nosniff')
+
+    def test_security_headers_and_secure_cookies(self):
+        response = self.client.get('/')
+        self.assertIn("object-src 'none'", response['Content-Security-Policy'])
+        self.assertIn("frame-ancestors 'self'", response['Content-Security-Policy'])
+        self.assertIn('camera=()', response['Permissions-Policy'])
+        self.assertNotIn('Strict-Transport-Security', response)
+        # За nginx по HTTPS: cookie входа помечаются Secure, браузер запоминает HTTPS
+        response = self.client.post('/', {'username': 'admin', 'password': 'pass'},
+                                    REMOTE_ADDR='127.0.0.1', HTTP_X_FORWARDED_PROTO='https')
+        self.assertTrue(response.cookies['sessionid']['secure'])
+        self.assertIn('max-age=', response['Strict-Transport-Security'])
+        self.assertTrue(response.cookies['sessionid']['httponly'])
+        # Подделанный заголовок снаружи не считается
+        self.client.logout()
+        response = self.client.post('/', {'username': 'admin', 'password': 'pass'},
+                                    REMOTE_ADDR='8.8.4.4', HTTP_X_FORWARDED_PROTO='https')
+        self.assertFalse(response.cookies['sessionid']['secure'])
+
+    def test_password_rules(self):
+        from .security import password_problems
+        self.assertEqual(len(password_problems('12345678')), 2)        # только цифры и слишком простой
+        self.assertIn('Пароль — не короче 8 символов', password_problems('Ab3!x'))
+        self.assertIn('Пароль слишком похож на логин или имя', password_problems('teacher1', self.teacher))
+        self.assertEqual(password_problems('Kitap-Sabak-2026'), [])
+        self.login(self.teacher)
+        response = self.client.post('/profile/', {'action': 'change_password', 'old_password': 'pass',
+                                                   'new_password': 'qwerty', 'confirm_password': 'qwerty'}, follow=True)
+        self.assertContains(response, 'Пароль — не короче 8 символов')
+        self.teacher.refresh_from_db()
+        self.assertTrue(self.teacher.check_password('pass'))
+        self.client.post('/profile/', {'action': 'change_password', 'old_password': 'pass',
+                                       'new_password': 'Kitap-Sabak-2026', 'confirm_password': 'Kitap-Sabak-2026'})
+        self.teacher.refresh_from_db()
+        self.assertTrue(self.teacher.check_password('Kitap-Sabak-2026'))
+
+    def test_end_other_sessions(self):
+        from django.test import Client
+        phone = Client()
+        phone.force_login(self.teacher)
+        self.login(self.teacher)
+        self.assertContains(self.client.get('/profile/'), 'Выйти на других устройствах')
+        response = self.client.post('/profile/', {'action': 'end_sessions'}, follow=True)
+        self.assertContains(response, 'закрыто сеансов на других устройствах — 1')
+        self.assertEqual(phone.get('/dashboard/').status_code, 302)    # на «телефоне» вышли
+        self.assertEqual(self.client.get('/dashboard/').status_code, 200)
+
+    def test_device_label(self):
+        from .security import device_label
+        self.assertEqual(device_label('Mozilla/5.0 (Linux; Android 13) AppleWebKit Chrome/120 Mobile Safari'), 'Chrome · Android')
+        self.assertEqual(device_label('Mozilla/5.0 (Windows NT 10.0) Chrome/120 Safari/537 Edg/120'), 'Edge · Windows')
+        self.assertEqual(device_label(''), 'Неизвестное устройство')
 
 class BackupTests(TransactionTestCase):
     """Без обёртки-транзакции TestCase: SQLite не даёт снять копию посреди открытой записи"""

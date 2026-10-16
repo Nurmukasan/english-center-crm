@@ -333,7 +333,7 @@
         (function () {
             const lessons = JSON.parse(document.getElementById('today-lessons').textContent);
             const pad = n => String(n).padStart(2, '0');
-            const esc = text => { const d = document.createElement('div'); d.textContent = text || ''; return d.innerHTML; };
+            const esc = text => { const d = document.createElement('div'); d.textContent = text || ''; return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); };
             const fmt = m => Math.floor(m / 60) + ':' + pad(m % 60);
             // Время сервера на момент загрузки + сколько прошло по часам браузера
             const loadedAt = performance.now();

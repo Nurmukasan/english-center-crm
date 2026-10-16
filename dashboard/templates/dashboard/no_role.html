@@ -33,9 +33,10 @@
                 Учётная запись <b class="notranslate">{{ request.user.username }}</b> есть, но доступа к CRM пока нет.
                 Попросите администратора назначить роль: <span class="nr-path">/admin/ → Профили</span>.
             </p>
-            <a href="{% url 'logout' %}" class="ee-btn ee-btn-primary w-full mt-7">
-                <i class="fas fa-arrow-right-from-bracket"></i>Выйти
-            </a>
+            <form method="POST" action="{% url 'logout' %}" class="mt-7">
+                {% csrf_token %}
+                <button type="submit" class="ee-btn ee-btn-primary w-full"><i class="fas fa-arrow-right-from-bracket"></i>Выйти</button>
+            </form>
         </div>
     </main>
 </body>

@@ -1,9 +1,11 @@
 from django.contrib import admin
 from django.urls import path, re_path
-from django.views.static import serve
 from django.contrib.staticfiles.views import serve as static_serve
 from django.conf import settings
-from dashboard import broadcasts, inbox, views
+from dashboard import broadcasts, inbox, security, views
+
+# Вход в /admin/ — с паузой после неудачных попыток и записью в журнал входов
+admin.site.login = security.throttled_admin_login(admin.site.login)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -68,9 +70,10 @@ urlpatterns = [
     path('messages/<int:message_id>/read/', inbox.toggle_read, name='inbox_toggle_read'),
     path('messages/<int:message_id>/resolve/', inbox.resolve_calibration, name='inbox_resolve'),
 ]
-# Фото, PDF книг и логотип раздаёт сам Django — и с выключенной отладкой (DJANGO_DEBUG=0),
-# иначе они пропали бы со страниц. Если когда-нибудь их начнёт раздавать nginx — это можно убрать.
+# Фото, PDF книг и логотип раздаёт сам Django — и с выключенной отладкой. Всё, кроме логотипа,
+# — только вошедшим в CRM (dashboard/security.py). Не отдавайте /media/ напрямую через nginx,
+# иначе фото учеников и книги станут доступны всем по прямой ссылке.
 urlpatterns += [
-    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+    re_path(r'^media/(?P<path>.*)$', security.media),
     re_path(r'^static/(?P<path>.*)$', static_serve, {'insecure': True}),
 ]

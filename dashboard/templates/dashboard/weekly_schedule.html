@@ -150,7 +150,7 @@
             return Math.floor(min / 60) + ':' + String(min % 60).padStart(2, '0');
         }
         function esc(s) {
-            const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+            const d = document.createElement('div'); d.textContent = s; return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
         // Раскладка пересекающихся занятий по дорожкам (как в Google Calendar)

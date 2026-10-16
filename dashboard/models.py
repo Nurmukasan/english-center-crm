@@ -372,3 +372,23 @@ class BroadcastMessage(models.Model):
         verbose_name = "Сообщение рассылки"
         verbose_name_plural = "Сообщения рассылки"
         ordering = ['id']
+
+
+class LoginEvent(models.Model):
+    """Журнал входов в CRM: кто, когда, откуда и с какого устройства; неудачные попытки тоже.
+    Хранится 90 дней (см. dashboard/security.py)."""
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='login_events', verbose_name="Пользователь")
+    username = models.CharField(max_length=150, blank=True, verbose_name="Какой логин ввели")
+    success = models.BooleanField(default=False, verbose_name="Вошёл")
+    note = models.CharField(max_length=20, blank=True, verbose_name="Пометка")   # blocked — попытка во время паузы; admin — вход в /admin/
+    ip = models.CharField(max_length=45, blank=True, verbose_name="IP")
+    user_agent = models.CharField(max_length=300, blank=True, verbose_name="Браузер")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Когда")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Вход в CRM"
+        verbose_name_plural = "Журнал входов"
+
+    def __str__(self):
+        return f'{self.username} — {"вошёл" if self.success else "неудачно"} — {self.created_at:%d.%m.%Y %H:%M}'
