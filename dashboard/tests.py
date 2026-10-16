@@ -1003,6 +1003,7 @@ class IncomeStatsTests(CRMTestCase):
         summary_f, summary_v = formulas['Сводка'], values['Сводка']
         self.assertEqual(summary_f['B7'].value, f"=SUM('Начисления'!$K$5:$K${last})")
         self.assertEqual(summary_v['B7'].value, stats['total'])
+        self.assertIn('[$₸-43F]', summary_f['B7'].number_format)   # валюта — тенге, а не рубли по умолчанию
         self.assertEqual(summary_v['K7'].value, stats['debt'])               # «Долг»
         self.assertAlmostEqual(summary_v['H7'].value, stats['rate'] / 100, places=2)
         # По месяцам: СУММЕСЛИМН по «Начислениям»
