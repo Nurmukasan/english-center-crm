@@ -21,6 +21,21 @@ from decimal import Decimal
 import re
 
 
+# Процент сделанных ДЗ считается с 1 октября 2026: раньше кнопки «ДЗ» не было, и у всех стояло «не сделано».
+# Урок с отметкой «Сегодня без домашки» в процент не входит. Новый ученик считается с записи в группу:
+# отметки (а значит и ДЗ) у него появляются только на уроках после записи.
+HOMEWORK_SINCE = date(2026, 10, 1)
+
+
+def homework_counted(prefix='lesson__'):
+    """Условие для Attendance: эта отметка входит в процент ДЗ"""
+    return Q(**{f'{prefix}date__gte': HOMEWORK_SINCE, f'{prefix}no_homework': False})
+
+
+def homework_counts(lesson):
+    return lesson.date >= HOMEWORK_SINCE and not lesson.no_homework
+
+
 def count_lessons_in_period(group, period_start, period_end):
     """Сколько уроков у группы попадёт в период по расписанию"""
     lesson_day_of_weeks = set(s.day_of_week for s in group.schedule_slots.all())
@@ -633,10 +648,11 @@ def group_detail(request, group_id):
             lesson__group=group, lesson__is_cancelled=False,
             lesson__date__gte=today - timedelta(days=days_from), lesson__date__lt=today - timedelta(days=days_to),
         ).aggregate(total=Count('id'), came=Count('id', filter=~Q(status='absent')),
-                    homework=Count('id', filter=Q(homework_done=True)))
+                    homework=Count('id', filter=Q(homework_done=True) & homework_counted()),
+                    homework_total=Count('id', filter=homework_counted()))
     cur, prev = window(30, 0), window(60, 30)
-    attendance_rate, homework_rate = rate(cur['came'], cur['total']), rate(cur['homework'], cur['total'])
-    prev_attendance, prev_homework = rate(prev['came'], prev['total']), rate(prev['homework'], prev['total'])
+    attendance_rate, homework_rate = rate(cur['came'], cur['total']), rate(cur['homework'], cur['homework_total'])
+    prev_attendance, prev_homework = rate(prev['came'], prev['total']), rate(prev['homework'], prev['homework_total'])
 
     stars_total = dict(Attendance.objects.filter(lesson__group=group, stars__gt=0)
                        .values('student_id').annotate(c=Sum('stars')).values_list('student_id', 'c'))
@@ -1046,6 +1062,7 @@ def lesson_history(request, group_id):
             'present_students': [r['name'] + (' (опоздал)' if r['status'] == 'late' else '') for r in came],
             'absent_students': [r['name'] for r in rows if r['status'] == 'absent'],
             'homework_count': sum(1 for r in rows if r['homework']),
+            'homework_counts': homework_counts(lesson),
             'stars_total': sum(r['stars'] for r in rows),
         })
     
@@ -1062,6 +1079,7 @@ def lesson_history(request, group_id):
                 'id': d['lesson'].id,
                 'date': d['lesson'].date.strftime('%d.%m.%Y') + (f" · {d['time']}" if d['time'] else ''),
                 'topic': d['lesson'].topic,
+                'no_homework': d['lesson'].no_homework,
                 'rows': d['rows'],
                 'save_url': reverse('save_lesson', args=[d['lesson'].id]),
             }
@@ -1120,10 +1138,26 @@ def save_lesson(request, lesson_id):
         attendance.save()
 
     lesson.topic = str(data.get('topic') or '').strip()[:200]
+    if 'no_homework' in data:
+        lesson.no_homework = bool(data.get('no_homework'))
     lesson.edited_by = request.user
     lesson.edited_at = timezone.now()
     lesson.save()
     return JsonResponse({'success': True})
+
+
+@crm_view
+@require_POST
+def set_no_homework(request, lesson_id):
+    """«Сегодня без домашки» (AJAX): урок не входит в процент ДЗ; повторное нажатие — домашка снова есть"""
+    lesson, allowed = lesson_or_403(request, lesson_id)
+    if not allowed:
+        return JsonResponse({'success': False, 'error': 'Нет доступа'}, status=403)
+    if lesson.is_cancelled:
+        return JsonResponse({'success': False, 'error': 'Урок отменён'})
+    lesson.no_homework = request.POST.get('no_homework') == '1'
+    lesson.save(update_fields=['no_homework'])
+    return JsonResponse({'success': True, 'no_homework': lesson.no_homework})
 
 
 @crm_view
@@ -1282,7 +1316,8 @@ def individual_lessons(request):
     for st in Attendance.objects.filter(lesson__group__in=individual).values('student_id', 'lesson__group_id').annotate(
         total=Count('id'),
         came=Count('id', filter=Q(status__in=['present', 'late'])),
-        homework=Count('id', filter=Q(homework_done=True)),
+        homework=Count('id', filter=Q(homework_done=True) & homework_counted()),
+        homework_total=Count('id', filter=homework_counted()),
         stars=Sum('stars'),
     ):
         stats[(st['student_id'], st['lesson__group_id'])] = st
@@ -1315,7 +1350,7 @@ def individual_lessons(request):
                 'next_label': next_label,
                 'live': live,
                 'attendance': round(st.get('came', 0) / total * 100) if total else None,
-                'homework': round(st.get('homework', 0) / total * 100) if total else None,
+                'homework': round(st['homework'] / st['homework_total'] * 100) if st.get('homework_total') else None,
                 'stars': st.get('stars') or 0,
                 'lessons_total': total,
                 'price': price,
@@ -2867,11 +2902,12 @@ def student_profile(request, student_id):
 
     total_lessons = attendances.count()
     present_count = attendances.filter(status__in=['present', 'late']).count()
-    homework_count = attendances.filter(homework_done=True).count()
+    homework_total = attendances.filter(homework_counted()).count()
+    homework_count = attendances.filter(homework_counted(), homework_done=True).count()
     total_stars = attendances.aggregate(total=Sum('stars'))['total'] or 0
 
     participation_percent = round((present_count / total_lessons) * 100) if total_lessons > 0 else 0
-    homework_percent = round((homework_count / total_lessons) * 100) if total_lessons > 0 else 0
+    homework_percent = round((homework_count / homework_total) * 100) if homework_total > 0 else 0
 
     def get_color(percent):
         if percent < 50:
@@ -2895,6 +2931,7 @@ def student_profile(request, student_id):
         'total_lessons': total_lessons,
         'present_count': present_count,
         'homework_count': homework_count,
+        'homework_total': homework_total,
         'total_stars': total_stars,
         'participation_percent': participation_percent,
         'homework_percent': homework_percent,

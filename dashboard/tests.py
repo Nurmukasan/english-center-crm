@@ -1642,6 +1642,16 @@ class GeneralExcelTests(CRMTestCase):
         self.assertTrue(formulas['Сводка']['B6'].value.startswith('=COUNTIFS('))
         import zipfile
         self.assertGreaterEqual(len([n for n in zipfile.ZipFile(content).namelist() if n.startswith('xl/charts/chart')]), 3)
+        # Во всех формулах скобки парные — иначе Excel покажет #VALUE!
+        broken = [f'{ws.title}!{c.coordinate}' for ws in formulas.worksheets for row in ws.iter_rows() for c in row
+                  if isinstance(c.value, str) and c.value.startswith('=') and c.value.count('(') != c.value.count(')')]
+        self.assertEqual(broken, [])
+        # ДЗ: урок без домашки — «—» в журнале и не входит в процент
+        lesson.no_homework = True
+        lesson.save()
+        values = openpyxl.load_workbook(io.BytesIO(self.client.get('/export/').content), data_only=True)
+        self.assertEqual(values['Посещаемость']['G5'].value, '—')
+        self.assertEqual(values['Ученики'][f'O{students["Алия"]}'].value, None)
         # Учителю — нельзя
         self.login(self.teacher)
         self.assertEqual(self.client.get('/export/').status_code, 302)
@@ -1862,6 +1872,72 @@ class GroupCoverTests(CRMTestCase):
         self.assertContains(page, 'data-cover="campus"')              # «Альфа» — без особого рисунка
         self.client.cookies['ee_lang'] = 'en'
         self.assertContains(self.client.get('/dashboard/'), 'Australia')
+
+
+class HomeworkRateTests(CRMTestCase):
+    """Процент ДЗ: с 1 октября 2026 (раньше кнопки не было), без уроков «Сегодня без домашки», новичок — с записи"""
+    def setUp(self):
+        super().setUp()
+        self.today = timezone.localdate()
+        Enrollment.objects.filter(id=self.enrollment.id).update(enrolled_at=timezone.now() - timedelta(days=60))
+        # Граница «с какого дня считаем ДЗ» — 20 дней назад, чтобы тест не зависел от календаря
+        from unittest import mock
+        patcher = mock.patch('dashboard.views.HOMEWORK_SINCE', self.today - timedelta(days=20))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def lesson(self, days, done, no_homework=False, student=None):
+        lesson = Lesson.objects.create(group=self.group, date=self.today - timedelta(days=days), no_homework=no_homework)
+        Attendance.objects.create(lesson=lesson, student=student or self.student, status='present', homework_done=done)
+        return lesson
+
+    def test_rate_ignores_old_and_no_homework_lessons(self):
+        self.lesson(25, False)                      # до границы: «не сделано» по-старому — не считается
+        self.lesson(28, False)
+        self.lesson(10, True)
+        self.lesson(7, False)
+        self.lesson(4, False, no_homework=True)     # домашку не задавали — не считается
+        self.login(self.teacher)
+        self.assertEqual(self.client.get(f'/group/{self.group.id}/').context['homework_rate'], 50)
+        profile = self.client.get(f'/students/{self.student.id}/').context
+        self.assertEqual((profile['homework_count'], profile['homework_total'], profile['homework_percent']), (1, 2, 50))
+        self.assertEqual(profile['total_lessons'], 5)                 # посещаемость считается по всем урокам
+        history = self.client.get(f'/group/{self.group.id}/history/').context['lesson_data']
+        self.assertEqual([d['homework_counts'] for d in history], [False, True, True, False, False])
+        self.assertContains(self.client.get(f'/group/{self.group.id}/history/'), 'без ДЗ')
+
+    def test_new_student_counted_from_enrollment(self):
+        newbie = Student.objects.create(name='Бек')
+        self.lesson(15, False)                      # урок до записи Бека: у него отметки нет
+        Enrollment.objects.create(student=newbie, group=self.group)
+        self.lesson(2, True, student=newbie)
+        self.login(self.admin)
+        profile = self.client.get(f'/students/{newbie.id}/').context
+        self.assertEqual((profile['homework_count'], profile['homework_total'], profile['homework_percent']), (1, 1, 100))
+
+    def test_no_homework_button(self):
+        ScheduleSlot.objects.create(group=self.group, day_of_week=self.today.weekday(), start_time=time(10), end_time=time(11))
+        self.login(self.teacher)
+        page = self.client.get(f'/group/{self.group.id}/')
+        lesson = page.context['lesson']
+        self.assertContains(page, 'id="noHw" aria-pressed="false"')
+        self.assertTrue(self.client.post(f'/lesson/{lesson.id}/no-homework/', {'no_homework': '1'}).json()['no_homework'])
+        lesson.refresh_from_db()
+        self.assertTrue(lesson.no_homework)
+        self.assertContains(self.client.get(f'/group/{self.group.id}/'), 'id="noHw" aria-pressed="true"')
+        self.assertFalse(self.client.post(f'/lesson/{lesson.id}/no-homework/', {'no_homework': '0'}).json()['no_homework'])
+        # Чужой учитель не может
+        self.login(self.other_teacher)
+        self.assertEqual(self.client.post(f'/lesson/{lesson.id}/no-homework/', {'no_homework': '1'}).status_code, 403)
+
+    def test_past_lesson_editor_sets_no_homework(self):
+        lesson = self.lesson(5, False)
+        self.login(self.teacher)
+        self.client.post(f'/lesson/{lesson.id}/save/', json.dumps({'topic': '', 'no_homework': True, 'rows': [
+            {'student_id': self.student.id, 'status': 'present', 'homework': False, 'stars': 0}]}), content_type='application/json')
+        lesson.refresh_from_db()
+        self.assertTrue(lesson.no_homework)
+        self.assertIsNone(self.client.get(f'/group/{self.group.id}/').context['homework_rate'])
 
 
 class TwoTeachersTests(CRMTestCase):

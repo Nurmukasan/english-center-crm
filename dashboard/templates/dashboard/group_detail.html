@@ -143,6 +143,12 @@
             background: var(--ok); color: #fff; border: 2px solid var(--surface); }
         .hw[aria-pressed="true"] .tick { display: grid; animation: pop .4s var(--spring) both; }
         @keyframes pop { from { transform: scale(0); } }
+        /* «Сегодня без домашки»: кнопки ДЗ прячутся, урок не входит в процент ДЗ */
+        .today-pill .hw-part, .today-pill .nohw-part { display: inline-flex; align-items: center; gap: 10px; }
+        #lessonPanel.no-hw .hw-cell, #lessonPanel.no-hw .hw-part, #lessonPanel:not(.no-hw) .nohw-part { display: none; }
+        .nohw-btn .nohw-tick { display: none; }
+        .nohw-btn[aria-pressed="true"] { color: var(--accent-ink); background: var(--accent-soft); border-color: var(--accent-line); }
+        .nohw-btn[aria-pressed="true"] .nohw-tick { display: inline; }
         .hw-label { font-size: 10px; font-weight: 800; color: var(--faint); text-transform: uppercase; letter-spacing: .06em; text-align: center; margin-top: 4px; }
         .rate-ring { width: 46px; height: 46px; flex-shrink: 0; }
         .rate-ring circle { fill: none; stroke-width: 5; }
@@ -303,7 +309,7 @@
 
         <div class="grid xl:grid-cols-12 gap-6 items-start">
             <!-- Сегодняшний урок -->
-            <section class="panel xl:col-span-8 overflow-hidden" id="lessonPanel">
+            <section class="panel xl:col-span-8 overflow-hidden{% if lesson.no_homework %} no-hw{% endif %}" id="lessonPanel">
                 <div class="lesson-head">
                     <div>
                         {% if lesson and lesson.is_cancelled %}
@@ -320,7 +326,8 @@
                     <div class="flex flex-wrap items-center gap-2">
                         {% if lesson_active %}
                         <span class="today-pill"><i class="fas fa-user-check" style="color: var(--ok)"></i>Пришли <b id="presentCount">{{ present_today }}</b> из {{ student_data|length }}
-                            <span class="opacity-40">·</span><i class="fas fa-book" style="color: var(--ok)"></i>ДЗ <b id="hwCount">{{ homework_today }}</b></span>
+                            <span class="hw-part"><span class="opacity-40">·</span><i class="fas fa-book" style="color: var(--ok)"></i>ДЗ <b id="hwCount">{{ homework_today }}</b></span>
+                            <span class="nohw-part"><span class="opacity-40">·</span><i class="fas fa-book"></i>без ДЗ</span></span>
                         {% endif %}
                         {% if can_mark_attendance and lesson_active %}
                         <button type="button" class="act act-star" onclick="toggleStarModal()"><i class="fas fa-star"></i>Звёзды</button>
@@ -360,8 +367,15 @@
 
                 {% if lesson_active and can_mark_attendance and student_data %}
                 <div class="flex flex-wrap items-center justify-between gap-3 px-[22px] py-3 border-b border-white/5 text-sm text-gray-400">
-                    <span><i class="fas fa-hand-pointer mr-1 opacity-60"></i>Отметьте, кто пришёл и сделал домашку — сохраняется сразу.</span>
-                    <button type="button" class="act act-ok" id="allPresent" onclick="markAllPresent(this)"><i class="fas fa-check-double"></i>Все пришли</button>
+                    <span class="hw-part"><i class="fas fa-hand-pointer mr-1 opacity-60"></i>Отметьте, кто пришёл и сделал домашку — сохраняется сразу.</span>
+                    <span class="nohw-part"><i class="fas fa-hand-pointer mr-1 opacity-60"></i>Отметьте, кто пришёл. Домашку сегодня не задавали — в процент ДЗ урок не войдёт.</span>
+                    <div class="flex flex-wrap gap-2">
+                        <!-- Домашку не задавали: урок не считается в процент ДЗ -->
+                        <button type="button" class="act act-ghost nohw-btn" id="noHw" aria-pressed="{{ lesson.no_homework|yesno:'true,false' }}" onclick="toggleNoHomework(this)">
+                            <i class="fas fa-book"></i>Сегодня без домашки<i class="fas fa-check nohw-tick"></i>
+                        </button>
+                        <button type="button" class="act act-ok" id="allPresent" onclick="markAllPresent(this)"><i class="fas fa-check-double"></i>Все пришли</button>
+                    </div>
                 </div>
                 {% endif %}
 
@@ -396,7 +410,7 @@
                         </div>
                         {% if lesson_active and can_mark_attendance %}
                         <div class="controls flex items-center gap-3">
-                            <div>
+                            <div class="hw-cell">
                                 <button type="button" class="hw" aria-pressed="{{ data.homework_done|yesno:'true,false' }}" onclick="toggleHomework({{ data.student.id }}, this)" aria-label="Домашнее задание">
                                     <i class="fas fa-book-open"></i><span class="tick"><i class="fas fa-check"></i></span>
                                 </button>
@@ -691,6 +705,22 @@
                     recount();
                     alert(e.message === 'Failed to fetch' ? 'Нет связи с сервером' : e.message);
                 });
+        }
+
+        /* ---------- Сегодня без домашки ---------- */
+        async function toggleNoHomework(btn) {
+            const next = btn.getAttribute('aria-pressed') !== 'true';
+            const panel = document.getElementById('lessonPanel');
+            btn.setAttribute('aria-pressed', next ? 'true' : 'false');
+            panel.classList.toggle('no-hw', next);
+            try {
+                const data = await post(`/lesson/${LESSON}/no-homework/`, { no_homework: next ? '1' : '0' });
+                if (!data.success) throw new Error(data.error || 'Не удалось сохранить');
+            } catch (e) {
+                btn.setAttribute('aria-pressed', next ? 'false' : 'true');
+                panel.classList.toggle('no-hw', !next);
+                alert(e.message === 'Failed to fetch' ? 'Нет связи с сервером' : e.message);
+            }
         }
 
         /* ---------- Запрос книги ---------- */

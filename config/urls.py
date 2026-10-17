@@ -50,6 +50,7 @@ urlpatterns = [
     path('book/<int:book_id>/read/', views.book_reader, name='book_reader'),
     path('books/<int:book_id>/', views.book_detail, name='book_detail'),
     path('group/<int:group_id>/homework/', views.mark_homework, name='mark_homework'),
+    path('lesson/<int:lesson_id>/no-homework/', views.set_no_homework, name='set_no_homework'),
     path('calibration/create/', views.create_calibration, name='create_calibration'),
     path('students/<int:student_id>/', views.student_profile, name='student_profile'),
     path('group/<int:group_id>/stars/', views.give_stars, name='give_stars'),

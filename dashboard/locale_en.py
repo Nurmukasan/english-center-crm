@@ -186,6 +186,16 @@ PHRASES = {
     'Посещаемость последних уроков': 'Attendance at recent lessons',
     'Урок отменён': 'Lesson cancelled',
     'Все разделы': 'All sections',
+    # Домашка: «Сегодня без домашки», процент ДЗ с 1 октября 2026
+    'Сегодня без домашки': 'No homework today',
+    'без ДЗ': 'no homework',
+    'Домашку не задавали': 'No homework was set',
+    '— урок не войдёт в процент ДЗ': "— the lesson won't count towards the homework rate",
+    'Отметьте, кто пришёл. Домашку сегодня не задавали — в процент ДЗ урок не войдёт.':
+        "Mark who came. No homework was set today — this lesson won't count towards the homework rate.",
+    'Сделано ДЗ — с {n} {m} {n}, без уроков, где домашку не задавали': 'Homework done — since {m} {n}, {n}, not counting lessons without homework',
+    'Домашку не задавали — урок не входит в процент ДЗ': "No homework was set — the lesson doesn't count towards the homework rate",
+    'с {n}, где домашку задавали': 'since {n}, lessons with homework',
     # Заявки на обучение (лендинг и «Сообщения» → «Заявки»)
     'Оставить заявку': 'Apply now',
     'Заявка': 'Apply',

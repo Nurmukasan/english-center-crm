@@ -200,7 +200,7 @@
 
         <!-- Плитки за всё время -->
         <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5">
-            <div class="panel kpi tone-{% if not total_lessons %}none{% elif homework_percent < 50 %}bad{% elif homework_percent < 80 %}warn{% else %}ok{% endif %}" title="Сделано ДЗ за всё время">
+            <div class="panel kpi tone-{% if not homework_total %}none{% elif homework_percent < 50 %}bad{% elif homework_percent < 80 %}warn{% else %}ok{% endif %}" title="Сделано ДЗ — с 1 октября 2026, без уроков, где домашку не задавали">
                 <div class="kpi-visual">
                     <svg class="kring" viewBox="0 0 44 44" aria-hidden="true">
                         <circle class="kring-track" cx="22" cy="22" r="19" pathLength="100"/>
@@ -210,8 +210,8 @@
                 </div>
                 <div class="min-w-0">
                     <p class="kpi-label">Домашка</p>
-                    <p class="kpi-value tnum">{% if total_lessons %}{{ homework_percent }}<small>%</small>{% else %}—{% endif %}</p>
-                    <p class="kpi-sub tnum">{{ homework_count }} из {{ total_lessons }}</p>
+                    <p class="kpi-value tnum">{% if homework_total %}{{ homework_percent }}<small>%</small>{% else %}—{% endif %}</p>
+                    <p class="kpi-sub tnum">{{ homework_count }} из {{ homework_total }}</p>
                 </div>
             </div>
             <div class="panel kpi tone-{% if not total_lessons %}none{% elif participation_percent < 50 %}bad{% elif participation_percent < 80 %}warn{% else %}ok{% endif %}" title="Присутствовал на занятиях">
