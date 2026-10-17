@@ -11,24 +11,34 @@
 
 Ссылки на доски — секретные (token): кто знает ссылку, видит то, что показывают на доске, но управлять
 ей не может. Ссылку можно заменить на новую в настройках доски.
+
+Настройка доски — один раз и без длинных ссылок: на доске открывают короткий адрес /board/ и видят код,
+админ вводит код в CRM — доска получает свою ссылку. Там же кнопка «Скачать установщик»
+(board_install.cmd): после него Windows сама открывает доску при включении, открывает снова, если окно
+закрыли или страница не загрузилась, не даёт компьютеру уснуть и выводит окно доски вперёд, когда учитель
+что-то показывает. Поэтому доска всегда готова к подключению.
 """
 import json
 import os
 import re
+import secrets
 import uuid
 from datetime import timedelta
 from urllib.parse import urlparse
 
 from django.conf import settings
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Q
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .models import Board, BoardFile, BoardMessage
+from .security import client_ip, is_https
 from .views import MANAGE_ROLES, crm_view, get_user_role, to_int
 
 BOARD_ROLES = ('teacher', 'admin', 'developer', 'manager')
@@ -45,6 +55,8 @@ FILE_TYPES = {
     '.pdf': 'application/pdf',
 }
 SDP_LIMIT = 20000
+PAIR_TTL = 15 * 60          # код привязки на экране доски действует 15 минут, потом доска берёт новый
+PAIR_LIMIT = 60             # новых кодов с одного IP за час (у всех досок центра один IP)
 
 # Надписи страниц досок — здесь, а не в JS: английская версия переведёт их сама
 TEXTS = {
@@ -61,12 +73,14 @@ TEXTS = {
     'shows_screen': 'показывает экран', 'shows_url': 'показывает ссылку', 'shows_file': 'показывает файл',
     'confirm_kick': 'Отключить этого человека от доски?', 'saved': 'Сохранено', 'error': 'Не получилось — попробуйте ещё раз',
     'confirm_delete': 'Удалить доску? Ссылка на ней перестанет работать.',
-    'confirm_token': 'Сделать новую ссылку? Старая перестанет работать — на доске нужно будет запустить новый ярлык.',
+    'confirm_token': 'Сделать новую ссылку? Старая перестанет работать — доску нужно будет привязать заново по коду.',
     'no_screen_here': 'С этого устройства экран показать нельзя — отправляйте ссылки и файлы',
     'stopped': 'Показ экрана остановлен', 'sent_url': 'Ссылка открыта на доске', 'sent_file': 'Файл открыт на доске',
     'cleared': 'Доска очищена', 'connected': 'Подключено', 'stop_share': 'Остановить показ', 'new_board': 'Новая доска',
     'link_failed': 'Не удалось показать экран: ноутбук и доска не видят друг друга по Wi-Fi',
     'mine_other': 'Вы подключены в другой вкладке', 'off_hint': 'Включите доску — страница доски откроется на ней сама',
+    'paired': 'Доска привязана — на ней откроется страница доски', 'pair_code': 'Введите код с экрана доски',
+    'replaced': 'Эта доска уже открыта в другом окне', 'pair_expired': 'Код устарел — показываем новый',
 }
 
 
@@ -146,6 +160,20 @@ def own_board(request, board_id):
     return None
 
 
+def absolute(request, path):
+    """Полный адрес. За nginx Django видит http, а сайт открыт по https — даём сразу https"""
+    url = request.build_absolute_uri(path)
+    if is_https(request) and url.startswith('http://'):
+        url = 'https://' + url[len('http://'):]
+    return url
+
+
+def setup_item(request, board):
+    return {'id': board.id, 'name': board.name,
+            'url': absolute(request, reverse('board_screen', args=[board.token])),
+            'install': reverse('board_install', args=[board.token])}
+
+
 # ---------------- Вкладка «Доски» (учитель, админ, менеджер) ----------------
 
 @crm_view
@@ -160,8 +188,8 @@ def boards_page(request):
     return render(request, 'dashboard/boards.html', {
         'boards': [state(b, request.user, at) for b in boards],
         'can_manage': can_manage(request),
-        'setup': [{'id': b.id, 'name': b.name, 'url': request.build_absolute_uri(reverse('board_screen', args=[b.token]))}
-                  for b in boards] if can_manage(request) else [],
+        'setup': [setup_item(request, b) for b in boards] if can_manage(request) else [],
+        'pair_address': request.get_host() + reverse('board_pair_page').rstrip('/'),
         'board_texts': TEXTS, 'ice': ice_servers(), 'max_file_mb': MAX_FILE_MB,
         'accept': ','.join(sorted(FILE_TYPES)),
     })
@@ -348,7 +376,8 @@ def board_save(request):
         board.token = board_token()
         board.seen_at = None
         board.save(update_fields=['token', 'seen_at'])
-        return JsonResponse({'ok': True, 'url': request.build_absolute_uri(reverse('board_screen', args=[board.token]))})
+        cache.delete(screen_key(board))
+        return JsonResponse({'ok': True, **setup_item(request, board)})
     name = re.sub(r'\s+', ' ', request.POST.get('name', '')).strip()[:60]
     if not name:
         return JsonResponse({'ok': False, 'error': 'Напишите название кабинета'}, status=400)
@@ -357,8 +386,23 @@ def board_save(request):
         board.save(update_fields=['name'])
     else:
         board = Board.objects.create(name=name, order=Board.objects.count())
-    return JsonResponse({'ok': True, 'id': board.id,
-                         'url': request.build_absolute_uri(reverse('board_screen', args=[board.token]))})
+    return JsonResponse({'ok': True, **setup_item(request, board)})
+
+
+@crm_view
+@require_POST
+def board_pair(request):
+    """Привязать доску по коду с её экрана: доска сама перейдёт на свою страницу"""
+    if not can_manage(request):
+        return denied()
+    board = get_object_or_404(Board, id=to_int(request.POST.get('id'), 0))
+    code = re.sub(r'\D', '', request.POST.get('code', ''))
+    entry = cache.get(pair_key(code)) if len(code) == 6 else None
+    if not entry:
+        return JsonResponse({'ok': False, 'error': 'Код не найден или устарел — посмотрите новый код на экране доски'})
+    entry['board'] = board.id
+    cache.set(pair_key(code), entry, PAIR_TTL)
+    return JsonResponse({'ok': True})
 
 
 # ---------------- Экран доски (без входа, по секретной ссылке) ----------------
@@ -374,6 +418,8 @@ def board_screen(request, token):
     board = board_by_token(token)
     response = render(request, 'dashboard/board_screen.html', {
         'board': board, 'board_texts': TEXTS, 'ice': ice_servers(),
+        # Открыто установленным автозапуском (он добавляет ?app=1) — кнопка «Скачать установщик» не нужна
+        'installed': request.GET.get('app') == '1',
     })
     # Сайт открывается отдельным окном: без этого окно, ушедшее на чужой сайт, «отрывается»
     # от страницы доски, и она не может его закрыть, когда учитель показывает следующее
@@ -381,11 +427,33 @@ def board_screen(request, token):
     return response
 
 
+def screen_key(board):
+    return f'board-screen:{board.pk}'
+
+
+def screen_owner(board, iid, claim, at):
+    """Одна доска — одно окно доски. Иначе на приглашение показать экран ответили бы оба окна, и экран
+    мог уйти в то, что спрятано за другим (старая вкладка, открытая до установщика). Главнее последнее
+    открытое окно (claim); прежнее пишет «открыта в другом окне» и само станет главным, если новое пропадёт"""
+    if not iid:
+        return True                                   # страница, открытая до обновления сайта
+    key = screen_key(board)
+    current = cache.get(key) or {}
+    stamp = at.timestamp()
+    if claim or current.get('iid') == iid or current.get('at', 0) < stamp - ONLINE_TIMEOUT.total_seconds():
+        if claim or current.get('iid') != iid or current.get('at', 0) < stamp - TOUCH_EVERY.total_seconds():
+            cache.set(key, {'iid': iid, 'at': stamp}, None)
+        return True
+    return False
+
+
 @require_POST
 def board_screen_poll(request, token):
     """Доска на связи: отметиться и забрать то, что прислал подключённый учитель"""
     board = board_by_token(token)
     at = now()
+    if not screen_owner(board, request.POST.get('iid', '')[:40], request.POST.get('claim') == '1', at):
+        return JsonResponse({'ok': True, 'replaced': True})
     if not board.seen_at or at - board.seen_at >= TOUCH_EVERY:
         Board.objects.filter(pk=board.pk).update(seen_at=at)
     active = holder_active(board, at)
@@ -457,3 +525,69 @@ def read_part(f, length, chunk=64 * 1024):
     finally:
         f.close()
 
+
+# ---------------- Привязка доски по коду и установщик автозапуска ----------------
+
+def pair_key(code):
+    return f'board-pair:{code}'
+
+
+def board_pair_page(request):
+    """На доске: короткий адрес /board/ — большой код. Админ вводит его в CRM, и доска сама переходит
+    на свою страницу (длинную секретную ссылку на доске набирать не нужно)"""
+    return render(request, 'dashboard/board_pair.html', {'board_texts': TEXTS, 'ttl': PAIR_TTL})
+
+
+@require_POST
+def board_pair_new(request):
+    """Новый код для экрана доски. Код показывают всем в кабинете, поэтому к нему — секрет, который знает
+    только эта страница: ссылку на доску получит только она, даже если код подсмотрели"""
+    key = f'board-pair-ip:{client_ip(request)}'
+    cache.add(key, 0, 3600)
+    try:
+        count = cache.incr(key)
+    except ValueError:
+        cache.set(key, 1, 3600)
+        count = 1
+    if count > PAIR_LIMIT:
+        return JsonResponse({'ok': False, 'error': 'Слишком много кодов — подождите немного'}, status=429)
+    secret = secrets.token_hex(16)
+    for _ in range(20):
+        code = f'{secrets.randbelow(1000000):06d}'
+        if cache.add(pair_key(code), {'secret': secret, 'board': None}, PAIR_TTL):
+            return JsonResponse({'ok': True, 'code': code, 'secret': secret, 'ttl': PAIR_TTL})
+    return JsonResponse({'ok': False, 'error': 'Не получилось — обновите страницу'}, status=503)
+
+
+@require_POST
+def board_pair_check(request):
+    """Экран с кодом спрашивает: привязали ли его уже к доске"""
+    code = request.POST.get('code', '')
+    entry = cache.get(pair_key(code)) if re.fullmatch(r'\d{6}', code) else None
+    if not entry or not secrets.compare_digest(entry['secret'].encode(), request.POST.get('secret', '').encode()):
+        return JsonResponse({'ok': True, 'state': 'expired'})
+    board = Board.objects.filter(id=entry['board']).first() if entry['board'] else None
+    if not board:
+        return JsonResponse({'ok': True, 'state': 'wait'})
+    cache.delete(pair_key(code))
+    return JsonResponse({'ok': True, 'state': 'done', 'url': reverse('board_screen', args=[board.token]) + '?setup=1'})
+
+
+def ps_text(value):
+    """Строка для PowerShell в одинарных кавычках. PowerShell считает кавычками и «умные» ‘ ’ — убираем все"""
+    return re.sub(r"['\u2018\u2019\u201a\u201b\r\n]", '', value)
+
+
+def board_install(request, token):
+    """Установщик автозапуска для Windows (.cmd): двойной щелчок на доске — и дальше она открывается сама.
+    Скачать может сама доска (по своей секретной ссылке) или админ из настроек доски"""
+    board = board_by_token(token)
+    url = absolute(request, reverse('board_screen', args=[board.token])) + '?app=1'
+    text = render_to_string('dashboard/board_install.cmd', {'url': ps_text(url), 'name': ps_text(board.name)})
+    # cmd.exe читает только строки Windows (CRLF); первая часть файла — латиницей, без BOM
+    data = text.replace('\r\n', '\n').replace('\n', '\r\n').encode('utf-8')
+    response = HttpResponse(data, content_type='application/octet-stream')
+    response['Content-Disposition'] = 'attachment; filename="EnjoyBoard-setup.cmd"'
+    response['X-Content-Type-Options'] = 'nosniff'
+    response['Cache-Control'] = 'no-store'
+    return response

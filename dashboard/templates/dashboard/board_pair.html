@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Подключение доски · Enjoy English</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Экран доски до привязки: короткий адрес /board/ и код, который админ вводит в CRM (dashboard/boards.py) */
+        :root { --bg: #0d0b1a; --ink: #f5f3ff; --muted: #a8a3c7; --accent: #f97316; --ok: #22c55e; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); font-family: 'Manrope', system-ui, sans-serif; }
+        body { display: grid; place-items: center; min-height: 100vh; padding: 24px; text-align: center;
+            background: radial-gradient(1200px 700px at 15% 10%, rgba(124, 58, 237, .35), transparent 60%),
+                        radial-gradient(900px 600px at 90% 90%, rgba(249, 115, 22, .22), transparent 60%), var(--bg); }
+        .wrap { display: flex; flex-direction: column; align-items: center; max-width: 980px; }
+        .logo { width: 9vmin; height: 9vmin; min-width: 60px; min-height: 60px; border-radius: 9999px; overflow: hidden; background: #fff; }
+        .logo img { width: 100%; height: 100%; object-fit: cover; }
+        h1 { margin: 3vmin 0 0; font-size: clamp(24px, 4.4vmin, 56px); font-weight: 800; letter-spacing: -.02em; }
+        .label { margin: 4.5vmin 0 0; font-size: clamp(14px, 2vmin, 24px); font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; }
+        .code { margin-top: 1.6vmin; padding: 2.4vmin 5vmin; border-radius: 28px; font-size: clamp(56px, 15vmin, 200px); font-weight: 800; line-height: 1;
+            letter-spacing: .08em; font-variant-numeric: tabular-nums; background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .14); }
+        .code.is-done { color: var(--ok); }
+        .steps { margin: 4.5vmin 0 0; padding: 0; list-style: none; display: grid; gap: 1.6vmin; text-align: left;
+            font-size: clamp(15px, 2.3vmin, 28px); font-weight: 600; color: var(--muted); }
+        .steps li { display: flex; align-items: baseline; gap: 14px; }
+        .steps span { flex-shrink: 0; display: inline-grid; place-items: center; width: 1.7em; height: 1.7em; border-radius: 9999px;
+            font-size: .8em; font-weight: 800; color: #fff; background: var(--accent); }
+        .steps b { color: var(--ink); }
+        .status { margin-top: 3.5vmin; min-height: 1.4em; font-size: clamp(14px, 1.9vmin, 22px); font-weight: 700; color: var(--muted); }
+        .status.is-ok { color: var(--ok); }
+    </style>
+</head>
+<body>
+    <main class="wrap">
+        <span class="logo"><img src="/media/logo/logo.png" alt="Enjoy English"></span>
+        <h1>Подключение доски</h1>
+        <p class="label">Код доски</p>
+        <div class="code notranslate" id="code" aria-live="polite">··· ···</div>
+        <ol class="steps">
+            <li><span>1</span><p>На ноутбуке откройте <b>CRM → Доски</b></p></li>
+            <li><span>2</span><p>Нажмите <b>шестерёнку</b> на карточке кабинета или <b>«Добавить доску»</b></p></li>
+            <li><span>3</span><p>Введите этот код — доска откроется сама</p></li>
+        </ol>
+        <p class="status" id="status" role="status"></p>
+    </main>
+
+    {% csrf_token %}
+    {{ board_texts|json_script:"board-texts" }}
+    <script>
+    (function () {
+        const NEW = '{% url "board_pair_new" %}', CHECK = '{% url "board_pair_check" %}';
+        const CSRF = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const T = JSON.parse(document.getElementById('board-texts').textContent);
+        const $ = id => document.getElementById(id);
+        let code = '', secret = '', expires = 0, busy = false, done = false;
+
+        function form(data) {
+            const f = new FormData();
+            f.append('csrfmiddlewaretoken', CSRF);
+            Object.entries(data).forEach(([k, v]) => f.append(k, v));
+            return f;
+        }
+        async function post(url, data) {
+            const res = await fetch(url, { method: 'POST', body: form(data) });
+            return res.json();
+        }
+        async function fresh() {
+            const data = await post(NEW, {});
+            if (!data.ok) { $('status').textContent = data.error || ''; code = ''; expires = Date.now() + 30000; return; }
+            code = data.code; secret = data.secret;
+            expires = Date.now() + (data.ttl - 30) * 1000;          // новый код чуть раньше, чем старый устареет
+            $('code').textContent = code.slice(0, 3) + ' ' + code.slice(3);
+        }
+        async function check() {
+            if (busy || done) return;
+            busy = true;
+            try {
+                if (Date.now() > expires) { await fresh(); return; }
+                if (!code) return;                                  // сервер попросил подождать — новый код позже
+                const data = await post(CHECK, { code, secret });
+                if (data.state === 'done') {
+                    done = true;
+                    $('code').classList.add('is-done');
+                    $('status').textContent = T.paired;
+                    $('status').classList.add('is-ok');
+                    setTimeout(() => location.replace(data.url), 900);
+                } else if (data.state === 'expired') {
+                    $('status').textContent = T.pair_expired;
+                    await fresh();
+                }
+            } catch (e) {
+                $('status').textContent = T.offline;
+            } finally {
+                busy = false;
+            }
+        }
+        check();
+        setInterval(check, 2000);
+    })();
+    </script>
+</body>
+</html>

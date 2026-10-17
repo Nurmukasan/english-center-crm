@@ -66,6 +66,23 @@
         .steps { margin: 6px 0 0; padding-left: 20px; list-style: decimal; font-size: 13.5px; line-height: 1.55; color: var(--ink-2); }
         .steps li + li { margin-top: 4px; }
         .steps code { padding: 1px 6px; border-radius: 6px; font-size: 12.5px; background: var(--surface-3); color: var(--ink); }
+        .pair-box { margin-top: 20px; padding: 18px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--line); }
+        .pair-title { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 800; color: var(--ink); }
+        .pair-title i { color: var(--accent); }
+        .pair-row { display: flex; gap: 8px; margin: 10px 0 12px; }
+        .pair-code { flex: 1; min-width: 0; height: 52px; text-align: center; font-size: 26px !important; font-weight: 800; letter-spacing: .2em; font-variant-numeric: tabular-nums; }
+        .pair-row .ee-btn { height: 52px; }
+        .more { margin-top: 16px; }
+        .more > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 700; color: var(--muted); }
+        .more > summary::-webkit-details-marker { display: none; }
+        .more > summary i { transition: transform .2s ease; }
+        .more[open] > summary i { transform: rotate(90deg); }
+        .more .ee-btn { max-width: 100%; white-space: normal; text-align: center; }
+        @media (max-width: 480px) {
+            .pair-row { flex-wrap: wrap; }
+            .pair-code, .pair-row .ee-btn { flex: 1 1 100%; }
+            .more .ee-btn { width: 100%; }
+        }
     </style>
     {% include 'dashboard/partials/theme.html' %}
 </head>
@@ -133,7 +150,7 @@
         <div class="panel ee-empty">
             <i class="fas fa-chalkboard"></i>
             <b>Досок пока нет</b>
-            <p>{% if can_manage %}Нажмите «Добавить доску» и откройте выданную ссылку на доске в кабинете.{% else %}Попросите администратора добавить доски кабинетов.{% endif %}</p>
+            <p>{% if can_manage %}Нажмите «Добавить доску» — дальше подскажем, как подключить доску в кабинете.{% else %}Попросите администратора добавить доски кабинетов.{% endif %}</p>
         </div>
         {% endif %}
     </main>
@@ -143,7 +160,7 @@
     <div class="modal" id="setup" hidden role="dialog" aria-modal="true" aria-labelledby="setupTitle">
         <div class="panel modal-card">
             <div class="flex items-start justify-between gap-4 mb-4">
-                <div><h3 class="ee-sec-title" id="setupTitle">Доска</h3><p class="ee-sec-desc">Один раз настройте на доске — дальше она сама открывается при включении</p></div>
+                <div><h3 class="ee-sec-title" id="setupTitle">Доска</h3><p class="ee-sec-desc">Один раз настройте на доске — дальше она сама открывается при включении и всегда готова к подключению</p></div>
                 <button type="button" class="ee-icon-btn" onclick="closeSetup()" aria-label="Закрыть"><i class="fas fa-xmark"></i></button>
             </div>
             <label class="ee-label" for="setupName">Кабинет</label>
@@ -151,23 +168,34 @@
                 <input type="text" id="setupName" maxlength="60" class="ee-input" placeholder="Например: Кабинет 3">
                 <button type="button" class="ee-btn ee-btn-primary" onclick="saveSetup()"><i class="fas fa-floppy-disk"></i>Сохранить</button>
             </div>
+            <p class="ee-hint" id="setupFirst">Сохраните название — дальше подскажем, как подключить доску в кабинете.</p>
             <div id="setupMore" hidden>
-                <label class="ee-label mt-5" for="setupUrl">Ссылка для доски</label>
-                <div class="copy-row">
-                    <input type="text" id="setupUrl" class="ee-input notranslate" readonly>
-                    <button type="button" class="ee-btn ee-btn-soft" onclick="copyField('setupUrl', this)" aria-label="Копировать"><i class="fas fa-copy"></i></button>
+                <!-- Привязка по коду: на доске короткий адрес, длинную ссылку набирать не нужно -->
+                <div class="pair-box">
+                    <p class="pair-title"><i class="fas fa-link"></i>Подключить доску в кабинете</p>
+                    <ol class="steps mt-2">
+                        <li>На доске откройте Chrome и наберите адрес <code class="notranslate">{{ pair_address }}</code> — на экране появится код.</li>
+                        <li>Введите код здесь:</li>
+                    </ol>
+                    <form class="pair-row" onsubmit="pairBoard(event)">
+                        <input type="text" id="pairCode" class="ee-input pair-code notranslate" inputmode="numeric" maxlength="7" autocomplete="off" placeholder="000 000" aria-label="Код с экрана доски">
+                        <button type="submit" class="ee-btn ee-btn-primary"><i class="fas fa-check"></i>Привязать</button>
+                    </form>
+                    <ol class="steps" start="3">
+                        <li>На доске нажмите <b>«Скачать установщик»</b> и откройте файл. Готово: доска сама открывается при каждом включении, а если окно закрыть — само выйдет вперёд, когда учитель подключится.</li>
+                    </ol>
                 </div>
-                <label class="ee-label mt-4" for="setupCmd">Ярлык для доски (Windows)</label>
-                <div class="copy-row">
-                    <input type="text" id="setupCmd" class="ee-input notranslate" readonly>
-                    <button type="button" class="ee-btn ee-btn-soft" onclick="copyField('setupCmd', this)" aria-label="Копировать"><i class="fas fa-copy"></i></button>
-                </div>
-                <ol class="steps mt-3">
-                    <li>На доске: правой кнопкой по рабочему столу → <b>Создать → Ярлык</b>, вставьте строку выше, назовите «Доска».</li>
-                    <li>Нажмите <code>Win + R</code>, введите <code>shell:startup</code> и перетащите ярлык в открывшуюся папку — доска будет открываться сама при включении.</li>
-                    <li>Запустите ярлык: на доске появятся часы и название кабинета. Закрыть — <code>Alt + F4</code>.</li>
-                </ol>
-                <p class="ee-hint">Ссылка секретная: по ней видно, что показывают на доске. Если она попала не туда — сделайте новую.</p>
+
+                <details class="more">
+                    <summary><i class="fas fa-chevron-right"></i>Ссылка для доски и установщик на флешку</summary>
+                    <label class="ee-label mt-4" for="setupUrl">Ссылка для доски</label>
+                    <div class="copy-row">
+                        <input type="text" id="setupUrl" class="ee-input notranslate" readonly>
+                        <button type="button" class="ee-btn ee-btn-soft" onclick="copyField('setupUrl', this)" aria-label="Копировать"><i class="fas fa-copy"></i></button>
+                    </div>
+                    <a class="ee-btn ee-btn-soft mt-3" id="setupInstall" href="#" download><i class="fas fa-download"></i>Скачать установщик для этой доски</a>
+                    <p class="ee-hint">Ссылка и установщик секретные: по ним видно, что показывают на доске. Если они попали не туда — сделайте новую ссылку и привяжите доску заново.</p>
+                </details>
                 <div class="flex flex-wrap gap-2 mt-5">
                     <button type="button" class="ee-btn ee-btn-soft" onclick="newToken()"><i class="fas fa-rotate"></i>Новая ссылка</button>
                     <button type="button" class="ee-btn ee-btn-danger" onclick="deleteBoard()"><i class="fas fa-trash"></i>Удалить доску</button>
@@ -453,12 +481,13 @@
         /* ---------- Настройка досок (админ, менеджер) ---------- */
         if (!CAN_MANAGE) return;
         let setup = JSON.parse(document.getElementById('boards-setup').textContent), editing = null;
-        const chrome = url => `"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --user-data-dir="C:\\EnjoyBoard" --app=${url} --start-fullscreen --autoplay-policy=no-user-gesture-required --disable-popup-blocking --no-first-run`;
         function fill(item) {
             $('setupMore').hidden = !item;
+            $('setupFirst').hidden = !!item;
             if (!item) return;
             $('setupUrl').value = item.url;
-            $('setupCmd').value = chrome(item.url);
+            $('setupInstall').href = item.install;
+            $('pairCode').value = '';
         }
         window.openSetup = function (id) {
             editing = setup.find(x => x.id === id) || null;
@@ -466,7 +495,7 @@
             $('setupName').value = editing ? editing.name : '';
             fill(editing);
             $('setup').hidden = false;
-            $('setupName').focus();
+            (editing ? $('pairCode') : $('setupName')).focus();
         };
         window.closeSetup = () => { $('setup').hidden = true; };
         $('setup').addEventListener('mousedown', e => { if (e.target === $('setup')) closeSetup(); });
@@ -474,7 +503,7 @@
         window.saveSetup = async function () {
             const data = await call('{% url "board_save" %}', { id: editing ? editing.id : '', name: $('setupName').value });
             if (!data.ok) { toast(data.error || T.error, true); return; }
-            if (!editing) { location.reload(); return; }   // новая доска — карточка появится в списке
+            if (!editing) { location.replace('?setup=' + data.id); return; }   // новая доска: карточка в списке, окно — дальше, к привязке
             editing.name = $('setupName').value.trim();
             $('setupTitle').textContent = editing.name;
             toast(T.saved);
@@ -484,8 +513,25 @@
             if (!editing || !confirm(T.confirm_token)) return;
             const data = await call('{% url "board_save" %}', { id: editing.id, action: 'token' });
             if (!data.ok) { toast(data.error || T.error, true); return; }
-            editing.url = data.url; fill(editing); toast(T.saved);
+            editing.url = data.url; editing.install = data.install; fill(editing); toast(T.saved);
         };
+        window.pairBoard = async function (e) {
+            e.preventDefault();
+            if (!editing) return;
+            const code = $('pairCode').value.replace(/\D/g, '');
+            if (code.length !== 6) { toast(T.pair_code, true); return $('pairCode').focus(); }
+            const data = await call('{% url "board_pair" %}', { id: editing.id, code });
+            if (!data.ok) { toast(data.error || T.error, true); return; }
+            $('pairCode').value = '';
+            toast(T.paired);
+            setTimeout(refresh, 2500);
+        };
+        // Только что добавили доску — сразу окно с привязкой
+        const opened = +new URLSearchParams(location.search).get('setup');
+        if (opened && setup.some(x => x.id === opened)) {
+            history.replaceState(null, '', location.pathname);
+            openSetup(opened);
+        }
         window.deleteBoard = async function () {
             if (!editing || !confirm(T.confirm_delete)) return;
             const data = await call('{% url "board_save" %}', { id: editing.id, action: 'delete' });

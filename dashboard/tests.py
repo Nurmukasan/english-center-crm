@@ -2103,6 +2103,99 @@ class BoardTests(CRMTestCase):
         self.client.post('/boards/save/', {'id': board.id, 'action': 'delete'})
         self.assertFalse(Board.objects.filter(id=board.id).exists())
 
+    # ---------------- Доска всегда готова: привязка по коду, установщик, одно окно на доску ----------------
+
+    def pair_new(self):
+        data = self.client.post('/board/pair/new/').json()
+        self.assertTrue(data['ok'])
+        return data
+
+    def pair_check(self, data, secret=None):
+        return self.client.post('/board/pair/check/', {'code': data['code'], 'secret': secret or data['secret']}).json()
+
+    def test_pair_by_code(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        page = self.client.get('/board/')
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, '/board/pair/new/')
+        pair = self.pair_new()
+        self.assertRegex(pair['code'], r'^\d{6}$')
+        self.assertEqual(self.pair_check(pair)['state'], 'wait')
+        self.assertEqual(self.pair_check(pair, secret='x' * 32)['state'], 'expired')   # подсмотрели код — ссылку не получить
+        # Привязывает только админ или менеджер
+        self.login(self.teacher)
+        self.assertEqual(self.client.post('/boards/pair/', {'id': self.board.id, 'code': pair['code']}).status_code, 403)
+        self.login(self.manager)
+        wrong = self.client.post('/boards/pair/', {'id': self.board.id, 'code': '000000' if pair['code'] != '000000' else '111111'}).json()
+        self.assertFalse(wrong['ok'])
+        spaced = pair['code'][:3] + ' ' + pair['code'][3:]
+        self.assertTrue(self.client.post('/boards/pair/', {'id': self.board.id, 'code': spaced}).json()['ok'])
+        self.client.logout()
+        done = self.pair_check(pair)
+        self.assertEqual((done['state'], done['url']), ('done', f'/board/{self.board.token}/?setup=1'))
+        self.assertEqual(self.pair_check(pair)['state'], 'expired')      # код одноразовый
+        self.assertEqual(self.client.post('/board/pair/check/', {'code': 'abc', 'secret': ''}).json()['state'], 'expired')
+        again = self.pair_new()
+        self.assertEqual(self.pair_check(again, secret='секрет')['state'], 'expired')   # не латиница — не падаем
+
+    def test_pair_codes_limited_per_ip(self):
+        from django.core.cache import cache
+        from .boards import PAIR_LIMIT
+        cache.clear()
+        self.addCleanup(cache.clear)
+        for _ in range(PAIR_LIMIT):
+            self.pair_new()
+        self.assertEqual(self.client.post('/board/pair/new/').status_code, 429)
+
+    def test_installer(self):
+        from .models import Board
+        Board.objects.filter(pk=self.board.pk).update(name="Кабинет ’3' «большой»")
+        res = self.client.get(f'/board/{self.board.token}/install/')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res['Content-Disposition'], 'attachment; filename="EnjoyBoard-setup.cmd"')
+        data = res.content
+        self.assertTrue(data.startswith(b'@echo off\r\n'))                 # без BOM — иначе cmd.exe не поймёт первую строку
+        self.assertNotIn(b'\n', data.replace(b'\r\n', b''))               # только строки Windows
+        text = data.decode('utf-8')
+        marker = text.index('\n#EE-SCRIPT\r\n')
+        self.assertTrue(text[:marker].isascii())
+        self.assertEqual(text.count('#EE-SCRIPT'), 1)
+        self.assertIn(f"$BoardUrl = 'http://testserver/board/{self.board.token}/?app=1'", text)
+        self.assertIn("$BoardName = 'Кабинет 3 «большой»'", text)           # кавычки из названия не ломают скрипт
+        self.assertNotIn('{{', text)
+        self.assertEqual(self.client.get('/board/nope/install/').status_code, 404)
+        # За nginx по https — в установщике сразу https
+        behind = self.client.get(f'/board/{self.board.token}/install/', REMOTE_ADDR='127.0.0.1', HTTP_X_FORWARDED_PROTO='https')
+        self.assertIn(f"'https://testserver/board/{self.board.token}/?app=1'", behind.content.decode())
+        # Админу — кнопка в настройках доски
+        self.login(self.admin)
+        self.assertContains(self.client.get('/boards/'), f'/board/{self.board.token}/install/')
+
+    def test_board_screen_offers_installer(self):
+        self.assertContains(self.client.get(f'/board/{self.board.token}/'), 'Скачать установщик')
+        self.assertNotContains(self.client.get(f'/board/{self.board.token}/?app=1'), 'Скачать установщик')
+
+    def test_one_window_per_board(self):
+        from django.core.cache import cache
+        from .boards import screen_key
+        cache.clear()
+        self.addCleanup(cache.clear)
+        url = f'/board/{self.board.token}/poll/'
+        old_tab = self.client.post(url, {'iid': 'tab', 'claim': 1}).json()
+        self.assertNotIn('replaced', old_tab)
+        session = self.connect(self.teacher)['session']
+        self.client.post(url, {'iid': 'app', 'claim': 1})                 # открыли автозапуском — новое окно главнее
+        self.assertTrue(self.client.post(url, {'iid': 'tab', 'session': '', 'since': 0}).json()['replaced'])
+        got = self.client.post(url, {'iid': 'app', 'session': '', 'since': 0}).json()
+        self.assertEqual((got['session'], [m['kind'] for m in got['messages']]), (session, ['hello']))
+        # Новое окно пропало (закрыли) — старое само становится главным
+        cache.set(screen_key(self.board), {'iid': 'app', 'at': timezone.now().timestamp() - 60}, None)
+        self.assertNotIn('replaced', self.client.post(url, {'iid': 'tab'}).json())
+        self.assertTrue(self.client.post(url, {'iid': 'app'}).json()['replaced'])
+        self.assertNotIn('replaced', self.client.post(url, {}).json())     # страница, открытая до обновления сайта
+
 
 class TwoTeachersTests(CRMTestCase):
     """Два учителя ведут в один день свои уроки (жалоба Duke: «посещаемость уже отметил первый учитель»)"""
