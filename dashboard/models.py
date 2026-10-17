@@ -152,6 +152,8 @@ class Lesson(models.Model):
     topic = models.CharField(max_length=200, blank=True, verbose_name="Тема урока")
     created_at = models.DateTimeField(auto_now_add=True)
     is_cancelled = models.BooleanField(default=False, verbose_name="Урок отменён")
+    # «Сегодня без домашки»: урок не входит в процент выполненных ДЗ
+    no_homework = models.BooleanField(default=False, verbose_name="Домашку не задавали")
     edited_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='edited_lessons', verbose_name="Кто правил задним числом")
     edited_at = models.DateTimeField(null=True, blank=True, verbose_name="Когда правили")
 

@@ -105,6 +105,13 @@
         html.ee .hw-toggle:hover { color: var(--ink-2); }
         html.ee .hw-toggle:has(input:checked) { color: var(--ok-ink); background: var(--ok-soft); border-color: var(--ok-line); }
         .hw-toggle:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+        /* «Домашку не задавали»: галочки ДЗ у учеников не нужны */
+        .no-hw .hw-toggle { visibility: hidden; }
+        .nohw-check { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; cursor: pointer; font-size: 13px; color: var(--muted);
+            background: var(--surface-2); border: 1px solid var(--line); }
+        .nohw-check b { color: var(--ink); }
+        .nohw-check input { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--accent); }
+        .nohw-check:has(input:checked) { background: var(--accent-soft); border-color: var(--accent-line); }
         .stepper { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
         .stepper button { width: 30px; height: 30px; border-radius: 9px; font-weight: 800; font-size: 15px; line-height: 1; transition: transform var(--spring-dur) var(--spring), background .2s ease; }
         .stepper button:active { transform: scale(.88); }
@@ -178,7 +185,8 @@
             {% widthratio data.present_count data.total_count 100 as rate %}
             <article id="lesson-{{ lesson.id }}" class="lesson{% if lesson.is_cancelled %} is-cancelled{% endif %}"
                      data-cancelled="{% if lesson.is_cancelled %}1{% else %}0{% endif %}" data-total="{{ data.total_count }}"
-                     data-present="{{ data.present_count }}" data-hw="{{ data.homework_count }}" data-stars="{{ data.stars_total }}">
+                     data-present="{{ data.present_count }}" data-stars="{{ data.stars_total }}"
+                     {% if data.homework_counts %}data-hw="{{ data.homework_count }}" data-hwtotal="{{ data.total_count }}"{% endif %}>
                 <div class="lesson-row">
                     {% if lesson.is_cancelled %}<div class="lesson-open">{% else %}
                     <button type="button" class="lesson-open" onclick="toggleStudents({{ lesson.id }})">{% endif %}
@@ -205,7 +213,8 @@
                             <span class="c-ok{% if not data.present_count %} is-zero{% endif %}" title="Был(и)"><i class="fas fa-check"></i>{{ data.present_count }}</span>
                             <span class="c-late{% if not data.late_count %} is-zero{% endif %}" title="Из них опоздали"><i class="fas fa-clock"></i>{{ data.late_count }}</span>
                             <span class="c-bad{% if not data.absent_count %} is-zero{% endif %}" title="Не был(и)"><i class="fas fa-xmark"></i>{{ data.absent_count }}</span>
-                            <span class="c-hw{% if not data.homework_count %} is-zero{% endif %}" title="Сделали ДЗ"><i class="fas fa-book"></i>{{ data.homework_count }}</span>
+                            {% if lesson.no_homework %}<span class="c-hw is-zero" title="Домашку не задавали — урок не входит в процент ДЗ"><i class="fas fa-book"></i>без ДЗ</span>
+                            {% else %}<span class="c-hw{% if not data.homework_count %} is-zero{% endif %}" title="Сделали ДЗ"><i class="fas fa-book"></i>{{ data.homework_count }}</span>{% endif %}
                             <span class="c-star{% if not data.stars_total %} is-zero{% endif %}" title="Звёзд за урок"><i class="fas fa-star"></i>{{ data.stars_total }}</span>
                         </span>
                     {% endif %}</div>
@@ -289,7 +298,8 @@
                 </div>
                 <button type="button" onclick="closeEditor()" class="ee-icon-btn" title="Закрыть" aria-label="Закрыть"><i class="fas fa-xmark"></i></button>
             </div>
-            <input type="text" id="editorTopic" maxlength="200" placeholder="Тема урока (необязательно)" aria-label="Тема урока (необязательно)" class="ee-input mb-4">
+            <input type="text" id="editorTopic" maxlength="200" placeholder="Тема урока (необязательно)" aria-label="Тема урока (необязательно)" class="ee-input mb-3">
+            <label class="nohw-check mb-4"><input type="checkbox" id="editorNoHw" onchange="syncNoHw()"><span><b>Домашку не задавали</b> — урок не войдёт в процент ДЗ</span></label>
             <div class="flex items-center justify-between gap-3 mb-2">
                 <span class="eyebrow">Ученик</span>
                 <button type="button" onclick="markAllPresent()" class="ee-btn ee-btn-sm ee-btn-soft"><i class="fas fa-check-double"></i>Все были</button>
@@ -326,7 +336,9 @@
             const put = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
             put('statHeld', held.length);
             put('statRate', total ? Math.round(sum('present') * 100 / total) + '%' : '—');
-            put('statHw', total ? Math.round(sum('hw') * 100 / total) + '%' : '—');
+            // ДЗ — только по урокам с 1 октября 2026, где домашку задавали
+            const hwTotal = sum('hwtotal');
+            put('statHw', hwTotal ? Math.round(sum('hw') * 100 / hwTotal) + '%' : '—');
             put('statStars', sum('stars'));
         })();
         {% if can_edit %}
@@ -342,6 +354,7 @@
             if (!editing) return;
             document.getElementById('editorDate').textContent = editing.date;
             document.getElementById('editorTopic').value = editing.topic;
+            document.getElementById('editorNoHw').checked = editing.no_homework;
             document.getElementById('editorRows').innerHTML = editing.rows.map((r, i) => `
                 <div class="ed-row" data-i="${i}">
                     <span class="ed-name notranslate" title="${esc(r.name)}">${esc(r.name)}</span>
@@ -356,8 +369,14 @@
                         <button type="button" onclick="stepStars(${i}, 1)" class="plus" aria-label="${TEXT.more}">+</button>
                     </div>
                 </div>`).join('');
+            syncNoHw();
             document.getElementById('editorModal').classList.remove('hidden');
             document.getElementById('editorTopic').focus();
+        }
+
+        // Домашку не задавали — галочки ДЗ у учеников прячем (сохранённые отметки не стираются)
+        function syncNoHw() {
+            document.getElementById('editorRows').classList.toggle('no-hw', document.getElementById('editorNoHw').checked);
         }
 
         function setStatus(i, value) {
@@ -389,7 +408,8 @@
             fetch(editing.save_url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-                body: JSON.stringify({ topic: document.getElementById('editorTopic').value, rows: editing.rows }),
+                body: JSON.stringify({ topic: document.getElementById('editorTopic').value, rows: editing.rows,
+                                       no_homework: document.getElementById('editorNoHw').checked }),
             })
             .then(r => r.json())
             .then(data => {

@@ -543,7 +543,7 @@ def income_workbook(months, group_type):
 
 def general_workbook():
     from .models import Attendance, Enrollment, Group, Payment, Student
-    from .views import (MONTHS_RU, count_lessons_in_period, get_current_period, get_period, is_enrolled_by)
+    from .views import (MONTHS_RU, count_lessons_in_period, get_current_period, get_period, homework_counts, is_enrolled_by)
     now = timezone.localtime()
     today = now.date()
 
@@ -600,7 +600,9 @@ def general_workbook():
         data.append([
             lesson.date, date(lesson.date.year, lesson.date.month, 1), all_groups_label[lesson.group_id],
             teacher.username if teacher else '', student_label.get(a.student_id, a.student.name),
-            status_label.get(a.status, ABSENT), 'Да' if a.homework_done else 'Нет', a.stars or 0, lesson.topic or '',
+            # ДЗ: «—» — не входит в процент (до 1 октября 2026 или домашку не задавали)
+            status_label.get(a.status, ABSENT), ('Да' if a.homework_done else 'Нет') if homework_counts(lesson) else '—',
+            a.stars or 0, lesson.topic or '',
         ])
     book.table(ws_a, a_top, [
         ('Дата', 12, 'date'), ('Месяц', 14, 'month'), ('Группа', 28, 'text'), ('Учитель', 13, 'muted'),
@@ -622,7 +624,8 @@ def general_workbook():
         r = u_first + i
         marks = [a for a in log if a.student_id == st.id]
         came = sum(1 for a in marks if a.status in status_label)
-        hw = sum(1 for a in marks if a.homework_done)
+        hw_marks = [a for a in marks if homework_counts(a.lesson)]
+        hw = sum(1 for a in hw_marks if a.homework_done)
         data.append([
             student_label[st.id], 'Учится' if st.is_active else 'В архиве', st.age or '', st.school or '', st.grade or '',
             st.phone or '', st.parent_name or '', st.parent_phone or '', ', '.join(by_student.get(st.id, [])) if st.is_active else '',
@@ -630,7 +633,8 @@ def general_workbook():
             F(f'=COUNTIFS({acol["student"]},A{r})', len(marks)),
             F(f'=COUNTIFS({acol["student"]},A{r},{acol["status"]},"{PRESENT}")+COUNTIFS({acol["student"]},A{r},{acol["status"]},"{LATE}")', came),
             F(f'=IFERROR(M{r}/L{r},"")', ratio(came, len(marks)) if marks else ''),
-            F(f'=IFERROR(COUNTIFS({acol["student"]},A{r},{acol["hw"]},"Да")/L{r},"")', ratio(hw, len(marks)) if marks else ''),
+            F(f'=IFERROR(COUNTIFS({acol["student"]},A{r},{acol["hw"]},"Да")/(COUNTIFS({acol["student"]},A{r},{acol["hw"]},"Да")'
+              f'+COUNTIFS({acol["student"]},A{r},{acol["hw"]},"Нет")),"")', ratio(hw, len(hw_marks)) if hw_marks else ''),
             F(f'=SUMIFS({acol["stars"]},{acol["student"]},A{r})', sum(a.stars or 0 for a in marks)),
         ])
     book.table(ws_u, u_top, [
@@ -755,8 +759,9 @@ def general_workbook():
         ('Уже оплачено', F(f'=SUMIFS({pcol["due"]},{pcol["status"]},"{PAID}")', paid_now), 'money', 'в текущем месяце'),
         ('Посещаемость', F(f'=IFERROR((COUNTIFS({acol["status"]},"{PRESENT}")+COUNTIFS({acol["status"]},"{LATE}"))/COUNTA({acol["status"]}),0)',
                            ratio(came_all, len(log))), 'pct', 'пришли на урок, за 12 месяцев'),
-        ('ДЗ сдано', F(f'=IFERROR(COUNTIFS({acol["hw"]},"Да")/COUNTA({acol["hw"]}),0)', ratio(log_count(lambda a: a.homework_done), len(log))),
-         'pct', 'от всех отметок, за 12 месяцев'),
+        ('ДЗ сдано', F(f'=IFERROR(COUNTIFS({acol["hw"]},"Да")/(COUNTIFS({acol["hw"]},"Да")+COUNTIFS({acol["hw"]},"Нет")),0)',
+                       ratio(log_count(lambda a: a.homework_done and homework_counts(a.lesson)), log_count(lambda a: homework_counts(a.lesson)))),
+         'pct', 'с 01.10.2026, где домашку задавали'),
     ]
     for i, (label, value, kind, note) in enumerate(tiles):
         book.tile(ws_s, 4 + (i // 4) * 4, 1 + (i % 4) * 3, label, value, kind, note)
