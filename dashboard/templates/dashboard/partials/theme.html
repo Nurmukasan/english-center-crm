@@ -311,19 +311,59 @@ Tailwind «светлый / dark:» — тёмный режим больше н�
     .ee-rail-exit:hover { color: var(--bad); }
     #eeLogout { display: contents; }   /* форма выхода не ломает раскладку меню */
 
-    /* Телефон: панель превращается в док снизу */
+    /* Кнопка «Ещё» и заголовок меню — только на телефоне */
+    .ee-rail-head, .ee-rail-scrim { display: none; }
+
+    /* Телефон: панель превращается в док снизу. В доке — разделы, которые помещаются
+       («Сообщения» и открытая страница — всегда), остальное и поиск, язык, профиль — по кнопке «Ещё» */
     @media (max-width: 767px) {
         html.ee body:has(> .ee-rail) { padding-left: 0; padding-bottom: 96px; }
-        .ee-rail { top: auto; left: 10px; right: 10px; bottom: 10px; width: auto; height: 68px; flex-direction: row; padding: 0 10px; gap: 6px; border-radius: 22px; }
+        .ee-rail { top: auto; left: 10px; right: 10px; bottom: 10px; width: auto; height: 68px; flex-direction: row; padding: 0 10px; gap: 4px; border-radius: 22px; }
         .ee-rail-logo { display: none; }
-        .ee-rail-items { flex-direction: row; margin: 0; overflow-x: auto; scrollbar-width: none; height: 100%; align-items: center; }
-        .ee-rail-items::-webkit-scrollbar { display: none; }
+        .ee-rail-items { flex-direction: row; margin: 0; gap: 4px; flex: 1; min-width: 0; overflow: hidden; height: 100%; align-items: center; }
+        .ee-rail-item { width: 44px; height: 44px; }
         .ee-rail-items .ee-rail-item { flex-shrink: 0; }
-        .ee-rail-glow { top: 50%; margin-top: -24px; }
-        .ee-rail-bottom { flex-direction: row; border-top: 0; border-left: 1px solid var(--line); padding: 0 0 0 8px; }
-        .ee-rail-exit { display: none !important; }
+        .ee-rail-items .ee-rail-item.is-more { display: none; }
+        .ee-rail-glow { top: 50%; margin-top: -22px; width: 44px; height: 44px; }
+        .ee-rail-bottom { display: none; }
         .ee-rail-item > span:last-child { display: none; }
+        .ee-rail-head { display: contents; }
+        .ee-rail-head > b { display: none; }
+        .ee-rail-more { flex-shrink: 0; border-left: 1px solid var(--line); border-radius: 0 14px 14px 0; width: 48px; }
+        .ee-rail-more .fa-xmark { display: none; }
+        .ee-rail-more.has-badge::after { content: ''; position: absolute; top: 9px; right: 9px; width: 9px; height: 9px; border-radius: 9999px;
+            background: var(--bad); box-shadow: 0 0 0 2px var(--surface); }
+
+        /* Открытое меню: все разделы плитками с подписями */
+        .ee-rail-scrim { position: fixed; inset: 0; z-index: 44; background: rgba(15, 12, 10, .38); backdrop-filter: blur(2px); }
+        .ee-rail-scrim:not([hidden]) { display: block; animation: ee-fade .2s ease both; }
+        .ee-rail.is-open { height: auto; max-height: calc(100dvh - 20px); overflow-y: auto; flex-direction: column; align-items: stretch; gap: 12px; padding: 12px 12px 14px; }
+        .ee-rail.is-open > * { animation: ee-menu-in .3s var(--spring-soft) both; }
+        .ee-rail.is-open .ee-rail-head { display: flex; align-items: center; justify-content: space-between; order: -1; padding-left: 6px; }
+        .ee-rail.is-open .ee-rail-head > b { display: block; font-size: 15px; font-weight: 800; color: var(--ink); }
+        .ee-rail.is-open .ee-rail-item.ee-rail-more { display: grid; width: 40px; height: 40px; border-left: 0; border-radius: 12px; font-size: 17px; }
+        .ee-rail.is-open .ee-rail-more .fa-xmark { display: inline; }
+        .ee-rail.is-open .ee-rail-more .fa-grip, .ee-rail.is-open .ee-rail-more::after { display: none; }
+        .ee-rail.is-open .ee-rail-items, .ee-rail.is-open .ee-rail-bottom { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; height: auto; overflow: visible; }
+        .ee-rail.is-open .ee-rail-bottom { grid-template-columns: repeat(5, minmax(0, 1fr)); padding-top: 12px; border-top: 1px solid var(--line); }
+        .ee-rail.is-open .ee-rail-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: auto; height: 70px; margin: 0; font-size: 18px; }
+        .ee-rail.is-open .ee-rail-items .ee-rail-item.is-more { display: flex; }
+        .ee-rail.is-open .ee-rail-item:not(.ee-rail-more) > :first-child { height: 24px; display: grid; place-items: center; }
+        .ee-rail.is-open .ee-rail-item > span:last-child { display: block; position: static; max-width: 100%; padding: 0 2px; opacity: 1; transform: none;
+            background: none; box-shadow: none; color: inherit; font-size: 11px; font-weight: 700; line-height: 1.15; white-space: normal; text-align: center; overflow-wrap: anywhere; }
+        .ee-rail.is-open .ee-rail-item.is-active { color: #fff; background: var(--accent); }
+        .ee-rail.is-open .ee-rail-glow { display: none; }
+        .ee-rail.is-open .ee-rail-badge { top: 6px; right: calc(50% - 22px); }
+        .ee-rail.is-open .ee-rail-exit { display: flex !important; }
+        .ee-rail.is-open .ee-rail-item.ee-rail-game { background: none; box-shadow: none; }
+        .ee-rail.is-open .ee-rail-item.ee-rail-game:hover { background: var(--surface-2); }
+        .ee-rail.is-open .ee-rail-game svg { width: 20px; }
+        .ee-rail.is-open .ee-rail-avatar img, .ee-rail.is-open .ee-rail-avatar b { width: 24px; height: 24px; font-size: 11px; }
+        .ee-rail.is-open .ee-lang-code { font-size: 11px; padding: 2px 6px; }
     }
+    @keyframes ee-fade { from { opacity: 0; } }
+    @keyframes ee-menu-in { from { opacity: 0; transform: translateY(8px); } }
+    @media (prefers-reduced-motion: reduce) { .ee-rail.is-open > *, .ee-rail-scrim:not([hidden]) { animation: none; } }
 
     /* ---------- Общие блоки страниц ---------- */
     .grad-text { color: var(--accent); }

@@ -1110,6 +1110,9 @@ class InboxTests(CRMTestCase):
         response = self.client.get('/dashboard/')
         self.assertEqual(response.context['inbox_unread'], 1)
         self.assertContains(response, 'class="ee-rail-badge')
+        # Пункт «Сообщения» в меню; на телефоне он всегда в доке, остальное — по кнопке «Ещё»
+        self.assertContains(response, 'href="/messages/" data-label="Сообщения" data-inbox')
+        self.assertContains(response, 'id="eeRailMore"')
         page = self.client.get(f'/messages/?student={self.other_student.id}')
         self.assertTrue(page.context['is_inbox'])
         self.assertEqual(len(page.context['new']), 1)

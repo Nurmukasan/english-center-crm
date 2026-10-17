@@ -185,6 +185,7 @@ PHRASES = {
     'Сравнение с 30 днями до этого': 'Compared with the previous 30 days',
     'Посещаемость последних уроков': 'Attendance at recent lessons',
     'Урок отменён': 'Lesson cancelled',
+    'Все разделы': 'All sections',
     'Урок сегодня · {n}–{n}': 'Lesson today · {n}–{n}',
     # Несколько уроков в день у разных учителей
     'Урок сегодня · {n}–{n} · ведёт': 'Lesson today · {n}–{n} · taught by',
