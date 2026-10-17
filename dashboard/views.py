@@ -100,12 +100,18 @@ def login_view(request):
         else:
             show_login = True
     
+    from . import applications
     contacts = {k: v for k, v in LANDING_CONTACTS.items() if v}
     context = {
         'stats': landing_stats(),
         'contacts': contacts,
         'show_login': show_login,
         'year': timezone.localdate().year,
+        # Заявка на обучение: две формы (английский и IELTS), подпись времени — от ботов
+        'apply': applications.options(),
+        'apply_started': applications.started_token(),
+        'applied': request.GET.get('applied') if request.GET.get('applied') in ('english', 'ielts') else '',
+        'apply_error': bool(request.GET.get('apply_error')),
     }
     return render(request, 'dashboard/landing.html', context)
 
@@ -947,7 +953,9 @@ def add_student(request):
         messages.error(request, 'У вас нет доступа')
         return redirect('students_list')
     
-    form = {}
+    # Из заявки с лендинга (кнопка «Записать ученика» в «Сообщениях») — поля заполнятся сами
+    from .applications import for_new_student, mark_enrolled
+    application, form = for_new_student(request)
     if request.method == 'POST':
         form = request.POST
         name = clean_text(request.POST.get('name'), 100)
@@ -972,6 +980,8 @@ def add_student(request):
                 )
                 for group in Group.objects.filter(id__in=to_ids(request.POST.getlist('groups')), is_active=True):
                     Enrollment.objects.get_or_create(student=student, group=group)
+                if application:
+                    mark_enrolled(application, student, request.user)
             messages.success(request, f'Ученик {name} добавлен!')
             return redirect('students_list')
     
@@ -979,7 +989,8 @@ def add_student(request):
     context = {
         'groups': groups,
         'form': form,
-        'checked_groups': [str(i) for i in to_ids(form.getlist('groups'))] if form else [],
+        'application': application,
+        'checked_groups': [str(i) for i in to_ids(form.getlist('groups'))] if hasattr(form, 'getlist') else [],
     }
     
     return render(request, 'dashboard/add_student.html', context)

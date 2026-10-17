@@ -1,0 +1,109 @@
+{% comment %}
+Форма заявки на лендинге. Подключается дважды: kind='english' и kind='ielts' (у IELTS — ещё балл и дата экзамена).
+Отправка — dashboard/applications.py (apply); ошибки приходят по полям и показываются под ними.
+{% endcomment %}
+<form method="POST" action="{% url 'apply' %}" class="apply-form" id="apply-{{ kind }}" data-kind="{{ kind }}" novalidate
+      role="tabpanel" aria-labelledby="tab-{{ kind }}"{% if kind != active %} hidden{% endif %}>
+    {% csrf_token %}
+    <input type="hidden" name="kind" value="{{ kind }}">
+    <input type="hidden" name="started" value="{{ apply_started }}">
+    <!-- Ловушка для ботов: человек это поле не видит; имя без смысла — чтобы браузер не подставил туда автозаполнение -->
+    <label class="apply-trap" aria-hidden="true">Не заполняйте это поле <input type="text" name="ee_hp" tabindex="-1" autocomplete="off"></label>
+
+    <fieldset class="apply-group">
+        <legend class="apply-legend"><span>1</span>О себе</legend>
+        <div class="apply-row">
+            <label class="apply-field">
+                <span class="apply-label">Имя <b>*</b></span>
+                <input type="text" name="first_name" maxlength="60" autocomplete="given-name" class="apply-input" placeholder="Например, Алия" required>
+                <span class="apply-err" data-err="first_name"></span>
+            </label>
+            <label class="apply-field">
+                <span class="apply-label">Фамилия <b>*</b></span>
+                <input type="text" name="last_name" maxlength="60" autocomplete="family-name" class="apply-input" placeholder="Например, Маратова" required>
+                <span class="apply-err" data-err="last_name"></span>
+            </label>
+            <label class="apply-field apply-age">
+                <span class="apply-label">Возраст <b>*</b></span>
+                <input type="number" name="age" min="3" max="90" inputmode="numeric" class="apply-input" placeholder="14" required>
+                <span class="apply-err" data-err="age"></span>
+            </label>
+        </div>
+    </fieldset>
+
+    <fieldset class="apply-group">
+        <legend class="apply-legend"><span>2</span>{% if kind == 'ielts' %}Английский и экзамен{% else %}Английский{% endif %}</legend>
+        <div class="apply-q">
+            <p class="apply-label">Уровень сейчас, примерно <b>*</b></p>
+            <div class="apply-chips">
+                {% for value, label in apply.levels %}<label class="chip"><input type="radio" name="level" value="{{ value }}" required><span>{{ label }}</span></label>{% endfor %}
+            </div>
+            <span class="apply-err" data-err="level"></span>
+        </div>
+        {% if kind == 'ielts' %}
+        <div class="apply-q">
+            <p class="apply-label">Какой балл нужен <b>*</b></p>
+            <div class="apply-chips">
+                {% for value, label in apply.targets %}<label class="chip"><input type="radio" name="target_score" value="{{ value }}" required><span>{{ label }}</span></label>{% endfor %}
+            </div>
+            <span class="apply-err" data-err="target_score"></span>
+        </div>
+        <div class="apply-q">
+            <p class="apply-label">Когда планируете сдавать <b>*</b></p>
+            <div class="apply-chips">
+                {% for value, label in apply.exams %}<label class="chip"><input type="radio" name="exam_when" value="{{ value }}" required><span>{{ label }}</span></label>{% endfor %}
+            </div>
+            <span class="apply-err" data-err="exam_when"></span>
+        </div>
+        <label class="apply-field apply-narrow">
+            <span class="apply-label">Уже сдавали IELTS? Балл</span>
+            <input type="text" name="previous_score" maxlength="3" inputmode="decimal" class="apply-input" placeholder="например, 5.5">
+            <span class="apply-err" data-err="previous_score"></span>
+        </label>
+        {% endif %}
+        <div class="apply-q">
+            <p class="apply-label">Сколько планируете заниматься <b>*</b></p>
+            <div class="apply-chips">
+                {% for value, label in apply.durations %}<label class="chip"><input type="radio" name="duration" value="{{ value }}" required><span>{{ label }}</span></label>{% endfor %}
+            </div>
+            <span class="apply-err" data-err="duration"></span>
+        </div>
+        <div class="apply-q">
+            <p class="apply-label">Когда учится в школе или вузе <b>*</b></p>
+            <div class="apply-chips">
+                {% for value, label in apply.shifts %}<label class="chip"><input type="radio" name="shift" value="{{ value }}" required><span>{% if value == 'morning' %}<i class="fas fa-sun"></i>{% elif value == 'evening' %}<i class="fas fa-moon"></i>{% else %}<i class="fas fa-briefcase"></i>{% endif %}{{ label }}</span></label>{% endfor %}
+            </div>
+            <p class="apply-help">Подберём занятия в свободное время</p>
+            <span class="apply-err" data-err="shift"></span>
+        </div>
+    </fieldset>
+
+    <fieldset class="apply-group">
+        <legend class="apply-legend"><span>3</span>Как с вами связаться</legend>
+        <div class="apply-row apply-row-2">
+            <label class="apply-field">
+                <span class="apply-label"><i class="fas fa-mobile-screen"></i>Телефон ученика</span>
+                <input type="tel" name="phone" maxlength="20" autocomplete="tel" inputmode="tel" class="apply-input" placeholder="+7 700 123 45 67" data-phone>
+                <span class="apply-err" data-err="phone"></span>
+            </label>
+            <label class="apply-field">
+                <span class="apply-label"><i class="fas fa-user-group"></i>Телефон родителя</span>
+                <input type="tel" name="parent_phone" maxlength="20" inputmode="tel" class="apply-input" placeholder="+7 700 123 45 67" data-phone>
+                <span class="apply-err" data-err="parent_phone"></span>
+            </label>
+        </div>
+        <p class="apply-help">Достаточно одного номера — свой или родителя</p>
+        <label class="apply-field">
+            <span class="apply-label">Комментарий</span>
+            <textarea name="comment" rows="2" maxlength="1000" class="apply-input" placeholder="{% if kind == 'ielts' %}Например: нужен Academic для поступления{% else %}Например: хочу больше разговорной практики{% endif %}"></textarea>
+            <span class="apply-err" data-err="comment"></span>
+        </label>
+    </fieldset>
+
+    <p class="apply-err apply-err-main" data-err="__all__" role="alert"></p>
+    <span class="apply-offline" hidden>Нет связи — проверьте интернет и попробуйте ещё раз</span>
+    <button type="submit" class="btn btn-primary w-full py-4 text-base apply-submit">
+        <span>{% if kind == 'ielts' %}Отправить заявку на IELTS{% else %}Отправить заявку{% endif %}</span> <i class="fas fa-paper-plane arrow"></i>
+    </button>
+    <p class="apply-privacy"><i class="fas fa-lock"></i>Номер нужен только чтобы позвонить вам — никому его не передаём</p>
+</form>

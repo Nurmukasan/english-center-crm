@@ -18,6 +18,32 @@
         .seg a.is-on { background: var(--accent-soft); color: var(--accent-ink); box-shadow: inset 0 0 0 1px var(--accent-line); }
         .seg b { font-size: 11px; padding: 1px 7px; border-radius: 9999px; background: var(--surface-3); color: var(--ink-2); }
         .seg b.is-new { background: var(--bad); color: #fff; }
+        .seg-sep { width: 1px; margin: 6px 4px; flex-shrink: 0; background: var(--line); }
+        .seg-sub { display: inline-flex; max-width: 100%; }
+
+        /* ---------- Заявка с сайта ---------- */
+        .app-ielts .micon { color: #6d28d9; background: #f1ebff; }
+        .app-ielts .mcat { color: #6d28d9; background: #f1ebff; }
+        .app-english .micon { color: var(--accent-ink); background: var(--accent-soft); }
+        .app-english .mcat { color: var(--accent-ink); background: var(--accent-soft); }
+        .app.st-enrolled .micon { color: var(--ok-ink); background: var(--ok-soft); }
+        .app.st-declined { opacity: .72; }
+        .app-facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+        .app-facts > div { padding: 6px 11px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); }
+        .app-facts dt { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+        .app-facts dd { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+        .app-phones { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 12px; font-size: 15px; font-weight: 700; color: var(--ink); }
+        .app-phone { display: inline-flex; align-items: center; gap: 8px; }
+        .app-phone small { font-size: 12px; font-weight: 600; color: var(--muted); }
+        .app-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+        .app-status { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 10px; font-size: 13px; font-weight: 700;
+            color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line); }
+        .st-contacted .app-status { color: #1d4ed8; background: #eef4ff; border-color: #c7d7fe; }
+        .st-enrolled .app-status { color: var(--ok-ink); background: var(--ok-soft); border-color: var(--ok-line); }
+        .st-declined .app-status { color: var(--muted); }
+        .app-undo { margin-left: auto; }
+        .app-link { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--muted); }
+        .app-link:hover { color: var(--accent-ink); }
         .section-title { display: flex; align-items: center; gap: 10px; margin: 26px 4px 12px; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
         .section-title::after { content: ''; flex: 1; height: 1px; background: var(--line); }
 
@@ -102,6 +128,10 @@
         .empty i { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; margin: 0 auto 12px; font-size: 22px; color: var(--faint); background: var(--surface-2); }
 
         @media (max-width: 640px) {
+            .app-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+            .app-facts > div { padding: 5px 9px; }
+            .app-facts dd { font-size: 13px; }
+            .app .micon { width: 36px; height: 36px; border-radius: 11px; font-size: 14px; }
             .msg { flex-wrap: wrap; padding: 16px; }
             .mwhen { margin-left: 0; width: 100%; }
             .read-btn { margin-left: 56px; }
@@ -117,9 +147,9 @@
             <div class="flex items-center gap-3 min-w-0">
                 <span class="head-icon"><i class="fas fa-inbox"></i></span>
                 <h1 class="text-xl font-bold">{% if is_inbox %}Сообщения{% else %}Сообщения админу{% endif %}</h1>
-                {% if is_inbox and unread_total %}<span class="new-chip" id="newChip"><span id="newCount">{{ unread_total }}</span> новых</span>{% endif %}
+                {% if is_inbox and header_new %}<span class="new-chip" id="newChip"><span id="newCount">{{ header_new }}</span> новых</span>{% endif %}
             </div>
-            {% if is_inbox and unread_total %}
+            {% if is_inbox and unread_total and category != 'applications' %}
             <form method="POST" action="{% url 'inbox_read_all' %}">
                 {% csrf_token %}
                 <input type="hidden" name="cat" value="{{ category }}">
@@ -141,12 +171,32 @@
         {% endif %}
         <!-- Входящие админа и менеджеров -->
         <nav class="seg mb-2" aria-label="Категория">
-            <a href="?" class="{% if category == 'all' %}is-on{% endif %}">Все {% if unread_total %}<b class="is-new">{{ unread_total }}</b>{% else %}<b>{{ all_total }}</b>{% endif %}</a>
+            <a href="?cat=applications" class="{% if category == 'applications' %}is-on{% endif %}"><i class="fas fa-file-signature"></i>Заявки {% if apps_new_total %}<b class="is-new">{{ apps_new_total }}</b>{% else %}<b>{{ apps_all_total }}</b>{% endif %}</a>
+            <span class="seg-sep" aria-hidden="true"></span>
+            <a href="?cat=all" class="{% if category == 'all' %}is-on{% endif %}">Все {% if unread_total %}<b class="is-new">{{ unread_total }}</b>{% else %}<b>{{ all_total }}</b>{% endif %}</a>
             <a href="?cat=complaint" class="{% if category == 'complaint' %}is-on{% endif %}"><i class="fas fa-triangle-exclamation"></i>Жалобы {% if unread.complaint %}<b class="is-new">{{ unread.complaint }}</b>{% else %}<b>{{ totals.complaint }}</b>{% endif %}</a>
             <a href="?cat=comment" class="{% if category == 'comment' %}is-on{% endif %}"><i class="fas fa-comment"></i>Комментарии {% if unread.comment %}<b class="is-new">{{ unread.comment }}</b>{% else %}<b>{{ totals.comment }}</b>{% endif %}</a>
             <a href="?cat=calibration" class="{% if category == 'calibration' %}is-on{% endif %}"><i class="fas fa-arrow-up-wide-short"></i>Калибровка {% if unread.calibration %}<b class="is-new">{{ unread.calibration }}</b>{% else %}<b>{{ totals.calibration }}</b>{% endif %}</a>
         </nav>
 
+        {% if category == 'applications' %}
+        <!-- Заявки с сайта: новые, в работе, закрытые -->
+        <nav class="seg seg-sub mt-3" aria-label="Форма заявки">
+            <a href="?cat=applications" class="{% if not app_kind %}is-on{% endif %}">Все заявки <b>{{ apps_total }}</b></a>
+            <a href="?cat=applications&amp;kind=english" class="{% if app_kind == 'english' %}is-on{% endif %}"><i class="fas fa-comments"></i>Английский {% if apps_new_by_kind.english %}<b class="is-new">{{ apps_new_by_kind.english }}</b>{% else %}<b>{{ apps_by_kind.english }}</b>{% endif %}</a>
+            <a href="?cat=applications&amp;kind=ielts" class="{% if app_kind == 'ielts' %}is-on{% endif %}"><i class="fas fa-bullseye"></i>IELTS {% if apps_new_by_kind.ielts %}<b class="is-new">{{ apps_new_by_kind.ielts }}</b>{% else %}<b>{{ apps_by_kind.ielts }}</b>{% endif %}</a>
+        </nav>
+        {% if not apps_new and not apps_contacted and not apps_closed %}
+        <div class="panel empty mt-6"><i class="fas fa-file-signature"></i><p class="font-bold text-gray-800">Заявок пока нет</p>
+            <p class="text-sm mt-1">Сюда придут заявки с сайта: на английский и на подготовку к IELTS.</p></div>
+        {% endif %}
+        {% if apps_new %}<p class="section-title">Новые · {{ apps_new|length }}</p>{% endif %}
+        {% for a in apps_new %}{% include 'dashboard/partials/inbox_application.html' %}{% endfor %}
+        {% if apps_contacted %}<p class="section-title">Связались · {{ apps_contacted|length }}</p>{% endif %}
+        {% for a in apps_contacted %}{% include 'dashboard/partials/inbox_application.html' %}{% endfor %}
+        {% if apps_closed %}<p class="section-title">Закрытые</p>{% endif %}
+        {% for a in apps_closed %}{% include 'dashboard/partials/inbox_application.html' %}{% endfor %}
+        {% else %}
         {% if not new and not old %}
         <div class="panel empty mt-6"><i class="fas fa-inbox"></i><p class="font-bold text-gray-800">Сообщений пока нет</p>
             <p class="text-sm mt-1">Сюда придут комментарии и жалобы учителей про учеников и калибровки уровня.</p></div>
@@ -156,6 +206,7 @@
         {% for m in new %}{% include 'dashboard/partials/inbox_item.html' %}{% endfor %}
         {% if old %}<p class="section-title">Прочитанные</p>{% endif %}
         {% for m in old %}{% include 'dashboard/partials/inbox_item.html' %}{% endfor %}
+        {% endif %}
 
         {% else %}
         <!-- Учитель и менеджер: написать и отправленные -->

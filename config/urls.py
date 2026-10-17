@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path, re_path
 from django.contrib.staticfiles.views import serve as static_serve
 from django.conf import settings
-from dashboard import broadcasts, game, inbox, security, views, weather
+from dashboard import applications, broadcasts, game, inbox, security, views, weather
 
 # Вход в /admin/ — с паузой после неудачных попыток и записью в журнал входов
 admin.site.login = security.throttled_admin_login(admin.site.login)
@@ -10,6 +10,7 @@ admin.site.login = security.throttled_admin_login(admin.site.login)
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.login_view, name='login'),
+    path('apply/', applications.apply, name='apply'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('logout/', views.logout_view, name='logout'),
     path('profile/', views.profile, name='profile'),
@@ -72,6 +73,7 @@ urlpatterns = [
     path('messages/read-all/', inbox.read_all, name='inbox_read_all'),
     path('messages/<int:message_id>/read/', inbox.toggle_read, name='inbox_toggle_read'),
     path('messages/<int:message_id>/resolve/', inbox.resolve_calibration, name='inbox_resolve'),
+    path('messages/application/<int:application_id>/status/', applications.set_status, name='application_status'),
 ]
 # Фото, PDF книг и логотип раздаёт сам Django — и с выключенной отладкой. Всё, кроме логотипа,
 # — только вошедшим в CRM (dashboard/security.py). Не отдавайте /media/ напрямую через nginx,

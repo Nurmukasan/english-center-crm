@@ -25,6 +25,16 @@
     <main class="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <form method="POST" class="panel ee-form" id="studentForm">
             {% csrf_token %}
+            {% if application %}
+            <!-- Из заявки с сайта: после сохранения заявка станет «Записан» -->
+            <input type="hidden" name="application" value="{{ application.id }}">
+            <div class="ee-note mb-5"><i class="fas fa-file-signature"></i><div>
+                <b>Из заявки с сайта <span class="ee-tag">{{ application.get_kind_display }}</span></b>
+                <p><span>{{ application.get_level_display }}</span> · <span>{{ application.get_duration_display }}</span> · <span>{{ application.get_shift_display }}</span></p>
+                {% if application.comment %}<p class="notranslate">«{{ application.comment|truncatechars:120 }}»</p>{% endif %}
+                <p>После сохранения заявка отметится «Записан».</p>
+            </div></div>
+            {% endif %}
 
             <section class="ee-sec">
                 <div class="ee-sec-head">

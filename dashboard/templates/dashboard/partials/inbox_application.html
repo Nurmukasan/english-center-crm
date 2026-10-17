@@ -1,0 +1,58 @@
+{% comment %}Заявка с лендинга во вкладке «Сообщения» → «Заявки». a — Application после applications.inbox_context{% endcomment %}
+<article class="panel msg app app-{{ a.kind }} st-{{ a.status }}{% if a.status == 'new' %} is-new{% endif %}" id="app-{{ a.id }}">
+    <span class="micon"><i class="fas {% if a.kind == 'ielts' %}fa-bullseye{% else %}fa-comments{% endif %}"></i></span>
+    <div class="min-w-0 flex-1">
+        <div class="mhead">
+            <span class="mcat">{{ a.get_kind_display }}</span>
+            <span class="mstudent notranslate">{{ a.full_name }}</span>
+            <span class="mgroup">· <span>{{ a.age_label }}</span></span>
+            <span class="mwhen" title="{{ a.created_at|date:'d.m.Y H:i' }}">{{ a.when }}</span>
+        </div>
+
+        <dl class="app-facts">
+            <div><dt>Уровень</dt><dd>{{ a.get_level_display }}</dd></div>
+            {% if a.kind == 'ielts' %}
+            <div><dt>Нужен балл</dt><dd>{{ a.get_target_score_display }}</dd></div>
+            <div><dt>Экзамен</dt><dd>{{ a.get_exam_when_display }}</dd></div>
+            {% if a.previous_score %}<div><dt>Сдавал(а) раньше</dt><dd>{{ a.previous_score }}</dd></div>{% endif %}
+            {% endif %}
+            <div><dt>Заниматься</dt><dd>{{ a.get_duration_display }}</dd></div>
+            <div><dt>Учится</dt><dd>{{ a.get_shift_display }}</dd></div>
+        </dl>
+
+        <div class="app-phones">
+            {% for label, number, digits in a.phones %}
+            <span class="app-phone"><span class="ee-phone"><a class="ee-phone-link notranslate" href="tel:+{{ digits }}">{{ number }}</a>
+                <a class="ee-phone-wa" href="https://wa.me/{{ digits }}" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="fab fa-whatsapp"></i></a></span>
+                <small>{{ label }}</small></span>
+            {% endfor %}
+        </div>
+        {% if a.comment %}<p class="mtext notranslate">{{ a.comment }}</p>{% endif %}
+
+        <div class="app-actions">
+            {% if a.status != 'new' %}
+            <span class="app-status"><i class="fas {% if a.status == 'enrolled' %}fa-user-check{% elif a.status == 'declined' %}fa-ban{% else %}fa-phone{% endif %}"></i><span>{{ a.get_status_display }}</span>{% if a.status_by %}<span aria-hidden="true">·</span><span class="notranslate">{{ a.status_by.username }}</span>{% endif %}{% if a.status_when %}<span aria-hidden="true">·</span><span>{{ a.status_when }}</span>{% endif %}</span>
+            {% if a.student %}<a href="{% url 'student_profile' a.student.id %}" class="small-btn"><i class="fas fa-user-graduate"></i>Карточка ученика</a>{% endif %}
+            {% endif %}
+            {% if a.status == 'new' or a.status == 'contacted' %}
+            {% if a.status == 'new' %}
+            <form method="POST" action="{% url 'application_status' a.id %}">
+                {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" name="status" value="contacted" class="small-btn is-main"><i class="fas fa-phone"></i>Связались</button>
+            </form>
+            {% endif %}
+            <a href="{% url 'add_student' %}?application={{ a.id }}" class="small-btn{% if a.status == 'contacted' %} is-main{% endif %}"><i class="fas fa-user-plus"></i>Записать ученика</a>
+            <form method="POST" action="{% url 'application_status' a.id %}" data-confirm="Отметить заявку как отказ?" onsubmit="return confirm(this.dataset.confirm)">
+                {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" name="status" value="declined" class="small-btn"><i class="fas fa-ban"></i>Отказ</button>
+            </form>
+            {% endif %}
+            {% if a.status != 'new' %}
+            <form method="POST" action="{% url 'application_status' a.id %}" class="app-undo">
+                {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" name="status" value="new" class="app-link" title="Снова в новые"><i class="fas fa-rotate-left"></i>В новые</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</article>

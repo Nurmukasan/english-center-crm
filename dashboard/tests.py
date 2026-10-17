@@ -670,18 +670,26 @@ class EnglishTests(CRMTestCase):
         self.group.teachers.add(self.other_teacher)
         ScheduleSlot.objects.create(group=self.group, day_of_week=today.weekday(), start_time=time(12), end_time=time(13),
                                     teacher=self.other_teacher)
+        from .models import Application
+        Application.objects.create(kind='ielts', first_name='Алия', last_name='Тимур', age=17, level='b1', duration='6m',
+                                   shift='morning', phone='+7 701 123 45 67', target_score='6.5', exam_when='3m', previous_score='5.5')
+        Application.objects.create(kind='english', first_name='Алия', last_name='Тимур', age=21, level='zero', duration='1y',
+                                   shift='none', parent_phone='+7 701 123 45 67', status='contacted', status_by=self.manager,
+                                   status_at=timezone.now())
         names = {'Алия', 'Тимур', 'Альфа', 'алия', 'тимур', 'альфа'}
         i18n.missing = set()
         try:
             self.client.cookies['ee_lang'] = 'en'
             self.client.get('/')
+            self.client.get('/?applied=ielts')
             for user in [self.admin, self.teacher, self.accountant, self.manager]:
                 self.login(user)
                 for url in ['/dashboard/', '/students/', '/students/add/', '/schedule/', '/individual/', '/payments/',
                             '/accountant-stats/', '/groups/add/', '/books-status/', '/star-rating/', '/profile/',
                             '/broadcast/', '/broadcast/?kind=news', '/broadcast/?kind=payment&audience=teacher',
                             f'/group/{self.group.id}/', f'/group/{self.group.id}/history/', f'/group/{self.group.id}/edit/',
-                            f'/students/{self.student.id}/', f'/student/{self.student.id}/edit/', '/game/tetris/']:
+                            f'/students/{self.student.id}/', f'/student/{self.student.id}/edit/', '/game/tetris/',
+                            '/messages/', '/messages/?cat=applications', f'/students/add/?application={Application.objects.first().id}']:
                     self.client.get(url)
             # Одна буква — инициалы на аватарах и сочетание Ctrl+Л
             missing = {phrase for phrase in i18n.missing - names if len(phrase) > 1}
@@ -1983,6 +1991,133 @@ class TwoTeachersTests(CRMTestCase):
         week = self.client.get('/schedule/').context['schedule_json']['lessons']
         self.assertEqual(sorted((l['start'], l['teacher']) for l in week if l['group'] == 'Beginner'),
                          [(900, 'teacher'), (990, 'other')])
+
+
+class ApplicationTests(CRMTestCase):
+    """Заявки с лендинга: английский и IELTS → вкладка «Заявки» в «Сообщениях»"""
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+        cache.clear()
+
+    def started(self, ago=60):
+        from django.core import signing
+        return signing.dumps(int(timezone.now().timestamp()) - ago, salt='apply-started')
+
+    def data(self, **extra):
+        data = {'kind': 'english', 'started': self.started(), 'first_name': 'алия', 'last_name': 'Маратова', 'age': '14',
+                'level': 'a2', 'duration': '6m', 'shift': 'morning', 'phone': '', 'parent_phone': '8 701 123 45 67'}
+        data.update(extra)
+        return data
+
+    def apply(self, json_answer=True, **extra):
+        headers = {'HTTP_ACCEPT': 'application/json'} if json_answer else {}
+        return self.client.post('/apply/', self.data(**extra), **headers)
+
+    def test_landing_shows_both_forms(self):
+        page = self.client.get('/')
+        for marker in ('id="apply"', 'id="apply-english"', 'id="apply-ielts"', 'name="started"', 'name="ee_hp"', 'href="#apply"'):
+            self.assertContains(page, marker)
+
+    def test_english_application_saved(self):
+        from .models import Application
+        response = self.apply(comment='Хочу разговорную практику')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['ok'])
+        a = Application.objects.get()
+        self.assertEqual((a.kind, a.first_name, a.age, a.level, a.shift, a.status), ('english', 'Алия', 14, 'a2', 'morning', 'new'))
+        self.assertEqual((a.phone, a.parent_phone), ('', '+7 701 123 45 67'))
+        self.assertEqual(a.target_score, '')
+
+    def test_ielts_needs_exam_fields(self):
+        from .models import Application
+        errors = self.apply(kind='ielts').json()['errors']
+        self.assertEqual(set(errors), {'target_score', 'exam_when'})
+        errors = self.apply(kind='ielts', target_score='6.5', exam_when='3m', previous_score='12').json()['errors']
+        self.assertEqual(set(errors), {'previous_score'})
+        self.assertTrue(self.apply(kind='ielts', target_score='6.5', exam_when='3m', previous_score='5,5').json()['ok'])
+        a = Application.objects.get()
+        self.assertEqual((a.kind, a.target_score, a.exam_when, a.previous_score), ('ielts', '6.5', '3m', '5.5'))
+
+    def test_field_errors(self):
+        from .models import Application
+        response = self.apply(first_name='', last_name='R2D2', age='300', level='pro', duration='', shift='night', parent_phone='')
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(set(response.json()['errors']),
+                         {'first_name', 'last_name', 'age', 'level', 'duration', 'shift', 'phone'})
+        self.assertEqual(set(self.apply(phone='123').json()['errors']), {'phone'})
+        self.assertFalse(Application.objects.exists())
+
+    def test_spam_protection(self):
+        from .models import Application
+        self.assertTrue(self.apply(ee_hp='http://spam.example').json()['ok'])       # ловушка: «успех», но не сохраняем
+        self.assertTrue(self.apply(started=self.started(ago=0)).json()['ok'])       # отправили мгновенно — бот
+        self.assertEqual(self.apply(started='поддельная').status_code, 400)
+        self.assertFalse(Application.objects.exists())
+        # Один и тот же номер в течение дня — одна заявка
+        self.apply()
+        self.apply(first_name='Алия', parent_phone='+7 (701) 123-45-67')
+        self.assertEqual(Application.objects.count(), 1)
+        # С одного IP — не больше APPLY_LIMIT в час
+        from .applications import APPLY_LIMIT
+        for i in range(APPLY_LIMIT - 1):
+            self.assertTrue(self.apply(parent_phone=f'+7 702 000 00 {i:02d}').json()['ok'])
+        self.assertEqual(self.apply(parent_phone='+7 702 000 00 99').status_code, 429)
+        self.assertEqual(Application.objects.count(), APPLY_LIMIT)
+
+    def test_without_javascript(self):
+        response = self.apply(json_answer=False)
+        self.assertRedirects(response, '/?applied=english#apply', fetch_redirect_response=False)
+        page = self.client.get('/?applied=english')
+        self.assertContains(page, 'Заявка отправлена!')
+        self.assertNotContains(page, 'id="apply-english"')
+
+    def test_inbox_tab_and_statuses(self):
+        from .models import Application
+        self.apply()
+        self.apply(kind='ielts', target_score='7.0', exam_when='1m', parent_phone='', phone='+7 777 000 11 22')
+        english, ielts = Application.objects.order_by('id')
+        self.login(self.manager)
+        # Сообщений нет — «Сообщения» сразу открываются на заявках, счётчик в меню их учитывает
+        page = self.client.get('/messages/')
+        self.assertEqual(page.context['category'], 'applications')
+        self.assertEqual(page.context['inbox_unread'], 2)
+        self.assertEqual([a.id for a in page.context['apps_new']], [ielts.id, english.id])
+        self.assertContains(page, 'href="https://wa.me/77011234567"')
+        self.assertContains(page, f'/students/add/?application={english.id}')
+        only_ielts = self.client.get('/messages/?cat=applications&kind=ielts')
+        self.assertEqual([a.id for a in only_ielts.context['apps_new']], [ielts.id])
+        # Связались → в разделе «Связались»; отказ → «Закрытые»; вернуть в новые
+        self.client.post(f'/messages/application/{ielts.id}/status/', {'status': 'contacted', 'next': '/messages/?cat=applications'})
+        ielts.refresh_from_db()
+        self.assertEqual((ielts.status, ielts.status_by), ('contacted', self.manager))
+        page = self.client.get('/messages/?cat=applications')
+        self.assertEqual([a.id for a in page.context['apps_contacted']], [ielts.id])
+        self.assertEqual(page.context['inbox_unread'], 1)
+        self.client.post(f'/messages/application/{ielts.id}/status/', {'status': 'declined'})
+        self.assertEqual([a.id for a in self.client.get('/messages/?cat=applications').context['apps_closed']], [ielts.id])
+        self.client.post(f'/messages/application/{ielts.id}/status/', {'status': 'new'})
+        ielts.refresh_from_db()
+        self.assertEqual((ielts.status, ielts.status_by), ('new', None))
+        # Учителю и бухгалтеру заявки недоступны
+        for user in (self.teacher, self.accountant):
+            self.login(user)
+            self.assertEqual(self.client.post(f'/messages/application/{ielts.id}/status/', {'status': 'declined'}).status_code, 403)
+            self.assertNotIn('apps_new', self.client.get('/messages/').context or {})
+
+    def test_student_from_application(self):
+        from .models import Application
+        self.apply()
+        a = Application.objects.get()
+        self.login(self.admin)
+        form = self.client.get(f'/students/add/?application={a.id}')
+        self.assertEqual(form.context['form']['name'], 'Алия Маратова')
+        self.assertContains(form, 'value="+7 701 123 45 67"')
+        self.assertContains(form, f'name="application" value="{a.id}"')
+        self.client.post('/students/add/', {'application': a.id, 'name': 'Алия Маратова', 'age': '14',
+                                            'parent_phone': a.parent_phone, 'price_per_lesson': '3000'})
+        a.refresh_from_db()
+        self.assertEqual((a.status, a.student.name, a.status_by), ('enrolled', 'Алия Маратова', self.admin))
 
 
 class TetrisTests(CRMTestCase):
