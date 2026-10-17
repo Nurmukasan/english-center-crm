@@ -666,6 +666,10 @@ class EnglishTests(CRMTestCase):
         from . import i18n
         today = timezone.localdate()
         ScheduleSlot.objects.create(group=self.group, day_of_week=today.weekday(), start_time=time(10), end_time=time(11))
+        # Второй урок сегодня у другого учителя — на странице группы вкладки уроков
+        self.group.teachers.add(self.other_teacher)
+        ScheduleSlot.objects.create(group=self.group, day_of_week=today.weekday(), start_time=time(12), end_time=time(13),
+                                    teacher=self.other_teacher)
         names = {'Алия', 'Тимур', 'Альфа', 'алия', 'тимур', 'альфа'}
         i18n.missing = set()
         try:
@@ -1847,6 +1851,135 @@ class GroupCoverTests(CRMTestCase):
         self.assertContains(page, 'data-cover="campus"')              # «Альфа» — без особого рисунка
         self.client.cookies['ee_lang'] = 'en'
         self.assertContains(self.client.get('/dashboard/'), 'Australia')
+
+
+class TwoTeachersTests(CRMTestCase):
+    """Два учителя ведут в один день свои уроки (жалоба Duke: «посещаемость уже отметил первый учитель»)"""
+    def setUp(self):
+        super().setUp()
+        Enrollment.objects.filter(id=self.enrollment.id).update(enrolled_at=timezone.now() - timedelta(days=60))
+        self.today = timezone.localdate()
+        self.group.teachers.add(self.other_teacher)
+        day = self.today.weekday()
+        self.first = ScheduleSlot.objects.create(group=self.group, day_of_week=day, start_time=time(15), end_time=time(16, 30))
+        self.second = ScheduleSlot.objects.create(group=self.group, day_of_week=day, start_time=time(16, 30), end_time=time(18),
+                                                  teacher=self.other_teacher)
+
+    def open(self, user, query=''):
+        self.login(user)
+        return self.client.get(f'/group/{self.group.id}/{query}')
+
+    def mark(self, user, lesson, status):
+        self.login(user)
+        data = {'student_id': self.student.id, 'status': status}
+        if lesson:
+            data['lesson_id'] = lesson.id
+        return self.client.post(f'/group/{self.group.id}/attendance/', data).json()
+
+    def test_each_teacher_gets_own_lesson(self):
+        mine = self.open(self.teacher).context['lesson']
+        theirs = self.open(self.other_teacher).context['lesson']
+        self.assertNotEqual(mine, theirs)
+        self.assertEqual((mine.start_time, mine.teacher), (time(15), self.teacher))
+        self.assertEqual((theirs.start_time, theirs.teacher), (time(16, 30), self.other_teacher))
+        self.assertEqual(Lesson.objects.filter(group=self.group, date=self.today).count(), 2)
+        # У каждого урока свои отметки: второй учитель не затирает первого
+        self.assertTrue(self.mark(self.teacher, mine, 'present')['success'])
+        self.assertTrue(self.mark(self.other_teacher, theirs, 'absent')['success'])
+        self.assertEqual(Attendance.objects.get(lesson=mine, student=self.student).status, 'present')
+        self.assertEqual(Attendance.objects.get(lesson=theirs, student=self.student).status, 'absent')
+        # Вкладки: оба урока, свой отмечен
+        response = self.open(self.other_teacher)
+        tabs = response.context['lesson_tabs']
+        self.assertEqual([(t['time'], t['teacher'], t['mine'], t['active']) for t in tabs],
+                         [('15:00–16:30', 'teacher', False, False), ('16:30–18:00', 'other', True, True)])
+        self.assertEqual(tabs[0]['came'], 1)
+        self.assertContains(response, f'?lesson={mine.id}')
+        self.assertEqual(response.context['lesson_teacher'], 'other')
+        # Админ выбирает урок вкладкой или временем с главной
+        self.assertEqual(self.open(self.admin, f'?lesson={mine.id}').context['lesson'], mine)
+        self.assertEqual(self.open(self.admin, '?at=16:30').context['lesson'], theirs)
+        self.assertEqual(Lesson.objects.filter(group=self.group, date=self.today).count(), 2)
+
+    def test_homework_and_stars_go_to_chosen_lesson(self):
+        mine = self.open(self.teacher).context['lesson']
+        theirs = self.open(self.other_teacher).context['lesson']
+        self.login(self.other_teacher)
+        self.client.post(f'/group/{self.group.id}/homework/', {'student_id': self.student.id, 'done': '1', 'lesson_id': theirs.id})
+        self.client.post(f'/group/{self.group.id}/stars/', {'stars': f'{self.student.id}:3', 'lesson_id': theirs.id})
+        att = Attendance.objects.get(lesson=theirs, student=self.student)
+        self.assertEqual((att.homework_done, att.stars), (True, 3))
+        att = Attendance.objects.get(lesson=mine, student=self.student)
+        self.assertEqual((att.homework_done, att.stars), (False, 0))
+
+    def test_old_page_and_wrong_lesson(self):
+        lessons = [self.open(self.teacher).context['lesson'], self.open(self.other_teacher).context['lesson']]
+        # Страница, открытая до обновления (без lesson_id), — в первый урок дня
+        self.assertTrue(self.mark(self.other_teacher, None, 'late')['success'])
+        self.assertEqual(Attendance.objects.get(lesson=lessons[0], student=self.student).status, 'late')
+        # Урок не сегодняшний или чужой группы — не отмечаем
+        old = Lesson.objects.create(group=self.group, date=self.today - timedelta(days=7))
+        other = Lesson.objects.create(group=self.other_group, date=self.today)
+        for lesson in (old, other):
+            result = self.mark(self.teacher, lesson, 'present')
+            self.assertEqual(result['error'], 'Урок не найден — обновите страницу')
+
+    def test_old_lesson_without_time_becomes_first(self):
+        # Урок, созданный до обновления: без времени и учителя, первый учитель уже отметил
+        legacy = Lesson.objects.create(group=self.group, date=self.today)
+        Attendance.objects.create(lesson=legacy, student=self.student, status='present')
+        theirs = self.open(self.other_teacher).context['lesson']
+        self.assertNotEqual(theirs, legacy)
+        self.assertEqual(Attendance.objects.get(lesson=theirs, student=self.student).status, 'absent')
+        legacy.refresh_from_db()
+        self.assertEqual((legacy.start_time, legacy.teacher), (time(15), self.teacher))
+        self.assertEqual(self.open(self.teacher).context['lesson'], legacy)
+        self.assertEqual(Lesson.objects.filter(group=self.group, date=self.today).count(), 2)
+
+    def test_held_counts_days_not_lessons(self):
+        self.open(self.teacher)
+        self.open(self.other_teacher)
+        self.assertEqual(self.open(self.admin).context['held'], 1)
+
+    def test_add_past_lesson_adds_both(self):
+        day = self.today - timedelta(days=7)
+        self.login(self.teacher)
+        self.client.post(f'/group/{self.group.id}/history/add/', {'date': day.isoformat()})
+        lessons = Lesson.objects.filter(group=self.group, date=day).order_by('start_time')
+        self.assertEqual([(l.start_time, l.teacher) for l in lessons], [(time(15), self.teacher), (time(16, 30), self.other_teacher)])
+        response = self.client.get(f'/group/{self.group.id}/history/')
+        self.assertEqual([(d['time'], d['teacher']) for d in response.context['lesson_data']],
+                         [('16:30', 'other'), ('15:00', 'teacher')])
+
+    def test_schedule_form_saves_lessons_per_teacher(self):
+        stranger = make_user('stranger', 'teacher')
+        self.login(self.admin)
+        self.client.post(f'/group/{self.group.id}/edit/', {
+            'name': 'Duke', 'group_type': 'group', 'teacher': self.teacher.id, 'cycle_start_day': 11,
+            'additional_teachers': [self.other_teacher.id],
+            'day_0': '1', 'start_0': ['15:00', '16:30', '16:30', ''], 'end_0': ['16:30', '18:00', '19:00', ''],
+            'teacher_0': ['', str(self.other_teacher.id), '', ''],
+            'day_2': '1', 'start_2': ['10:00'], 'end_2': ['11:00'], 'teacher_2': [str(stranger.id)],
+        })
+        slots = [(s.day_of_week, s.start_time, s.teacher) for s in self.group.schedule_slots.all()]
+        # Повтор времени отброшен, чужой учитель (не из группы) — значит основной
+        self.assertEqual(slots, [(0, time(15), None), (0, time(16, 30), self.other_teacher), (2, time(10), None)])
+        self.group.refresh_from_db()
+        self.assertEqual(self.group.schedule, 'Пн 15:00-16:30, Пн 16:30-18:00, Ср 10:00-11:00')
+        response = self.client.get(f'/group/{self.group.id}/edit/')
+        self.assertEqual([len(d['slots']) for d in response.context['schedule_days']], [2, 1, 1, 1, 1, 1, 1])
+        self.assertContains(response, f'data-value="{self.other_teacher.id}"')
+
+    def test_teacher_sees_only_own_lesson_in_feed_and_schedule(self):
+        self.login(self.other_teacher)
+        feed = self.client.get('/dashboard/').context['today_lessons_data']
+        self.assertEqual([(l['teacher'], l['url'].split('?')[1]) for l in feed if l['group'] == 'Beginner'], [('other', 'at=16:30')])
+        week = self.client.get('/schedule/').context['schedule_json']['lessons']
+        self.assertEqual([(l['start'], l['teacher'], l['extra_teachers']) for l in week], [(990, 'other', [])])
+        self.login(self.admin)
+        week = self.client.get('/schedule/').context['schedule_json']['lessons']
+        self.assertEqual(sorted((l['start'], l['teacher']) for l in week if l['group'] == 'Beginner'),
+                         [(900, 'teacher'), (990, 'other')])
 
 
 class TetrisTests(CRMTestCase):

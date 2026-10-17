@@ -110,6 +110,9 @@ class ScheduleSlot(models.Model):
     day_of_week = models.IntegerField(choices=DAY_CHOICES, verbose_name="День недели")
     start_time = models.TimeField(verbose_name="Начало")
     end_time = models.TimeField(verbose_name="Конец")
+    # Два учителя в группе ведут в один день свои уроки (15:00 — один, 16:30 — другой)
+    teacher = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='schedule_slots',
+                                verbose_name="Ведёт урок", help_text="Пусто — основной учитель группы")
     
     def __str__(self):
         return f"{self.get_day_of_week_display()} {self.start_time}-{self.end_time}"
@@ -142,6 +145,10 @@ class Lesson(models.Model):
     """Урок"""
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='lessons')
     date = models.DateField(verbose_name="Дата")
+    # Время и учитель — из расписания: в один день у группы может быть несколько уроков у разных учителей.
+    # У старых уроков (до разделения) время пустое — такой урок считается первым уроком дня
+    start_time = models.TimeField(null=True, blank=True, verbose_name="Начало урока")
+    teacher = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='taught_lessons', verbose_name="Учитель урока")
     topic = models.CharField(max_length=200, blank=True, verbose_name="Тема урока")
     created_at = models.DateTimeField(auto_now_add=True)
     is_cancelled = models.BooleanField(default=False, verbose_name="Урок отменён")
@@ -154,7 +161,7 @@ class Lesson(models.Model):
     class Meta:
         verbose_name = "Урок"
         verbose_name_plural = "Уроки"
-        ordering = ['-date']
+        ordering = ['-date', '-start_time']
 
 
 class Attendance(models.Model):

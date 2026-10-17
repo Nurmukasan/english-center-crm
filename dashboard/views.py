@@ -288,6 +288,89 @@ def fill_attendance(lesson):
             Attendance.objects.get_or_create(lesson=lesson, student_id=enrollment.student_id, defaults={'status': 'absent'})
 
 
+def day_lessons(group, day, create=False, force=False):
+    """Уроки группы за день: по одному на каждое время в расписании — у двух учителей в один день свои уроки.
+
+    Созданные уроки сопоставляются с расписанием сначала по времени начала, остальные — по порядку:
+    старый урок без времени (до разделения) или урок, время которого потом поменяли, становится уроком
+    этого времени. create — создать недостающие уроки; force — даже если в этот день занятий по расписанию
+    нет (урок задним числом). У каждого урока .slot — время из расписания (None — не по расписанию)."""
+    slots = [s for s in group.schedule_slots.all() if s.day_of_week == day.weekday()]
+    free = sorted(Lesson.objects.filter(group=group, date=day).select_related('teacher'),
+                  key=lambda l: (l.start_time is not None, l.start_time or datetime.min.time(), l.id))
+    exact = {}
+    for slot in slots:
+        lesson = next((l for l in free if l.start_time == slot.start_time), None)
+        if lesson:
+            exact[slot.id] = lesson
+            free.remove(lesson)
+    lessons = []
+    for slot in slots:
+        lesson = exact.get(slot.id) or (free.pop(0) if free else None)
+        teacher_id = slot.teacher_id or group.teacher_id
+        if lesson is None:
+            if not create:
+                continue
+            lesson = Lesson.objects.create(group=group, date=day, start_time=slot.start_time, teacher_id=teacher_id)
+            fill_attendance(lesson)
+        elif create and day == timezone.localdate() and (
+                lesson.start_time != slot.start_time or (teacher_id and not lesson.teacher_id)):
+            # Сегодняшний урок подстраивается под расписание (прошлые не трогаем — расписание могло смениться)
+            lesson.start_time = slot.start_time
+            lesson.teacher_id = lesson.teacher_id or teacher_id
+            lesson.save(update_fields=['start_time', 'teacher'])
+        lesson.slot = slot
+        lessons.append(lesson)
+    for lesson in free:                      # уроки сверх расписания (добавлены вручную) тоже видны
+        lesson.slot = None
+        lessons.append(lesson)
+    if not lessons and create and (force or is_lesson_day(group, day)):
+        lesson = Lesson.objects.create(group=group, date=day, teacher_id=group.teacher_id)
+        fill_attendance(lesson)
+        lesson.slot = None
+        lessons.append(lesson)
+    return lessons
+
+
+def teaches_slot(user, slot, group, assigned):
+    """Учитель ведёт это время в расписании: назначенный на это время; если в группе время раздали
+    учителям (assigned), остальное — основного учителя; иначе урок ведут все учителя группы"""
+    if slot.teacher_id:
+        return slot.teacher_id == user.id
+    return group.teacher_id == user.id if assigned else True
+
+
+def current_lesson(lessons, user, now):
+    """Какой из уроков дня открыть: свой урок учителя, из нескольких — тот, что идёт или был последним"""
+    mine = [l for l in lessons if l.teacher_id == user.id] or lessons
+    soon = (now + timedelta(minutes=15)).time()
+    started = [l for l in mine if l.start_time and l.start_time <= soon]
+    return started[-1] if started else mine[0]
+
+
+def lesson_time(lesson):
+    slot = getattr(lesson, 'slot', None)
+    if slot:
+        return f'{slot.start_time:%H:%M}–{slot.end_time:%H:%M}'
+    return f'{lesson.start_time:%H:%M}' if lesson.start_time else ''
+
+
+def lesson_for_marks(request, group):
+    """Сегодняшний урок для отметки (AJAX): выбранный на странице группы (lesson_id) или первый урок дня.
+    Возвращает (урок, ошибка)"""
+    today = timezone.localdate()
+    lessons = day_lessons(group, today, create=True) if is_lesson_day(group, today) else []
+    if not lessons:
+        return None, 'Сегодня нет урока'
+    lesson_id = to_int(request.POST.get('lesson_id'))
+    lesson = next((l for l in lessons if l.id == lesson_id), None) if lesson_id else lessons[0]
+    if lesson is None:
+        return None, 'Урок не найден — обновите страницу'
+    if lesson.is_cancelled:
+        return None, 'Урок отменён'
+    return lesson, None
+
+
 def group_student_ids(group):
     return set(Enrollment.objects.filter(group=group).values_list('student_id', flat=True))
 
@@ -298,8 +381,9 @@ DAYS_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 WEEKDAYS_RU = ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье']
 
 
-def dashboard_extras(base_groups, groups):
-    """Данные для главной: занятия сегодня (лента дня) и оформление карточек групп"""
+def dashboard_extras(base_groups, groups, teacher=None):
+    """Данные для главной: занятия сегодня (лента дня) и оформление карточек групп.
+    teacher — учитель смотрит свою главную: урок, который в расписании ведёт другой учитель, не показываем"""
     from django.db.models import Count
 
     today = timezone.localdate()
@@ -308,15 +392,19 @@ def dashboard_extras(base_groups, groups):
         .values('group').annotate(c=Count('id')).values_list('group', 'c')
     )
     today_lessons = []
+    assigned = set(ScheduleSlot.objects.filter(group__in=base_groups, teacher__isnull=False).values_list('group_id', flat=True))
     for slot in (ScheduleSlot.objects.filter(group__in=base_groups, day_of_week=today.weekday())
-                 .select_related('group', 'group__teacher').order_by('start_time')):
+                 .select_related('group', 'group__teacher', 'teacher').order_by('start_time')):
         g = slot.group
+        if teacher and not teaches_slot(teacher, slot, g, g.id in assigned):
+            continue
+        lead = slot.teacher or g.teacher
         start = slot.start_time.hour * 60 + slot.start_time.minute
         end = slot.end_time.hour * 60 + slot.end_time.minute
         today_lessons.append({
             'group': g.name,
-            'url': reverse('group_detail', args=[g.id]),
-            'teacher': g.teacher.username if g.teacher else '',
+            'url': reverse('group_detail', args=[g.id]) + f'?at={slot.start_time:%H:%M}',
+            'teacher': lead.username if lead else '',
             'students': counts.get(g.id, 0),
             'start': start,
             'end': max(end, start + 30),
@@ -353,16 +441,27 @@ TIME_RE = re.compile(r'^\d{1,2}:\d{2}$')
 
 
 def save_schedule(request, group):
-    """Расписание из формы (day_N, start_N, end_N) → слоты и текст расписания группы"""
+    """Расписание из формы → слоты и текст расписания группы.
+
+    На день: day_N=1 и строки start_N, end_N, teacher_N (несколько строк — несколько уроков в день;
+    пустой teacher_N — основной учитель). Вести урок может только дополнительный учитель группы,
+    поэтому сохранять расписание — после учителей."""
+    extra = set(group.teachers.values_list('id', flat=True))
     group.schedule_slots.all().delete()
     for i in range(7):
         if request.POST.get(f'day_{i}') != '1':
             continue
-        start = request.POST.get(f'start_{i}', '').strip()
-        end = request.POST.get(f'end_{i}', '').strip()
-        if TIME_RE.match(start) and TIME_RE.match(end):
+        starts, ends, teachers = (request.POST.getlist(f'{field}_{i}') for field in ('start', 'end', 'teacher'))
+        used = set()
+        for k, (start, end) in enumerate(zip(starts, ends)):
+            start, end = start.strip(), end.strip()
+            if not (TIME_RE.match(start) and TIME_RE.match(end)) or start.zfill(5) in used:
+                continue
+            used.add(start.zfill(5))
+            teacher_id = to_int(teachers[k]) if k < len(teachers) else None
             try:
-                ScheduleSlot.objects.create(group=group, day_of_week=i, start_time=start, end_time=end)
+                ScheduleSlot.objects.create(group=group, day_of_week=i, start_time=start, end_time=end,
+                                            teacher_id=teacher_id if teacher_id in extra else None)
             except Exception as e:
                 messages.error(request, f'Ошибка в дне {DAYS_SHORT[i]}: {e}')
     group.schedule = ', '.join(
@@ -370,6 +469,14 @@ def save_schedule(request, group):
         for slot in group.schedule_slots.order_by('day_of_week', 'start_time')
     )
     group.save(update_fields=['schedule'])
+
+
+def schedule_days(group=None):
+    """Дни для формы расписания: у каждого — уроки по времени (пустой день — одна пустая строка)"""
+    slots = list(group.schedule_slots.all()) if group else []
+    return [{'num': i, 'short': DAYS_SHORT[i], 'full': WEEKDAYS_RU[i].capitalize(),
+             'on': any(s.day_of_week == i for s in slots),
+             'slots': [s for s in slots if s.day_of_week == i] or [None]} for i in range(7)]
 
 
 def search_filter(queryset, query, field='name'):
@@ -423,7 +530,7 @@ def dashboard(request):
             ).distinct().count(),
             'search_query': search_query,
         }
-        context.update(dashboard_extras(base_groups, groups))
+        context.update(dashboard_extras(base_groups, groups, teacher=request.user))
     else:
         base_groups = Group.objects.filter(is_active=True)
         # Архив групп видят админ и разработчик
@@ -480,14 +587,26 @@ def group_detail(request, group_id):
     today = timezone.localdate()
     now = timezone.localtime()
     slots = list(group.schedule_slots.order_by('day_of_week', 'start_time'))
+    several_teachers = group.teachers.exists()
 
-    if group.is_active and is_lesson_day(group, today):
-        lesson, created = Lesson.objects.get_or_create(group=group, date=today, defaults={'topic': ''})
-        if created:
-            fill_attendance(lesson)
-    else:
-        lesson = None
+    # Сегодня у группы может быть несколько уроков у разных учителей — у каждого свой (вкладки).
+    # Открывается выбранный (?lesson= или ?at=15:00 с главной), иначе — урок этого учителя
+    lessons_today = day_lessons(group, today, create=True) if group.is_active and is_lesson_day(group, today) else []
+    wanted, at = to_int(request.GET.get('lesson')), request.GET.get('at', '')
+    lesson = (next((l for l in lessons_today if l.id == wanted), None)
+              or next((l for l in lessons_today if l.start_time and f'{l.start_time:%H:%M}' == at), None)
+              or (current_lesson(lessons_today, request.user, now) if lessons_today else None))
     today_att = {a.student_id: a for a in Attendance.objects.filter(lesson=lesson)} if lesson else {}
+    lesson_tabs = []
+    if len(lessons_today) > 1:
+        marks = (Attendance.objects.filter(lesson__in=lessons_today).values('lesson')
+                 .annotate(came=Count('id', filter=~Q(status='absent')), total=Count('id')))
+        marks = {m['lesson']: m for m in marks}
+        lesson_tabs = [{
+            'id': l.id, 'time': lesson_time(l), 'teacher': l.teacher.username if l.teacher else '',
+            'mine': l.teacher_id == request.user.id, 'active': l == lesson, 'cancelled': l.is_cancelled,
+            'came': marks.get(l.id, {}).get('came', 0), 'total': marks.get(l.id, {}).get('total', 0),
+        } for l in lessons_today]
 
     # Последние проведённые уроки (без сегодняшнего — он ещё отмечается)
     recent = list(Lesson.objects.filter(group=group, is_cancelled=False, date__lt=today).order_by('-date')[:10])
@@ -522,8 +641,9 @@ def group_detail(request, group_id):
     py, pm = get_current_period(group.cycle_start_day)
     period_start, period_end = get_period(py, pm, group.cycle_start_day)
     planned = count_lessons_in_period(group, period_start, period_end)
-    held = Lesson.objects.filter(group=group, is_cancelled=False, date__gte=period_start,
-                                 date__lte=min(period_end, today)).count()
+    # Проведено — по дням, как и в расписании (два урока в один день — один учебный день)
+    held = (Lesson.objects.filter(group=group, is_cancelled=False, date__gte=period_start,
+                                  date__lte=min(period_end, today)).values('date').distinct().count())
     can_money = role in MONEY_ROLES
     paid_ids = set(Payment.objects.filter(group=group, cycle_number=py * 100 + pm, is_paid=True)
                    .values_list('student_id', flat=True)) if can_money else set()
@@ -553,7 +673,7 @@ def group_detail(request, group_id):
     billable = [d for d in student_data if d['billable'] or d['is_paid']]
 
     next_label, live = next_lesson_label(slots, now)
-    today_slot = next((sl for sl in slots if sl.day_of_week == today.weekday()), None)
+    today_slot = getattr(lesson, 'slot', None)
     present_today = sum(1 for d in student_data if d['attendance_status'] != 'absent')
 
     context = {
@@ -563,9 +683,14 @@ def group_detail(request, group_id):
         'today': today,
         'role': role,
         'lessons_history': [{'lesson': l, 'day': l.date.day, 'month': MONTHS_SHORT[l.date.month - 1].lower(),
-                             'weekday': WEEKDAYS_RU[l.date.weekday()]}
-                            for l in Lesson.objects.filter(group=group).order_by('-date')[:6]],
+                             'weekday': WEEKDAYS_RU[l.date.weekday()],
+                             'time': f'{l.start_time:%H:%M}' if l.start_time and several_teachers else '',
+                             'teacher': l.teacher.username if l.teacher and several_teachers else ''}
+                            for l in Lesson.objects.filter(group=group).select_related('teacher')[:6]],
         'lesson': lesson,
+        'lesson_tabs': lesson_tabs,
+        # Чей это урок — когда в группе несколько учителей
+        'lesson_teacher': lesson.teacher.username if lesson and lesson.teacher and several_teachers else '',
         'today_slot': today_slot,
         'can_mark_attendance': can_manage_group(request.user, role, group),
         'can_manage': role in MANAGE_ROLES,
@@ -607,10 +732,6 @@ def mark_attendance(request, group_id):
     if not can_manage_group(request.user, role, group):
         return JsonResponse({'success': False, 'error': 'Нет доступа'})
 
-    today = timezone.localdate()
-    if not is_lesson_day(group, today):
-        return JsonResponse({'success': False, 'error': 'Сегодня нет урока'})
-
     status = request.POST.get('status')
     if status not in dict(Attendance.STATUS_CHOICES):
         return JsonResponse({'success': False, 'error': 'Неверный статус'})
@@ -621,9 +742,9 @@ def mark_attendance(request, group_id):
     if student_id not in group_student_ids(group):
         return JsonResponse({'success': False, 'error': 'Ученик не из этой группы'})
 
-    lesson, _ = Lesson.objects.get_or_create(group=group, date=today)
-    if lesson.is_cancelled:
-        return JsonResponse({'success': False, 'error': 'Урок отменён'})
+    lesson, error = lesson_for_marks(request, group)
+    if error:
+        return JsonResponse({'success': False, 'error': error})
 
     attendance, _ = Attendance.objects.get_or_create(lesson=lesson, student_id=student_id, defaults={'status': status})
     attendance.status = status
@@ -875,10 +996,15 @@ def lesson_history(request, group_id):
         return redirect('dashboard')
     
     enrollments = list(Enrollment.objects.filter(group=group).select_related('student'))
-    lessons = (Lesson.objects.filter(group=group)
-               .select_related('edited_by')
-               .prefetch_related('attendances__student')
-               .order_by('-date'))
+    lessons = list(Lesson.objects.filter(group=group)
+                   .select_related('edited_by', 'teacher')
+                   .prefetch_related('attendances__student')
+                   .order_by('-date', '-start_time'))
+    # Время и учитель урока — когда в группе несколько учителей или в один день несколько уроков
+    several_teachers = group.teachers.exists()
+    per_day = {}
+    for lesson in lessons:
+        per_day[lesson.date] = per_day.get(lesson.date, 0) + 1
     
     lesson_data = []
     for lesson in lessons:
@@ -899,6 +1025,8 @@ def lesson_history(request, group_id):
         came = [r for r in rows if r['status'] in ('present', 'late')]
         lesson_data.append({
             'lesson': lesson,
+            'time': f'{lesson.start_time:%H:%M}' if lesson.start_time and (several_teachers or per_day[lesson.date] > 1) else '',
+            'teacher': lesson.teacher.username if lesson.teacher and several_teachers else '',
             'rows': rows,
             'present_count': len(came),
             'late_count': sum(1 for r in rows if r['status'] == 'late'),
@@ -921,7 +1049,7 @@ def lesson_history(request, group_id):
         'editor_data': {
             d['lesson'].id: {
                 'id': d['lesson'].id,
-                'date': d['lesson'].date.strftime('%d.%m.%Y'),
+                'date': d['lesson'].date.strftime('%d.%m.%Y') + (f" · {d['time']}" if d['time'] else ''),
                 'topic': d['lesson'].topic,
                 'rows': d['rows'],
                 'save_url': reverse('save_lesson', args=[d['lesson'].id]),
@@ -1029,12 +1157,18 @@ def add_past_lesson(request, group_id):
         messages.error(request, 'Урок в будущем добавить нельзя')
         return redirect(history)
 
-    lesson, created = Lesson.objects.get_or_create(group=group, date=day)
-    if created:
-        fill_attendance(lesson)
-        lesson.edited_by = request.user
-        lesson.edited_at = timezone.now()
-        lesson.save()
+    # По расписанию того дня недели: два урока у разных учителей — добавятся оба
+    existed = set(Lesson.objects.filter(group=group, date=day).values_list('id', flat=True))
+    lessons = day_lessons(group, day, create=True, force=True)
+    added = [l for l in lessons if l.id not in existed]
+    for l in added:
+        l.edited_by = request.user
+        l.edited_at = timezone.now()
+        l.save(update_fields=['edited_by', 'edited_at'])
+    lesson = added[0] if added else lessons[0]
+    if len(added) > 1:
+        messages.success(request, f'Уроки {day:%d.%m.%Y} добавлены ({len(added)}) — отметьте, кто был.')
+    elif added:
         messages.success(request, f'Урок {day:%d.%m.%Y} добавлен — отметьте, кто был.')
     else:
         messages.info(request, f'Урок {day:%d.%m.%Y} уже есть — открыли его.')
@@ -1293,7 +1427,7 @@ def split_individual_group(request, group_id):
             group.books.set(shared.books.all())
             for slot in shared.schedule_slots.all():
                 ScheduleSlot.objects.create(group=group, day_of_week=slot.day_of_week,
-                                            start_time=slot.start_time, end_time=slot.end_time)
+                                            start_time=slot.start_time, end_time=slot.end_time, teacher_id=slot.teacher_id)
             # Переносим ученика со всей историей: запись, оплаты, калибровки, уроки
             Enrollment.objects.filter(id=e.id).update(group=group)
             Payment.objects.filter(student=student, group=shared).update(group=group)
@@ -1308,7 +1442,8 @@ def split_individual_group(request, group_id):
             new_lessons = {}
             for old in old_lessons:
                 new_lessons[old.id] = Lesson.objects.create(
-                    group=group, date=old.date, topic=old.topic, is_cancelled=old.is_cancelled,
+                    group=group, date=old.date, start_time=old.start_time, teacher_id=old.teacher_id,
+                    topic=old.topic, is_cancelled=old.is_cancelled,
                     edited_by=old.edited_by, edited_at=old.edited_at,
                 )
             for att in attendances:
@@ -1338,7 +1473,7 @@ def weekly_schedule(request):
         groups = groups.filter(Q(teacher=request.user) | Q(teachers=request.user))
     groups = (groups.distinct()
               .select_related('teacher')
-              .prefetch_related('schedule_slots', 'teachers')
+              .prefetch_related('schedule_slots__teacher', 'teachers')
               .annotate(students_count=Count('enrollments', distinct=True)))
     
     days = [
@@ -1361,29 +1496,37 @@ def weekly_schedule(request):
     
     lessons = []
     teachers = {}
+
+    def teacher_key(teacher):
+        key = teacher.id if teacher else 0
+        if key not in teachers:
+            teachers[key] = {'id': key, 'name': teacher.username if teacher else 'Без учителя'}
+        return key
+
     for group in groups:
-        teacher = group.teacher
-        teacher_key = teacher.id if teacher else 0
-        if teacher_key not in teachers:
-            teachers[teacher_key] = {
-                'id': teacher_key,
-                'name': teacher.username if teacher else 'Без учителя',
-            }
-        extra_teachers = [t.username for t in group.teachers.all() if t != teacher]
-        for slot in group.schedule_slots.all():
+        teacher_key(group.teacher)
+        slots = list(group.schedule_slots.all())
+        assigned = any(slot.teacher_id for slot in slots)
+        for slot in slots:
+            # Урок ведёт учитель этого времени (если назначен), иначе — основной вместе с дополнительными
+            if role == 'teacher' and not teaches_slot(request.user, slot, group, assigned):
+                continue
+            teacher = slot.teacher or group.teacher
+            key = teacher_key(teacher)
+            extra_teachers = [] if assigned else [t.username for t in group.teachers.all() if t != teacher]
             start = slot.start_time.hour * 60 + slot.start_time.minute
             end = slot.end_time.hour * 60 + slot.end_time.minute
             if end <= start:
                 end = start + 30
             lessons.append({
                 'group': group.name,
-                'url': reverse('group_detail', args=[group.id]),
+                'url': reverse('group_detail', args=[group.id]) + f'?at={slot.start_time:%H:%M}',
                 'type': group.get_group_type_display(),
                 'day': slot.day_of_week,
                 'start': start,
                 'end': end,
-                'teacher_id': teacher_key,
-                'teacher': teachers[teacher_key]['name'],
+                'teacher_id': key,
+                'teacher': teachers[key]['name'],
                 'extra_teachers': extra_teachers,
                 'students': group.students_count,
             })
@@ -1898,11 +2041,10 @@ def add_group(request):
                 level=read_level(request, name) if group_type == 'group' else None,
             )
             
-            save_schedule(request, group)
-            
             additional = User.objects.filter(id__in=to_ids(request.POST.getlist('additional_teachers'))).exclude(id=teacher_id)
             if additional:
                 group.teachers.set(additional)
+            save_schedule(request, group)
             messages.success(request, f'Группа "{name}" создана!')
             return redirect('individual_lessons' if group_type == 'individual' else 'dashboard')
         else:
@@ -1913,6 +2055,7 @@ def add_group(request):
     context = {
         'teachers': teachers,
         'levels': Group.LEVEL_CHOICES,
+        'schedule_days': schedule_days(),
     }
     
     return render(request, 'dashboard/add_group.html', context)
@@ -2305,12 +2448,11 @@ def edit_group(request, group_id):
         return redirect('individual_lessons' if group.group_type == 'individual' else 'dashboard')
     
     teachers = User.objects.filter(profile__role='teacher')
-    schedule_slots = {str(s.day_of_week): s for s in group.schedule_slots.all()}
     
     context = {
         'group': group,
         'teachers': teachers,
-        'schedule_slots': schedule_slots,
+        'schedule_days': schedule_days(group),
         'levels': Group.LEVEL_CHOICES,
     }
     
@@ -2648,9 +2790,9 @@ def mark_homework(request, group_id):
         return JsonResponse({'success': False, 'error': 'Ученик не из этой группы'})
     done = request.POST.get('done') == '1'
 
-    lesson, _ = Lesson.objects.get_or_create(group=group, date=timezone.localdate())
-    if lesson.is_cancelled:
-        return JsonResponse({'success': False, 'error': 'Урок отменён'})
+    lesson, error = lesson_for_marks(request, group)
+    if error:
+        return JsonResponse({'success': False, 'error': error})
 
     attendance, _ = Attendance.objects.get_or_create(lesson=lesson, student_id=student_id, defaults={'status': 'absent'})
     attendance.homework_done = done
@@ -2764,10 +2906,9 @@ def give_stars(request, group_id):
     if not can_manage_group(request.user, role, group):
         return JsonResponse({'success': False, 'error': 'Нет доступа'})
     
-    today = timezone.localdate()
-    lesson, _ = Lesson.objects.get_or_create(group=group, date=today)
-    if lesson.is_cancelled:
-        return JsonResponse({'success': False, 'error': 'Урок отменён'})
+    lesson, error = lesson_for_marks(request, group)
+    if error:
+        return JsonResponse({'success': False, 'error': error})
     enrolled_ids = group_student_ids(group)
 
     # stars = "id:кол-во,id:кол-во" — сколько звёзд у ученика за сегодняшний урок
