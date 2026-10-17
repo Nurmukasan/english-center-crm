@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>{{ board.name }} · Enjoy English</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Экран интерактивной доски: заставка, когда свободна; экран, ссылка или файл учителя — во весь экран */
+        :root { --bg: #0d0b1a; --ink: #f5f3ff; --muted: #a8a3c7; --accent: #f97316; --ok: #22c55e; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Manrope', system-ui, sans-serif; }
+        body { cursor: default; user-select: none; }
+        [hidden] { display: none !important; }
+
+        /* ---------- Заставка ---------- */
+        .idle { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; overflow: hidden;
+            background: radial-gradient(1200px 700px at 15% 10%, rgba(124, 58, 237, .35), transparent 60%),
+                        radial-gradient(900px 600px at 90% 90%, rgba(249, 115, 22, .22), transparent 60%), var(--bg); }
+        .idle::before { content: ''; position: absolute; inset: 0; opacity: .5;
+            background-image: radial-gradient(rgba(255, 255, 255, .09) 1px, transparent 1.4px); background-size: 28px 28px; }
+        .idle-inner { position: relative; display: flex; flex-direction: column; align-items: center; }
+        .logo { width: 9vmin; height: 9vmin; min-width: 64px; min-height: 64px; border-radius: 9999px; overflow: hidden; background: #fff;
+            box-shadow: 0 18px 50px -20px rgba(0, 0, 0, .8); }
+        .logo img { width: 100%; height: 100%; object-fit: cover; }
+        .clock { margin-top: 4vmin; font-size: clamp(64px, 16vmin, 220px); font-weight: 800; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+        .date { margin-top: 1.4vmin; font-size: clamp(16px, 2.6vmin, 30px); font-weight: 600; color: var(--muted); }
+        .room { margin-top: 5vmin; font-size: clamp(22px, 4.2vmin, 54px); font-weight: 800; }
+        .chip { margin-top: 2.4vmin; display: inline-flex; align-items: center; gap: 12px; padding: 12px 22px; border-radius: 9999px;
+            font-size: clamp(14px, 2.1vmin, 24px); font-weight: 700; background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .12); }
+        .chip .dot { width: 12px; height: 12px; border-radius: 9999px; background: var(--ok); box-shadow: 0 0 0 6px rgba(34, 197, 94, .18); }
+        .chip.is-held .dot { background: var(--accent); box-shadow: 0 0 0 6px rgba(249, 115, 22, .2); animation: pulse 1.6s ease-in-out infinite; }
+        @keyframes pulse { 50% { box-shadow: 0 0 0 12px rgba(249, 115, 22, 0); } }
+        .hint { margin-top: 2vmin; font-size: clamp(13px, 1.7vmin, 20px); color: var(--muted); }
+        .hint b { color: var(--ink); }
+
+        /* ---------- Содержимое: экран, сайт, файл ---------- */
+        .stage { position: fixed; inset: 0; background: #000; display: grid; place-items: center; }
+        .stage > * { width: 100%; height: 100%; border: 0; }
+        .stage video, .stage img { object-fit: contain; background: #000; }
+        .stage iframe { background: #fff; }
+        .audio-card, .link-card { width: auto; height: auto; max-width: 80vw; padding: 6vmin 7vmin; border-radius: 32px; text-align: center;
+            background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .12); }
+        .audio-card i, .link-card i { font-size: 10vmin; color: var(--accent); }
+        .audio-card p, .link-card p { margin: 3vmin 0; font-size: clamp(18px, 3vmin, 40px); font-weight: 700; word-break: break-word; }
+        .audio-card audio { width: min(60vw, 720px); }
+        .link-card small { display: block; margin-bottom: 3vmin; font-size: clamp(14px, 1.8vmin, 22px); color: var(--muted); }
+        .big-btn { display: inline-flex; align-items: center; gap: 14px; padding: 22px 40px; border: 0; border-radius: 9999px; cursor: pointer;
+            font: 800 clamp(18px, 2.6vmin, 32px) 'Manrope', sans-serif; color: #fff; background: var(--accent); box-shadow: 0 16px 40px -16px rgba(249, 115, 22, .9); }
+        .big-btn i { font-size: inherit; color: inherit; }
+
+        /* ---------- Служебное ---------- */
+        .corner { position: fixed; z-index: 5; display: inline-flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 9999px;
+            font-size: 15px; font-weight: 700; background: rgba(13, 11, 26, .78); border: 1px solid rgba(255, 255, 255, .14); backdrop-filter: blur(6px); }
+        .tap { left: 50%; bottom: 28px; transform: translateX(-50%); color: var(--muted); }
+        .unmute { right: 24px; bottom: 24px; cursor: pointer; color: #fff; background: var(--accent); border: 0; font: 800 18px 'Manrope', sans-serif; padding: 14px 22px; }
+        .net { left: 24px; top: 24px; color: #fecaca; background: rgba(127, 29, 29, .85); }
+        .who { left: 24px; bottom: 24px; color: #fff; opacity: .0; transition: opacity .4s ease; pointer-events: none; }
+        body.is-showing .who { opacity: .85; }
+        body.is-showing.is-quiet .who { opacity: 0; }
+    </style>
+</head>
+<body>
+    <!-- Заставка: свободна или ждём, что покажет учитель -->
+    <section class="idle" id="idle">
+        <div class="idle-inner">
+            <span class="logo"><img src="/media/logo/logo.png" alt="Enjoy English"></span>
+            <div class="clock" id="clock">--:--</div>
+            <div class="date" id="date"></div>
+            <div class="room notranslate">{{ board.name }}</div>
+            <div class="chip" id="chip"><span class="dot"></span><span id="chipText">{{ board_texts.board_free }}</span></div>
+            <p class="hint" id="hint">Подключитесь с ноутбука: <b>CRM → Доски</b></p>
+        </div>
+    </section>
+
+    <!-- Что показывает учитель -->
+    <section class="stage" id="stage" hidden>
+        <video id="screen" autoplay playsinline hidden></video>
+        <iframe id="frame" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" referrerpolicy="no-referrer" hidden></iframe>
+        <img id="image" alt="" hidden>
+        <video id="media" controls autoplay playsinline hidden></video>
+        <div class="audio-card" id="audioCard" hidden><i class="fas fa-music"></i><p class="notranslate" id="audioName"></p><audio id="audio" controls autoplay></audio></div>
+        <div class="link-card" id="linkCard" hidden>
+            <i class="fas fa-globe"></i>
+            <p class="notranslate" id="linkText"></p>
+            <small>{{ board_texts.popup_blocked }}</small>
+            <button type="button" class="big-btn" id="linkBtn"><i class="fas fa-arrow-up-right-from-square"></i>{{ board_texts.open_link }}</button>
+        </div>
+    </section>
+
+    <div class="corner who notranslate" id="who"><i class="fas fa-chalkboard-user"></i><span id="whoName"></span></div>
+    <div class="corner tap" id="tap"><i class="fas fa-hand-pointer"></i>{{ board_texts.tap_to_start }}</div>
+    <button type="button" class="corner unmute" id="unmute" hidden><i class="fas fa-volume-high"></i>{{ board_texts.unmute }}</button>
+    <div class="corner net" id="net" hidden><i class="fas fa-wifi"></i>{{ board_texts.offline }}</div>
+
+    {% csrf_token %}
+    {{ board_texts|json_script:"board-texts" }}
+    {{ ice|json_script:"board-ice" }}
+    <script>
+    (function () {
+        const POLL = '{% url "board_screen_poll" board.token %}', SEND = '{% url "board_screen_send" board.token %}';
+        const CSRF = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const T = JSON.parse(document.getElementById('board-texts').textContent);
+        const ICE = JSON.parse(document.getElementById('board-ice').textContent);
+        const $ = id => document.getElementById(id);
+        let session = '', since = 0, holder = '', busy = false, pc = null, popup = null, queue = Promise.resolve();
+
+        function form(data) {
+            const f = new FormData();
+            f.append('csrfmiddlewaretoken', CSRF);
+            Object.entries(data).forEach(([k, v]) => f.append(k, v));
+            return f;
+        }
+
+        /* ---------- Часы на заставке ---------- */
+        const dateFmt = new Intl.DateTimeFormat(document.documentElement.lang || 'ru', { weekday: 'long', day: 'numeric', month: 'long' });
+        function tick() {
+            const d = new Date();
+            $('clock').textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+            $('date').textContent = dateFmt.format(d);
+        }
+        tick(); setInterval(tick, 1000);
+
+        /* ---------- Что на экране ---------- */
+        const PARTS = ['screen', 'frame', 'image', 'media', 'audioCard', 'linkCard'];
+        function show(part) {
+            PARTS.forEach(p => { $(p).hidden = p !== part; });
+            $('stage').hidden = !part;
+            $('idle').hidden = !!part;
+            document.body.classList.toggle('is-showing', !!part);
+            // Подпись «кто показывает» видна несколько секунд, потом прячется
+            document.body.classList.remove('is-quiet');
+            clearTimeout(show.timer);
+            show.timer = setTimeout(() => document.body.classList.add('is-quiet'), 5000);
+        }
+        function stopMedia() {
+            ['media', 'audio'].forEach(id => { const el = $(id); el.pause(); el.removeAttribute('src'); el.load(); });
+            $('frame').removeAttribute('src');
+            $('image').removeAttribute('src');
+        }
+        function closePeer() {
+            if (pc) { pc.ontrack = null; pc.close(); pc = null; }
+            $('screen').srcObject = null;
+        }
+        function closePopup() {
+            if (popup && !popup.closed) popup.close();
+            popup = null;
+        }
+        function clearStage() { closePeer(); closePopup(); stopMedia(); $('unmute').hidden = true; show(null); }
+        function renderIdle() {
+            const held = !!session;
+            $('chip').classList.toggle('is-held', held);
+            $('chipText').textContent = held ? `${T.board_held}: ${holder}` : T.board_free;
+            $('hint').hidden = held;
+            $('whoName').textContent = holder;
+        }
+
+        // Звук без касания доски браузер может не дать — тогда видео идёт без звука и есть кнопка
+        function playWithSound(el) {
+            el.muted = false;
+            const p = el.play();
+            if (p) p.catch(() => { el.muted = true; el.play().catch(() => {}); $('unmute').hidden = false; });
+        }
+        $('unmute').addEventListener('click', () => {
+            ['screen', 'media'].forEach(id => { const el = $(id); el.muted = false; el.play().catch(() => {}); });
+            $('unmute').hidden = true;
+        });
+
+        /* ---------- Ссылки: YouTube, Google Документы/Презентации, картинки и PDF — прямо на доске ---------- */
+        function embedFor(url) {
+            let u;
+            try { u = new URL(url); } catch (e) { return null; }
+            const host = u.hostname.replace(/^www\./, ''), path = u.pathname;
+            let m;
+            if ((host === 'youtube.com' || host === 'm.youtube.com') && u.searchParams.get('v')) m = u.searchParams.get('v');
+            else if (host === 'youtu.be') m = path.slice(1);
+            else if ((host === 'youtube.com') && (m = path.match(/^\/(?:shorts|live|embed)\/([\w-]+)/))) m = m[1];
+            else m = null;
+            if (m) return { part: 'frame', src: `https://www.youtube.com/embed/${encodeURIComponent(m)}?autoplay=1&rel=0` };
+            if (host === 'vimeo.com' && (m = path.match(/^\/(\d+)/))) return { part: 'frame', src: `https://player.vimeo.com/video/${m[1]}?autoplay=1` };
+            if (host === 'docs.google.com' && (m = path.match(/^\/(document|presentation|spreadsheets|forms)\/d\/([\w-]+)/)))
+                return { part: 'frame', src: `https://docs.google.com/${m[1]}/d/${m[2]}/${m[1] === 'forms' ? 'viewform' : 'preview'}` };
+            if (host === 'drive.google.com' && (m = path.match(/^\/file\/d\/([\w-]+)/))) return { part: 'frame', src: `https://drive.google.com/file/d/${m[1]}/preview` };
+            if (/\.(png|jpe?g|gif|webp|svg)$/i.test(path)) return { part: 'image', src: url };
+            if (/\.(mp4|webm|m4v)$/i.test(path)) return { part: 'media', src: url };
+            if (/\.pdf$/i.test(path)) return { part: 'frame', src: url };
+            return null;
+        }
+        function showUrl(url) {
+            closePeer(); closePopup(); stopMedia();
+            const embed = embedFor(url);
+            if (embed) {
+                $(embed.part).src = embed.src;
+                show(embed.part);
+                if (embed.part === 'media') playWithSound($('media'));
+                return;
+            }
+            // Обычный сайт в окно не встроить (большинство сайтов запрещают) — открываем рядом отдельным окном
+            show('linkCard');
+            $('linkText').textContent = url;
+            $('linkBtn').onclick = () => { closePopup(); popup = window.open(url, 'eeBoardSite'); };
+            popup = window.open(url, 'eeBoardSite');
+        }
+        function showFile(m) {
+            closePeer(); closePopup(); stopMedia();
+            if (m.type === 'image') { $('image').src = m.url; show('image'); }
+            else if (m.type === 'video') { $('media').src = m.url; show('media'); playWithSound($('media')); }
+            else if (m.type === 'audio') { $('audioName').textContent = m.name; $('audio').src = m.url; show('audioCard'); playWithSound($('audio')); }
+            else { $('frame').src = m.url + '#view=FitH'; show('frame'); }
+        }
+
+        /* ---------- Экран учителя: WebRTC, напрямую с ноутбука ---------- */
+        function iceDone(conn) {
+            return new Promise(resolve => {
+                if (conn.iceGatheringState === 'complete') return resolve();
+                const done = () => { if (conn.iceGatheringState === 'complete') { conn.removeEventListener('icegatheringstatechange', done); resolve(); } };
+                conn.addEventListener('icegatheringstatechange', done);
+                setTimeout(resolve, 2500);
+            });
+        }
+        async function answerOffer(m) {
+            closePopup(); stopMedia(); closePeer();
+            const conn = pc = new RTCPeerConnection({ iceServers: ICE });
+            conn.ontrack = e => {
+                const video = $('screen');
+                if (video.srcObject !== e.streams[0]) video.srcObject = e.streams[0];
+                show('screen');
+                playWithSound(video);
+            };
+            await conn.setRemoteDescription({ type: 'offer', sdp: m.sdp });
+            await conn.setLocalDescription(await conn.createAnswer());
+            await iceDone(conn);
+            if (conn !== pc) return;
+            await fetch(SEND, { method: 'POST', body: form({ session, kind: 'answer', sdp: conn.localDescription.sdp, offer: m.id }) });
+        }
+
+        function handle(m) {
+            if (m.kind === 'offer') return answerOffer(m);
+            if (m.kind === 'url') return showUrl(m.url);
+            if (m.kind === 'file') return showFile(m);
+            if (m.kind === 'clear') return clearStage();
+        }
+
+        /* ---------- Связь с сервером ---------- */
+        async function poll() {
+            if (busy) return;
+            busy = true;
+            try {
+                const res = await fetch(POLL, { method: 'POST', body: form({ session, since }) });
+                const data = await res.json();
+                $('net').hidden = true;
+                if (data.session !== session) {
+                    // Новый учитель подключился или прежний отключился — начинаем с чистого экрана
+                    session = data.session; since = 0;
+                    queue = queue.then(clearStage);
+                }
+                holder = data.holder;
+                renderIdle();
+                for (const m of data.messages) {
+                    since = Math.max(since, m.id);
+                    queue = queue.then(() => handle(m)).catch(() => {});
+                }
+            } catch (e) {
+                $('net').hidden = false;
+            } finally {
+                busy = false;
+            }
+        }
+        // Таймер — в фоновом потоке: когда поверх открыт сайт, вкладку доски Chrome не «усыпит»
+        try {
+            const worker = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 1500)'], { type: 'text/javascript' })));
+            worker.onmessage = poll;
+        } catch (e) {
+            setInterval(poll, 1500);
+        }
+        poll();
+
+        /* ---------- Экран не гаснет; одно касание — полный экран и звук ---------- */
+        async function keepAwake() {
+            try { if ('wakeLock' in navigator && document.visibilityState === 'visible') await navigator.wakeLock.request('screen'); } catch (e) {}
+        }
+        keepAwake();
+        document.addEventListener('visibilitychange', keepAwake);
+        document.addEventListener('pointerdown', () => {
+            $('tap').hidden = true;
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+            ['screen', 'media', 'audio'].forEach(id => { const el = $(id); if (el.muted && el.srcObject || el.muted && el.src) { el.muted = false; el.play().catch(() => {}); } });
+            $('unmute').hidden = true;
+        });
+        // Открыто в полноэкранном режиме Chrome (ярлык с --start-fullscreen) — подсказка не нужна
+        if (matchMedia('(display-mode: fullscreen)').matches || innerHeight === screen.height) $('tap').hidden = true;
+    })();
+    </script>
+</body>
+</html>

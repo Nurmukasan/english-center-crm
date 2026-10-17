@@ -36,6 +36,12 @@
            class="ee-rail-item {% if page in ' individual_lessons add_individual ' %}is-active{% endif %}">
             <i class="fas fa-chalkboard-user"></i><span>Индивидуальные</span>
         </a>
+        {% if role == 'teacher' or role == 'developer' or role == 'admin' or role == 'manager' %}
+        <a href="{% url 'boards' %}" data-label="Доски"
+           class="ee-rail-item {% if url_name == 'boards' %}is-active{% endif %}">
+            <i class="fas fa-chalkboard"></i><span>Доски</span>
+        </a>
+        {% endif %}
         {% if role == 'admin' or role == 'accountant' or role == 'developer' or role == 'manager' %}
         <a href="{% url 'payments_page' %}" data-label="Оплаты"
            class="ee-rail-item {% if page in ' payments_page payment_management ' %}is-active{% endif %}">
