@@ -73,6 +73,23 @@
         .act-ghost { color: var(--ink-2); background: var(--surface); border-color: var(--line); }
         .act-ghost:hover { color: var(--ink); background: var(--surface-2); }
         /* Комментарий / жалоба в окне «Написать админу» */
+        /* Несколько уроков в день (у каждого учителя свой) — вкладки над списком */
+        .ltabs { display: flex; gap: 8px; padding: 12px 22px; overflow-x: auto; border-bottom: 1px solid var(--line); background: var(--surface-2); scrollbar-width: none; }
+        .ltabs::-webkit-scrollbar { display: none; }
+        .ltab { display: flex; flex-direction: column; gap: 2px; min-width: 150px; padding: 9px 14px; border-radius: 13px; flex-shrink: 0;
+            background: var(--surface); border: 1px solid var(--line); transition: border-color .2s ease, transform var(--spring-dur) var(--spring), box-shadow .2s ease; }
+        .ltab:hover { border-color: var(--line-strong); transform: translateY(-1px); }
+        .ltab.is-active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent), var(--shadow-sm); }
+        .ltab-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .ltab-time { font-size: 14px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+        .ltab.is-active .ltab-time { color: var(--accent-ink); }
+        .ltab-count { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; color: var(--muted); }
+        .ltab-count i { color: var(--ok); font-size: 11px; }
+        .ltab-count b { font-weight: 800; }
+        .ltab-who { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+        .ltab-you { padding: 1px 7px; border-radius: 9999px; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+            color: var(--accent-ink); background: var(--accent-soft); }
+        .ltab.is-cancelled .ltab-time { text-decoration: line-through; color: var(--faint); }
         .msg-cat { cursor: pointer; }
         .msg-cat input { position: absolute; opacity: 0; pointer-events: none; }
         .msg-cat span { display: flex; align-items: center; justify-content: center; gap: 7px; height: 42px; border-radius: 12px; font-size: 13px; font-weight: 800;
@@ -163,6 +180,7 @@
             .srow .controls { width: 100%; display: flex; align-items: flex-end; gap: 10px; }
             .att { width: auto; flex: 1; }
             .lesson-head { padding: 16px; }
+            .ltabs { padding: 10px 16px; }
             .kpi-value { font-size: 28px; }
         }
         @media (prefers-reduced-motion: reduce) { .bars span { animation: none; } }
@@ -292,7 +310,7 @@
                         <p class="eyebrow" style="color: #fcd34d">Урок отменён</p>
                         <h2 class="text-xl font-bold text-white mt-1">{{ today|date:"d.m.Y" }}</h2>
                         {% elif lesson %}
-                        <p class="eyebrow">Урок сегодня{% if today_slot %} · {{ today_slot.start_time|time:"H:i" }}–{{ today_slot.end_time|time:"H:i" }}{% endif %}</p>
+                        <p class="eyebrow">Урок сегодня{% if today_slot %} · {{ today_slot.start_time|time:"H:i" }}–{{ today_slot.end_time|time:"H:i" }}{% endif %}{% if lesson_teacher %} · ведёт <span class="notranslate">{{ lesson_teacher }}</span>{% endif %}</p>
                         <h2 class="text-xl font-bold text-white mt-1">{{ today|date:"d.m.Y" }}</h2>
                         {% else %}
                         <p class="eyebrow">Сегодня занятия нет</p>
@@ -304,7 +322,7 @@
                         <span class="today-pill"><i class="fas fa-user-check" style="color: var(--ok)"></i>Пришли <b id="presentCount">{{ present_today }}</b> из {{ student_data|length }}
                             <span class="opacity-40">·</span><i class="fas fa-book" style="color: var(--ok)"></i>ДЗ <b id="hwCount">{{ homework_today }}</b></span>
                         {% endif %}
-                        {% if can_mark_attendance and group.is_active and not lesson.is_cancelled %}
+                        {% if can_mark_attendance and lesson_active %}
                         <button type="button" class="act act-star" onclick="toggleStarModal()"><i class="fas fa-star"></i>Звёзды</button>
                         {% endif %}
                         {% if role == 'teacher' or role == 'developer' %}
@@ -317,7 +335,7 @@
                         <form method="POST" action="{% url 'toggle_lesson_cancel' lesson.id %}"
                               {% if lesson_active %}data-confirm="Отменить сегодняшний урок? Отметки удалятся, в статистику он не попадёт." onsubmit="return confirm(this.dataset.confirm)"{% endif %}>
                             {% csrf_token %}
-                            <input type="hidden" name="next" value="{{ request.path }}">
+                            <input type="hidden" name="next" value="{% if lesson_tabs %}{{ request.path }}?lesson={{ lesson.id }}{% else %}{{ request.path }}{% endif %}">
                             <button type="submit" class="act {% if lesson_active %}act-ghost{% else %}act-ok{% endif %}" title="{% if lesson_active %}Отменить урок{% else %}Вернуть урок{% endif %}">
                                 {% if lesson_active %}<i class="fas fa-ban"></i><span class="hidden sm:inline">Отменить урок</span>{% else %}<i class="fas fa-rotate-left"></i>Вернуть урок{% endif %}
                             </button>
@@ -325,6 +343,20 @@
                         {% endif %}
                     </div>
                 </div>
+
+                {% if lesson_tabs %}
+                <nav class="ltabs" aria-label="Уроки сегодня">
+                    {% for t in lesson_tabs %}
+                    <a href="?lesson={{ t.id }}" class="ltab{% if t.active %} is-active{% endif %}{% if t.cancelled %} is-cancelled{% endif %}"{% if t.active %} aria-current="page"{% endif %}>
+                        <span class="ltab-top">
+                            <span class="ltab-time">{{ t.time|default:"Урок" }}</span>
+                            {% if t.cancelled %}<span class="ltab-count">отменён</span>{% else %}<span class="ltab-count" title="Пришли"><i class="fas fa-user-check"></i><span><b{% if t.active %} id="tabCame"{% endif %}>{{ t.came }}</b>/{{ t.total }}</span></span>{% endif %}
+                        </span>
+                        <span class="ltab-who"><i class="fas fa-chalkboard-user opacity-60" aria-hidden="true"></i><span class="notranslate">{{ t.teacher|default:"—" }}</span>{% if t.mine %}<span class="ltab-you">ваш урок</span>{% endif %}</span>
+                    </a>
+                    {% endfor %}
+                </nav>
+                {% endif %}
 
                 {% if lesson_active and can_mark_attendance and student_data %}
                 <div class="flex flex-wrap items-center justify-between gap-3 px-[22px] py-3 border-b border-white/5 text-sm text-gray-400">
@@ -406,7 +438,7 @@
                         <div class="hist-date"><b>{{ h.day }}</b><span>{{ h.month }}</span></div>
                         <div class="min-w-0 flex-1">
                             <p class="text-white font-bold text-sm truncate">{% if l.is_cancelled %}Урок отменён{% elif l.topic %}{{ l.topic }}{% elif l.date == today %}Сегодня{% else %}Без темы{% endif %}</p>
-                            <p class="text-xs text-gray-400 mt-0.5">{{ h.weekday }}{% if l.edited_by and l.date < today %} · правка задним числом{% endif %}</p>
+                            <p class="text-xs text-gray-400 mt-0.5">{{ h.weekday }}{% if h.time %} · {{ h.time }}{% endif %}{% if h.teacher %} · <span class="notranslate">{{ h.teacher }}</span>{% endif %}{% if l.edited_by and l.date < today %} · правка задним числом{% endif %}</p>
                         </div>
                         {% if l.is_cancelled %}<i class="fas fa-ban text-gray-500"></i>{% endif %}
                     </div>{% endwith %}
@@ -594,6 +626,7 @@
 
     <script>
         const CSRF = '{{ csrf_token }}';
+        const LESSON = '{{ lesson.id|default:"" }}';    // отметки идут в открытый урок (у каждого учителя свой)
         const post = (url, body) => fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': CSRF },
@@ -602,8 +635,11 @@
 
         /* ---------- Счётчики над списком ---------- */
         function recount() {
+            const came = document.querySelectorAll('.att:not([data-status="absent"])').length;
             const present = document.getElementById('presentCount');
-            if (present) present.textContent = document.querySelectorAll('.att:not([data-status="absent"])').length;
+            if (present) present.textContent = came;
+            const tab = document.getElementById('tabCame');      // вкладка открытого урока
+            if (tab) tab.textContent = came;
             const hw = document.getElementById('hwCount');
             if (hw) hw.textContent = document.querySelectorAll('.hw[aria-pressed="true"]').length;
         }
@@ -617,7 +653,7 @@
             box.classList.add('busy');
             recount();
             try {
-                const data = await post('/group/{{ group.id }}/attendance/', { student_id: studentId, status });
+                const data = await post('/group/{{ group.id }}/attendance/', { student_id: studentId, status, lesson_id: LESSON });
                 if (!data.success) throw new Error(data.error || 'Не удалось сохранить');
             } catch (e) {
                 box.dataset.status = before;
@@ -644,7 +680,7 @@
             const next = btn.getAttribute('aria-pressed') !== 'true';
             btn.setAttribute('aria-pressed', next ? 'true' : 'false');
             recount();
-            post('/group/{{ group.id }}/homework/', { student_id: studentId, done: next ? '1' : '0' })
+            post('/group/{{ group.id }}/homework/', { student_id: studentId, done: next ? '1' : '0', lesson_id: LESSON })
                 .then(data => {
                     if (!data.success) throw new Error(data.error || 'Не удалось сохранить');
                     btn.setAttribute('aria-pressed', data.homework_done ? 'true' : 'false');
@@ -845,7 +881,7 @@
             });
             document.getElementById('starModal').classList.add('hidden');
 
-            const fetchPromise = post('/group/{{ group.id }}/stars/', { stars: payload.join(',') });
+            const fetchPromise = post('/group/{{ group.id }}/stars/', { stars: payload.join(','), lesson_id: LESSON });
             const animations = ids.map((sid, index) => new Promise(resolve => {
                 setTimeout(() => {
                     const start = startPositions[sid];

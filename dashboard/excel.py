@@ -576,7 +576,7 @@ def general_workbook():
     # Журнал посещаемости за 12 месяцев (отменённые уроки не считаются)
     since = date(months[0][0], months[0][1], 1)
     log = list(Attendance.objects.filter(lesson__date__gte=since, lesson__is_cancelled=False)
-               .select_related('lesson', 'lesson__group', 'lesson__group__teacher', 'student')
+               .select_related('lesson', 'lesson__teacher', 'lesson__group', 'lesson__group__teacher', 'student')
                .order_by('-lesson__date', 'lesson__group__name', 'student__name'))
     all_groups_label = dict(group_label)
     extra = {a.lesson.group for a in log if a.lesson.group_id not in all_groups_label}
@@ -595,9 +595,11 @@ def general_workbook():
     data = []
     for a in log:
         lesson = a.lesson
+        # Учитель урока (в группе с двумя учителями у каждого свой урок), у старых уроков — учитель группы
+        teacher = lesson.teacher or lesson.group.teacher
         data.append([
             lesson.date, date(lesson.date.year, lesson.date.month, 1), all_groups_label[lesson.group_id],
-            lesson.group.teacher.username if lesson.group.teacher else '', student_label.get(a.student_id, a.student.name),
+            teacher.username if teacher else '', student_label.get(a.student_id, a.student.name),
             status_label.get(a.status, ABSENT), 'Да' if a.homework_done else 'Нет', a.stars or 0, lesson.topic or '',
         ])
     book.table(ws_a, a_top, [

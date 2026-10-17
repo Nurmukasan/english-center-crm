@@ -33,7 +33,7 @@ class EnrollmentAdmin(admin.ModelAdmin):
 
 @admin.register(Lesson)
 class LessonAdmin(admin.ModelAdmin):
-    list_display = ['group', 'date', 'topic']
+    list_display = ['group', 'date', 'start_time', 'teacher', 'topic']
     list_filter = ['group', 'date']
 
 

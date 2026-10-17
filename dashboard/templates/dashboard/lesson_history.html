@@ -187,6 +187,8 @@
                             {% if lesson.topic %}<span class="ltopic notranslate">{{ lesson.topic }}</span>{% else %}<span class="ltopic is-empty">Без темы</span>{% endif %}
                             <span class="lmeta">
                                 <span>{{ lesson.date|date:"l" }}</span>
+                                {% if data.time %}<span class="sep" aria-hidden="true">·</span><span class="tnum"><i class="fas fa-clock mr-1 text-[10px]"></i>{{ data.time }}</span>{% endif %}
+                                {% if data.teacher %}<span class="sep" aria-hidden="true">·</span><span><i class="fas fa-chalkboard-user mr-1 text-[10px]"></i><span class="notranslate">{{ data.teacher }}</span></span>{% endif %}
                                 {% if lesson.date == today %}<span class="ee-tag">Сегодня</span>{% endif %}
                                 {% if lesson.is_cancelled %}<span class="ee-tag ee-tag-muted"><i class="fas fa-ban"></i>отменён</span>{% endif %}
                                 {% if lesson.edited_by %}<span class="sep" aria-hidden="true">·</span><span><i class="fas fa-pen mr-1 text-[10px]"></i>изменил(а) <span class="notranslate">{{ lesson.edited_by.username }}</span>, {{ lesson.edited_at|date:"d.m H:i" }}</span>{% endif %}

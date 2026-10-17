@@ -1,0 +1,203 @@
+{% comment %}
+Расписание группы в формах «Создать группу» и «Редактировать группу».
+На каждый день — строки уроков: начало, конец и кто ведёт. Несколько строк в один день — несколько уроков
+(например, 15:00 ведёт один учитель, 16:30 — другой): у каждого учителя будет свой урок и своя посещаемость.
+Поля: day_N (день включён), start_N, end_N, teacher_N — по одному на строку; пустой teacher_N — основной учитель.
+Выбор «Ведёт» виден, когда у группы есть дополнительные учителя. Контекст: schedule_days (views.schedule_days).
+{% endcomment %}
+<style>
+    .days { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+    .day { display: flex; align-items: flex-start; gap: 12px; padding: 9px 10px 9px 14px; transition: background-color .2s ease; }
+    .day + .day { border-top: 1px solid var(--line); }
+    .day.is-on { background: var(--accent-soft); }
+    .day-toggle { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; min-height: 40px; cursor: pointer; font-size: 14px; font-weight: 700; color: var(--ink); }
+    .day:not(.is-on) .day-toggle { color: var(--muted); }
+    .day-slots { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+    .slot { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+    .day-times { display: flex; align-items: center; gap: 8px; flex-shrink: 0; transition: opacity .2s ease; }
+    .day:not(.is-on) .day-slots { opacity: .45; }
+    .day:not(.is-on) .day-slots:focus-within { opacity: 1; }
+    html.ee .day-times .ee-input { width: 92px; height: 40px; padding: 0 8px; border-radius: 10px; text-align: center; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .day-dash { color: var(--faint); }
+    .day-short { display: none; }
+    .slot-teacher { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--muted); }
+    .slot-teacher[hidden], .day:not(.is-on) .slot-teacher { display: none; }
+    html.ee .slot-teacher .ee-input { width: 150px; height: 40px; padding: 0 30px 0 10px; border-radius: 10px; font-size: 13.5px; font-weight: 700; }
+    .slot-btn { width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; display: grid; place-items: center; font-size: 13px; color: var(--muted);
+        background: var(--surface); border: 1px solid var(--line); transition: color .2s ease, background .2s ease, transform var(--spring-dur) var(--spring); }
+    .slot-btn:hover { color: var(--ink); background: var(--surface-2); transform: translateY(-1px); }
+    .slot-btn.is-remove:hover { color: var(--bad-ink); }
+    .slot-btn[hidden], .slot:first-child .slot-btn.is-remove, .slot:not(:first-child) .slot-btn.is-add { display: none; }
+    .day:not(.is-on) .slot-btn { visibility: hidden; }
+    @media (max-width: 560px) {
+        .day { gap: 8px; padding-left: 12px; }
+        .day-full { display: none; }
+        .day-short { display: inline; }
+        html.ee .day-times .ee-input { width: 68px; }
+        .day-times { gap: 6px; }
+        .day-toggle { flex: 0 0 auto; }
+        .day-slots { flex: 1 1 0; min-width: 0; align-items: stretch; }
+        .slot { justify-content: flex-start; }
+        .slot + .slot { padding-top: 6px; border-top: 1px dashed var(--line); }
+        .slot-teacher { order: 3; flex-basis: 100%; }
+        html.ee .slot-teacher .ee-input { flex: 1; width: auto; }
+    }
+
+    /* Переключатель дня */
+    .ee-switch { appearance: none; -webkit-appearance: none; position: relative; width: 40px; height: 24px; flex-shrink: 0; margin: 0; border-radius: 9999px; cursor: pointer;
+        background: var(--line-strong); transition: background-color .2s ease; }
+    .ee-switch::before { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 9999px; background: #fff;
+        box-shadow: 0 1px 3px rgba(31, 28, 26, .25); transition: transform var(--spring-dur) var(--spring); }
+    .ee-switch:checked { background: var(--accent); }
+    .ee-switch:checked::before { transform: translateX(16px); }
+    .ee-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<section class="ee-sec">
+    <div class="ee-sec-head">
+        <span class="ee-sec-icon"><i class="fas fa-calendar-week"></i></span>
+        <div class="flex-1 min-w-0">
+            <h2 class="ee-sec-title">Расписание</h2>
+            <p class="ee-sec-desc">Занятий в неделю: <b id="daysCount">0</b></p>
+        </div>
+    </div>
+    <div class="days" id="days">
+        {% for day in schedule_days %}
+        <div class="day" data-day="{{ day.num }}">
+            <label class="day-toggle">
+                <input type="checkbox" name="day_{{ day.num }}" value="1" class="ee-switch" {% if day.on %}checked{% endif %}>
+                <span class="day-full">{{ day.full }}</span><span class="day-short">{{ day.short }}</span>
+            </label>
+            <div class="day-slots">
+                {% for slot in day.slots %}
+                <div class="slot">
+                    <div class="day-times">
+                        <input type="text" name="start_{{ day.num }}" placeholder="20:00" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" inputmode="numeric" value="{{ slot.start_time|time:'H:i' }}" class="ee-input" aria-label="{{ day.full }}: начало">
+                        <span class="day-dash" aria-hidden="true">—</span>
+                        <input type="text" name="end_{{ day.num }}" placeholder="21:30" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5" inputmode="numeric" value="{{ slot.end_time|time:'H:i' }}" class="ee-input" aria-label="{{ day.full }}: конец">
+                    </div>
+                    <label class="slot-teacher" hidden>
+                        <span>Ведёт</span>
+                        <select name="teacher_{{ day.num }}" class="ee-input notranslate" data-value="{{ slot.teacher_id|default:'' }}" aria-label="{{ day.full }}: кто ведёт урок">
+                            <option value="{{ slot.teacher_id|default:'' }}" selected></option>
+                        </select>
+                    </label>
+                    <button type="button" class="slot-btn is-add" title="Ещё урок в этот день" aria-label="{{ day.full }}: ещё урок в этот день"><i class="fas fa-plus"></i></button>
+                    <button type="button" class="slot-btn is-remove" title="Убрать этот урок" aria-label="{{ day.full }}: убрать этот урок"><i class="fas fa-xmark"></i></button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <p class="ee-hint">Начните вводить время — день включится сам.</p>
+    <p class="ee-hint">Два урока в один день у разных учителей — нажмите «+» и выберите, кто ведёт каждый: у каждого учителя будет свой урок и своя посещаемость.</p>
+</section>
+
+<script>
+(function () {
+    const MAX_SLOTS = 4;
+    const days = Array.from(document.querySelectorAll('#days .day'));
+    const mainTeacher = document.querySelector('select[name="teacher"]');
+    const picks = document.getElementById('teacherPicks');
+
+    // Кто может вести урок: основной учитель и отмеченные дополнительные
+    function teacherList() {
+        const main = mainTeacher && mainTeacher.selectedOptions[0];
+        const list = [{ id: '', name: main ? main.textContent.trim() : '' }];
+        if (picks) picks.querySelectorAll('[data-teacher]').forEach(pick => {
+            const box = pick.querySelector('input');
+            if (box.checked && pick.dataset.teacher !== (mainTeacher && mainTeacher.value)) list.push({ id: pick.dataset.teacher, name: pick.querySelector('.ee-pick-name').textContent.trim() });
+        });
+        return list;
+    }
+    function syncTeacherSelects() {
+        const list = teacherList();
+        document.querySelectorAll('#days .slot-teacher').forEach(label => {
+            const select = label.querySelector('select');
+            const value = select.value || select.dataset.value || '';
+            select.textContent = '';
+            list.forEach(t => select.add(new Option(t.name || '—', t.id)));
+            select.value = list.some(t => t.id === value) ? value : '';
+            select.dataset.value = select.value;
+            label.hidden = list.length < 2;
+        });
+    }
+
+    function slotsOf(row) { return Array.from(row.querySelectorAll('.slot')); }
+    function syncDay(row) {
+        const on = row.querySelector('.ee-switch').checked;
+        row.classList.toggle('is-on', on);
+        row.querySelectorAll('.day-times input').forEach(input => { input.required = on; });
+        const add = row.querySelector('.slot-btn.is-add');
+        if (add) add.hidden = slotsOf(row).length >= MAX_SLOTS;
+        document.getElementById('daysCount').textContent = days.filter(r => r.classList.contains('is-on')).reduce((n, r) => n + slotsOf(r).length, 0);
+    }
+
+    // Ещё урок в этот день: начало — сразу после последнего урока, той же длины
+    function minutes(v) { const m = /^(\d{1,2}):(\d{2})$/.exec(v || ''); return m ? +m[1] * 60 + +m[2] : null; }
+    function hhmm(n) { n = Math.max(0, Math.min(n, 23 * 60 + 59)); return String(Math.floor(n / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0'); }
+    function addSlot(row) {
+        const slots = slotsOf(row);
+        if (slots.length >= MAX_SLOTS) return;
+        const last = slots[slots.length - 1];
+        const fresh = last.cloneNode(true);
+        const [ls, le] = last.querySelectorAll('.day-times input');
+        const [start, end] = fresh.querySelectorAll('.day-times input');
+        const s = minutes(ls.value), e = minutes(le.value);
+        start.value = e !== null ? hhmm(e) : '';
+        end.value = s !== null && e !== null && e > s ? hhmm(e + (e - s)) : '';
+        const select = fresh.querySelector('select');
+        select.dataset.value = '';
+        last.after(fresh);
+        syncTeacherSelects();
+        // Новый урок — по умолчанию у другого учителя, чем предыдущий
+        const options = Array.from(select.options).map(o => o.value);
+        const prev = last.querySelector('select').value;
+        if (options.length > 1) select.value = options.find(v => v !== prev) ?? '';
+        select.dataset.value = select.value;
+        syncDay(row);
+        (start.value ? end : start).focus();
+    }
+
+    days.forEach(row => {
+        const toggle = row.querySelector('.ee-switch');
+        toggle.addEventListener('change', () => {
+            // Включили пустой день — подставляем время другого включённого дня
+            const [start, end] = row.querySelectorAll('.day-times input');
+            if (toggle.checked && !start.value && !end.value) {
+                const other = days.find(r => r !== row && r.classList.contains('is-on') && r.querySelector('.day-times input').value);
+                if (other) {
+                    const [s, e] = other.querySelectorAll('.day-times input');
+                    start.value = s.value;
+                    end.value = e.value;
+                }
+            }
+            syncDay(row);
+        });
+        row.addEventListener('input', e => {
+            const input = e.target.closest('.day-times input');
+            if (!input) return;
+            // Время: цифры без двоеточия сами становятся 20:00
+            const digits = input.value.replace(/\D/g, '');
+            input.value = digits.length >= 3 ? digits.slice(0, -2) + ':' + digits.slice(-2) : digits;
+            // Начали вводить время — день включается
+            if (input.value && !toggle.checked) { toggle.checked = true; syncDay(row); }
+        });
+        row.addEventListener('change', e => {
+            if (e.target.matches('.slot-teacher select')) e.target.dataset.value = e.target.value;
+        });
+        row.addEventListener('click', e => {
+            const btn = e.target.closest('.slot-btn');
+            if (!btn) return;
+            if (btn.classList.contains('is-add')) addSlot(row);
+            else { btn.closest('.slot').remove(); syncDay(row); row.querySelector('.slot-btn.is-add').focus(); }
+        });
+        syncDay(row);
+    });
+
+    if (mainTeacher) mainTeacher.addEventListener('change', syncTeacherSelects);
+    if (picks) picks.addEventListener('change', syncTeacherSelects);
+    syncTeacherSelects();
+})();
+</script>
