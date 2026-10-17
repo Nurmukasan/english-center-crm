@@ -62,6 +62,23 @@
         .who { left: 24px; bottom: 24px; color: #fff; opacity: .0; transition: opacity .4s ease; pointer-events: none; }
         body.is-showing .who { opacity: .85; }
         body.is-showing.is-quiet .who { opacity: 0; }
+
+        /* ---------- Автозапуск ещё не установлен ---------- */
+        .install { margin-top: 5vmin; max-width: min(880px, 90vw); padding: 3.2vmin 4vmin; border-radius: 28px; text-align: center;
+            background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .14); }
+        .install-title { margin: 0; display: inline-flex; align-items: center; gap: 12px; font-size: clamp(18px, 2.6vmin, 32px); font-weight: 800; }
+        .install-title i { color: var(--accent); }
+        .install-text { margin: 1.4vmin 0 2.6vmin; font-size: clamp(14px, 1.9vmin, 22px); color: var(--muted); }
+        .install .big-btn { text-decoration: none; }
+        .install-note { margin: 2.2vmin 0 0; font-size: clamp(12px, 1.5vmin, 17px); color: var(--muted); }
+        .install-note b { color: var(--ink); }
+
+        /* ---------- Эта доска открыта в другом окне ---------- */
+        .replaced { position: fixed; inset: 0; z-index: 20; display: grid; place-content: center; justify-items: center; gap: 2vmin; text-align: center;
+            background: rgba(13, 11, 26, .94); }
+        .replaced > i { font-size: 9vmin; color: var(--muted); }
+        .replaced p { margin: 0; font-size: clamp(20px, 3.4vmin, 42px); font-weight: 800; }
+        .replaced small { font-size: clamp(14px, 1.9vmin, 22px); color: var(--muted); }
     </style>
 </head>
 <body>
@@ -74,6 +91,15 @@
             <div class="room notranslate">{{ board.name }}</div>
             <div class="chip" id="chip"><span class="dot"></span><span id="chipText">{{ board_texts.board_free }}</span></div>
             <p class="hint" id="hint">Подключитесь с ноутбука: <b>CRM → Доски</b></p>
+            {% if not installed %}
+            <!-- Открыто вручную, а не автозапуском: предлагаем установить, чтобы доска открывалась сама -->
+            <div class="install" id="install">
+                <p class="install-title"><i class="fas fa-power-off"></i>Чтобы доска сама открывалась при включении</p>
+                <p class="install-text">Скачайте установщик и откройте его — это нужно один раз. Дальше доска всегда готова к подключению.</p>
+                <a class="big-btn" href="{% url 'board_install' board.token %}" download><i class="fas fa-download"></i>Скачать установщик</a>
+                <p class="install-note"><span>Браузер спросит про файл — нажмите <b>«Сохранить»</b>.</span> <span>Windows предупредит — <b>«Подробнее»</b> → <b>«Выполнить в любом случае»</b>.</span></p>
+            </div>
+            {% endif %}
         </div>
     </section>
 
@@ -96,6 +122,12 @@
     <div class="corner tap" id="tap"><i class="fas fa-hand-pointer"></i>{{ board_texts.tap_to_start }}</div>
     <button type="button" class="corner unmute" id="unmute" hidden><i class="fas fa-volume-high"></i>{{ board_texts.unmute }}</button>
     <div class="corner net" id="net" hidden><i class="fas fa-wifi"></i>{{ board_texts.offline }}</div>
+    <div class="replaced" id="replaced" hidden>
+        <i class="fas fa-clone"></i>
+        <p>{{ board_texts.replaced }}</p>
+        <small>Это окно можно закрыть</small>
+        <button type="button" class="big-btn" id="takeOver"><i class="fas fa-hand-pointer"></i>Показывать здесь</button>
+    </div>
 
     {% csrf_token %}
     {{ board_texts|json_script:"board-texts" }}
@@ -108,6 +140,10 @@
         const ICE = JSON.parse(document.getElementById('board-ice').textContent);
         const $ = id => document.getElementById(id);
         let session = '', since = 0, holder = '', busy = false, pc = null, popup = null, queue = Promise.resolve();
+        // Это окно доски: если доску открыли ещё где-то, главнее последнее открытое (claim)
+        const IID = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
+        let claim = true, replaced = false;
+        const OPENED = Date.now(), RELOAD_AFTER = 12 * 3600 * 1000;   // раз в полдня, когда свободна, — свежая страница
 
         function form(data) {
             const f = new FormData();
@@ -151,6 +187,20 @@
             popup = null;
         }
         function clearStage() { closePeer(); closePopup(); stopMedia(); $('unmute').hidden = true; show(null); }
+        // Окно доски — вперёд: автозапуск (установщик) видит « #N» в заголовке и выводит окно поверх
+        // других программ, даже если его свернули или закрыли
+        const TITLE = document.title;
+        let forward = 0;
+        function callForward() { forward++; document.title = `${TITLE} #${forward}`; }
+        function focused(ms) {
+            return new Promise(resolve => {
+                if (document.hasFocus()) return resolve();
+                const done = () => { clearTimeout(timer); removeEventListener('focus', done); resolve(); };
+                const timer = setTimeout(done, ms);
+                addEventListener('focus', done);
+            });
+        }
+
         function renderIdle() {
             const held = !!session;
             $('chip').classList.toggle('is-held', held);
@@ -190,7 +240,7 @@
             if (/\.pdf$/i.test(path)) return { part: 'frame', src: url };
             return null;
         }
-        function showUrl(url) {
+        async function showUrl(url) {
             closePeer(); closePopup(); stopMedia();
             const embed = embedFor(url);
             if (embed) {
@@ -203,6 +253,7 @@
             show('linkCard');
             $('linkText').textContent = url;
             $('linkBtn').onclick = () => { closePopup(); popup = window.open(url, 'eeBoardSite'); };
+            await focused(2500);        // сначала окно доски выходит вперёд — иначе сайт откроется за другой программой
             popup = window.open(url, 'eeBoardSite');
         }
         function showFile(m) {
@@ -239,6 +290,7 @@
         }
 
         function handle(m) {
+            if (['offer', 'url', 'file'].includes(m.kind)) callForward();
             if (m.kind === 'offer') return answerOffer(m);
             if (m.kind === 'url') return showUrl(m.url);
             if (m.kind === 'file') return showFile(m);
@@ -250,13 +302,22 @@
             if (busy) return;
             busy = true;
             try {
-                const res = await fetch(POLL, { method: 'POST', body: form({ session, since }) });
+                const res = await fetch(POLL, { method: 'POST', body: form({ session, since, iid: IID, claim: claim ? 1 : 0 }) });
                 const data = await res.json();
+                claim = false;
                 $('net').hidden = true;
+                if (data.replaced) {
+                    // Доску открыли в другом окне (например, установили автозапуск) — здесь ничего не показываем
+                    if (!replaced) { replaced = true; session = ''; since = 0; queue = queue.then(clearStage); }
+                    $('replaced').hidden = false;
+                    return;
+                }
+                if (replaced) { replaced = false; $('replaced').hidden = true; }
                 if (data.session !== session) {
                     // Новый учитель подключился или прежний отключился — начинаем с чистого экрана
                     session = data.session; since = 0;
                     queue = queue.then(clearStage);
+                    if (session) callForward();
                 }
                 holder = data.holder;
                 renderIdle();
@@ -264,6 +325,7 @@
                     since = Math.max(since, m.id);
                     queue = queue.then(() => handle(m)).catch(() => {});
                 }
+                if (!session && Date.now() - OPENED > RELOAD_AFTER) location.reload();
             } catch (e) {
                 $('net').hidden = false;
             } finally {
@@ -278,6 +340,7 @@
             setInterval(poll, 1500);
         }
         poll();
+        $('takeOver').addEventListener('click', () => { claim = true; poll(); });
 
         /* ---------- Экран не гаснет; одно касание — полный экран и звук ---------- */
         async function keepAwake() {
@@ -285,7 +348,9 @@
         }
         keepAwake();
         document.addEventListener('visibilitychange', keepAwake);
-        document.addEventListener('pointerdown', () => {
+        document.addEventListener('pointerdown', e => {
+            // Кнопка установщика: без полного экрана — иначе не видно, как браузер спрашивает про файл
+            if (e.target.closest('#install, #replaced')) return;
             $('tap').hidden = true;
             if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
             ['screen', 'media', 'audio'].forEach(id => { const el = $(id); if (el.muted && el.srcObject || el.muted && el.src) { el.muted = false; el.play().catch(() => {}); } });
@@ -293,6 +358,8 @@
         });
         // Открыто в полноэкранном режиме Chrome (ярлык с --start-fullscreen) — подсказка не нужна
         if (matchMedia('(display-mode: fullscreen)').matches || innerHeight === screen.height) $('tap').hidden = true;
+        // Автозапуск ещё не установлен — внизу его карточка; полный экран и звук он включит сам
+        if ($('install')) $('tap').hidden = true;
     })();
     </script>
 </body>
