@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Доски — Enjoy English</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        /* ---------- Список досок ---------- */
+        .boards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+        .bcard { position: relative; display: flex; flex-direction: column; gap: 14px; padding: 20px; overflow: hidden; transition: border-color .2s ease, transform var(--spring-dur) var(--spring); }
+        .bcard.is-free:hover { transform: translateY(-2px); border-color: var(--ok-line); }
+        .bcard.is-mine { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent), var(--shadow); }
+        .bcard-top { display: flex; align-items: flex-start; gap: 14px; }
+        .bscreen { width: 64px; height: 44px; flex-shrink: 0; border-radius: 9px; display: grid; place-items: center; font-size: 18px; position: relative;
+            color: #fff; background: linear-gradient(145deg, #2b1f63, #151034); box-shadow: inset 0 0 0 3px #3a3368; }
+        .bscreen::after { content: ''; position: absolute; left: 50%; bottom: -7px; width: 18px; height: 4px; margin-left: -9px; border-radius: 0 0 4px 4px; background: #3a3368; }
+        .is-off .bscreen { background: var(--surface-3); box-shadow: inset 0 0 0 3px var(--line-strong); color: var(--faint); }
+        .is-off .bscreen::after { background: var(--line-strong); }
+        .bname { font-size: 17px; font-weight: 800; color: var(--ink); overflow-wrap: anywhere; }
+        .bstatus { display: inline-flex; align-items: center; gap: 7px; margin-top: 4px; font-size: 13px; font-weight: 700; color: var(--muted); }
+        .bstatus i { width: 9px; height: 9px; border-radius: 9999px; background: var(--faint); }
+        .is-free .bstatus { color: var(--ok-ink); } .is-free .bstatus i { background: var(--ok); box-shadow: 0 0 0 4px var(--ok-soft); }
+        .is-busy .bstatus { color: var(--warn-ink); } .is-busy .bstatus i { background: #f59e0b; }
+        .is-mine .bstatus { color: var(--accent-ink); } .is-mine .bstatus i { background: var(--accent); }
+        .bwho { font-size: 13px; font-weight: 600; color: var(--muted); }
+        .bwho:empty, .bactions:empty { display: none; }
+        .bwho b { color: var(--ink-2); }
+        .bactions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+        .bactions .ee-btn { flex: 1; height: 42px; }
+        .bsetup { position: absolute; top: 14px; right: 14px; }
+
+        /* ---------- Подключено: пульт ---------- */
+        .live { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 22px; padding: 22px; margin-bottom: 22px; }
+        .live[hidden] { display: none; }
+        .preview { position: relative; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; display: grid; place-items: center; text-align: center;
+            color: #c9c3ef; background: radial-gradient(600px 300px at 20% 10%, rgba(124, 58, 237, .45), transparent 60%), #151034; }
+        .preview video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+        .preview-empty i { font-size: 34px; opacity: .8; }
+        .preview-empty p { margin-top: 10px; font-size: 14px; font-weight: 700; padding: 0 16px; overflow-wrap: anywhere; }
+        .live-dot { position: absolute; left: 12px; top: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 9999px;
+            font-size: 12px; font-weight: 800; color: #fff; background: rgba(220, 38, 38, .92); }
+        .live-dot::before { content: ''; width: 8px; height: 8px; border-radius: 9999px; background: #fff; animation: blink 1.2s steps(1) infinite; }
+        @keyframes blink { 50% { opacity: .2; } }
+        .live-title { font-size: 22px; font-weight: 800; color: var(--ink); }
+        .live-sub { margin-top: 3px; font-size: 13px; font-weight: 600; color: var(--muted); }
+        .live-status { margin-top: 12px; min-height: 22px; font-size: 13.5px; font-weight: 700; color: var(--ink-2); }
+        .live-status.is-bad { color: var(--bad-ink); }
+        .tools { display: grid; gap: 10px; margin-top: 16px; }
+        .tool-row { display: flex; gap: 8px; }
+        .tool-row .ee-input { flex: 1; min-width: 0; height: 46px; }
+        .ee-btn.is-stop { color: #fff; background: var(--bad); }
+        .progress { height: 6px; border-radius: 9999px; overflow: hidden; background: var(--surface-3); }
+        .progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s ease; }
+        .tool-note { font-size: 12px; color: var(--muted); }
+        @media (max-width: 900px) { .live { grid-template-columns: 1fr; padding: 16px; } }
+
+        /* ---------- Окно настройки доски ---------- */
+        .modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: rgba(15, 12, 10, .45); }
+        .modal[hidden] { display: none; }
+        .modal-card { width: 100%; max-width: 620px; max-height: calc(100dvh - 32px); overflow-y: auto; padding: 24px; }
+        .copy-row { display: flex; gap: 8px; }
+        .copy-row .ee-input { flex: 1; min-width: 0; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
+        .steps { margin: 6px 0 0; padding-left: 20px; list-style: decimal; font-size: 13.5px; line-height: 1.55; color: var(--ink-2); }
+        .steps li + li { margin-top: 4px; }
+        .steps code { padding: 1px 6px; border-radius: 6px; font-size: 12.5px; background: var(--surface-3); color: var(--ink); }
+    </style>
+    {% include 'dashboard/partials/theme.html' %}
+</head>
+<body class="min-h-screen">
+    {% include 'dashboard/partials/shell.html' %}
+
+    <header class="sticky top-0 z-40">
+        <div class="ee-head max-w-6xl mx-auto px-4 sm:px-6">
+            <div class="ee-head-main">
+                <span class="head-icon"><i class="fas fa-chalkboard"></i></span>
+                <div class="min-w-0">
+                    <h1 class="head-title">Доски</h1>
+                    <p class="head-sub">Экран ноутбука, ссылка или файл — на доску в кабинете</p>
+                </div>
+            </div>
+            {% if can_manage %}
+            <div class="ee-head-actions">
+                <button type="button" class="head-btn" onclick="openSetup()"><i class="fas fa-plus"></i><span class="hidden sm:inline">Добавить доску</span></button>
+            </div>
+            {% endif %}
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <!-- Пульт: вы подключены к доске -->
+        <section class="panel live" id="live" hidden aria-live="polite">
+            <div class="preview" id="preview">
+                <span class="live-dot" id="liveDot" hidden>LIVE</span>
+                <video id="local" muted playsinline autoplay hidden></video>
+                <div class="preview-empty" id="previewEmpty"><i class="fas fa-chalkboard"></i><p id="previewText"></p></div>
+            </div>
+            <div class="min-w-0">
+                <p class="eyebrow">Вы подключены</p>
+                <h2 class="live-title notranslate" id="liveName"></h2>
+                <p class="live-sub">Пока вы подключены, другие не могут занять эту доску</p>
+                <p class="live-status" id="liveStatus" role="status"></p>
+                <div class="tools">
+                    <button type="button" class="ee-btn ee-btn-primary" id="shareBtn" onclick="toggleShare()"><i class="fas fa-display"></i><span id="shareLabel">Показать экран</span></button>
+                    <p class="tool-note" id="noScreen" hidden></p>
+                    <form class="tool-row" onsubmit="sendUrl(event)">
+                        <input type="text" id="urlInput" class="ee-input" placeholder="Ссылка: YouTube, Google Презентация, сайт…" aria-label="Ссылка" autocomplete="off">
+                        <button type="submit" class="ee-btn ee-btn-soft"><i class="fas fa-link"></i><span class="hidden sm:inline">Показать</span></button>
+                    </form>
+                    <div class="tool-row">
+                        <label class="ee-btn ee-btn-soft flex-1 cursor-pointer"><i class="fas fa-paperclip"></i>Отправить файл
+                            <input type="file" id="fileInput" accept="{{ accept }}" class="sr-only" onchange="sendFile(this)"></label>
+                    </div>
+                    <div class="progress" id="progress" hidden><i id="progressBar"></i></div>
+                    <p class="tool-note">Картинки, видео, звук и PDF — до {{ max_file_mb }} МБ. Презентацию PowerPoint покажите через «Показать экран».</p>
+                    <div class="tool-row">
+                        <button type="button" class="ee-btn ee-btn-soft flex-1" onclick="clearBoard()"><i class="fas fa-eraser"></i>Убрать с доски</button>
+                        <button type="button" class="ee-btn ee-btn-danger flex-1" onclick="disconnect()"><i class="fas fa-plug-circle-xmark"></i>Отключиться</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        {% if boards %}
+        <div class="boards" id="boards">
+            {% for b in boards %}
+            <article class="panel bcard" data-board="{{ b.id }}"></article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="panel ee-empty">
+            <i class="fas fa-chalkboard"></i>
+            <b>Досок пока нет</b>
+            <p>{% if can_manage %}Нажмите «Добавить доску» и откройте выданную ссылку на доске в кабинете.{% else %}Попросите администратора добавить доски кабинетов.{% endif %}</p>
+        </div>
+        {% endif %}
+    </main>
+
+    {% if can_manage %}
+    <!-- Настройка доски: название, ссылка и ярлык для автозапуска на доске -->
+    <div class="modal" id="setup" hidden role="dialog" aria-modal="true" aria-labelledby="setupTitle">
+        <div class="panel modal-card">
+            <div class="flex items-start justify-between gap-4 mb-4">
+                <div><h3 class="ee-sec-title" id="setupTitle">Доска</h3><p class="ee-sec-desc">Один раз настройте на доске — дальше она сама открывается при включении</p></div>
+                <button type="button" class="ee-icon-btn" onclick="closeSetup()" aria-label="Закрыть"><i class="fas fa-xmark"></i></button>
+            </div>
+            <label class="ee-label" for="setupName">Кабинет</label>
+            <div class="copy-row">
+                <input type="text" id="setupName" maxlength="60" class="ee-input" placeholder="Например: Кабинет 3">
+                <button type="button" class="ee-btn ee-btn-primary" onclick="saveSetup()"><i class="fas fa-floppy-disk"></i>Сохранить</button>
+            </div>
+            <div id="setupMore" hidden>
+                <label class="ee-label mt-5" for="setupUrl">Ссылка для доски</label>
+                <div class="copy-row">
+                    <input type="text" id="setupUrl" class="ee-input notranslate" readonly>
+                    <button type="button" class="ee-btn ee-btn-soft" onclick="copyField('setupUrl', this)" aria-label="Копировать"><i class="fas fa-copy"></i></button>
+                </div>
+                <label class="ee-label mt-4" for="setupCmd">Ярлык для доски (Windows)</label>
+                <div class="copy-row">
+                    <input type="text" id="setupCmd" class="ee-input notranslate" readonly>
+                    <button type="button" class="ee-btn ee-btn-soft" onclick="copyField('setupCmd', this)" aria-label="Копировать"><i class="fas fa-copy"></i></button>
+                </div>
+                <ol class="steps mt-3">
+                    <li>На доске: правой кнопкой по рабочему столу → <b>Создать → Ярлык</b>, вставьте строку выше, назовите «Доска».</li>
+                    <li>Нажмите <code>Win + R</code>, введите <code>shell:startup</code> и перетащите ярлык в открывшуюся папку — доска будет открываться сама при включении.</li>
+                    <li>Запустите ярлык: на доске появятся часы и название кабинета. Закрыть — <code>Alt + F4</code>.</li>
+                </ol>
+                <p class="ee-hint">Ссылка секретная: по ней видно, что показывают на доске. Если она попала не туда — сделайте новую.</p>
+                <div class="flex flex-wrap gap-2 mt-5">
+                    <button type="button" class="ee-btn ee-btn-soft" onclick="newToken()"><i class="fas fa-rotate"></i>Новая ссылка</button>
+                    <button type="button" class="ee-btn ee-btn-danger" onclick="deleteBoard()"><i class="fas fa-trash"></i>Удалить доску</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{ setup|json_script:"boards-setup" }}
+    {% endif %}
+
+    {{ boards|json_script:"boards-data" }}
+    {{ board_texts|json_script:"board-texts" }}
+    {{ ice|json_script:"board-ice" }}
+    <script>
+    (function () {
+        const CSRF = '{{ csrf_token }}', CAN_MANAGE = {{ can_manage|yesno:'true,false' }}, MAX_MB = {{ max_file_mb }};
+        const T = JSON.parse(document.getElementById('board-texts').textContent);
+        const ICE = JSON.parse(document.getElementById('board-ice').textContent);
+        const $ = id => document.getElementById(id);
+        let boards = JSON.parse(document.getElementById('boards-data').textContent);
+        let conn = null;   // { id, name, session, since, pc, stream, waiting }
+
+        function form(data) {
+            const f = new FormData();
+            f.append('csrfmiddlewaretoken', CSRF);
+            Object.entries(data || {}).forEach(([k, v]) => f.append(k, v));
+            return f;
+        }
+        async function call(url, data) {
+            const res = await fetch(url, { method: 'POST', body: form(data), headers: { 'X-CSRFToken': CSRF } });
+            let body = {};
+            try { body = await res.json(); } catch (e) { body = { ok: false, error: T.error }; }
+            return body;
+        }
+        function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+        function toast(text, bad) {
+            let box = document.getElementById('eeToasts');
+            if (!box) { box = document.createElement('div'); box.id = 'eeToasts'; box.className = 'ee-toasts'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); }
+            const t = document.createElement('div');
+            t.className = 'ee-toast ' + (bad ? 'ee-toast-error' : 'ee-toast-success');
+            t.innerHTML = `<i class="fas ${bad ? 'fa-circle-exclamation' : 'fa-circle-check'}"></i><p></p>`;
+            t.querySelector('p').textContent = text;
+            box.appendChild(t);
+            setTimeout(() => { t.classList.add('is-leaving'); setTimeout(() => t.remove(), 400); }, 4500);
+        }
+
+        /* ---------- Карточки досок ---------- */
+        function render() {
+            boards.forEach(b => {
+                const card = document.querySelector(`[data-board="${b.id}"]`);
+                if (!card) return;
+                const mine = conn && conn.id === b.id;
+                const kind = mine ? 'mine' : !b.online ? 'off' : b.busy ? 'busy' : 'free';
+                card.className = `panel bcard is-${kind}`;
+                const label = { mine: T.mine, off: T.off, busy: b.mine ? T.mine_other : T.busy, free: T.free }[kind];
+                const shows = { screen: T.shows_screen, url: T.shows_url, file: T.shows_file }[b.showing] || '';
+                const who = b.busy ? `<b class="notranslate">${esc(b.holder)}</b> · ${T.since} ${esc(b.since)}${shows ? ' · ' + shows : ''}`
+                    : kind === 'off' ? T.off_hint : '';
+                let actions = '';
+                if (!mine && b.online && (!b.busy || b.mine)) actions += `<button type="button" class="ee-btn ee-btn-primary" data-connect="${b.id}"><i class="fas fa-plug"></i>${T.connect}</button>`;
+                if (CAN_MANAGE && b.busy && !mine) actions += `<button type="button" class="ee-btn ee-btn-soft" data-kick="${b.id}"><i class="fas fa-plug-circle-xmark"></i>${T.kick}</button>`;
+                card.innerHTML = `
+                    ${CAN_MANAGE ? `<button type="button" class="ee-icon-btn bsetup" data-setup="${b.id}" title="${T.setup}" aria-label="${T.setup}"><i class="fas fa-gear"></i></button>` : ''}
+                    <div class="bcard-top">
+                        <span class="bscreen"><i class="fas ${kind === 'off' ? 'fa-power-off' : 'fa-chalkboard'}"></i></span>
+                        <div class="min-w-0"><p class="bname notranslate">${esc(b.name)}</p><p class="bstatus"><i></i>${label}</p></div>
+                    </div>
+                    <p class="bwho">${who}</p>
+                    <div class="bactions">${actions}</div>`;
+            });
+        }
+        document.addEventListener('click', e => {
+            const c = e.target.closest('[data-connect]'), k = e.target.closest('[data-kick]'), s = e.target.closest('[data-setup]');
+            if (c) connect(+c.dataset.connect);
+            if (k) kick(+k.dataset.kick);
+            if (s) openSetup(+s.dataset.setup);
+        });
+        async function refresh() {
+            try {
+                const res = await fetch('{% url "boards_state" %}');
+                const data = await res.json();
+                if (data.ok) { boards = data.boards; render(); }
+            } catch (e) {}
+        }
+        render();
+        setInterval(refresh, 4000);
+
+        /* ---------- Подключение ---------- */
+        async function connect(id) {
+            if (conn) await disconnect(true);
+            const data = await call(`/boards/${id}/connect/`);
+            if (!data.ok) { toast(data.error || T.error, true); return refresh(); }
+            const b = boards.find(x => x.id === id) || { name: '' };
+            conn = { id, name: b.name, session: data.session, since: 0, pc: null, stream: null, waiting: false };
+            $('liveName').textContent = b.name;
+            $('live').hidden = false;
+            setPreview(T.nothing);
+            status(T.connected);
+            $('live').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            refresh();
+        }
+        async function disconnect(quiet) {
+            if (!conn) return;
+            const id = conn.id, session = conn.session;
+            stopShare(true);
+            conn = null;
+            $('live').hidden = true;
+            await call(`/boards/${id}/release/`, { session });
+            if (!quiet) refresh();
+        }
+        window.disconnect = () => disconnect();
+        async function kick(id) {
+            if (!confirm(T.confirm_kick)) return;
+            await call(`/boards/${id}/kick/`);
+            refresh();
+        }
+        // Закрыли вкладку или ушли со страницы — доска сразу свободна
+        addEventListener('pagehide', () => {
+            if (conn) navigator.sendBeacon(`/boards/${conn.id}/release/`, form({ session: conn.session }));
+        });
+
+        function status(text, bad) { $('liveStatus').textContent = text || ''; $('liveStatus').classList.toggle('is-bad', !!bad); }
+        function setPreview(text) {
+            $('local').hidden = true; $('liveDot').hidden = true;
+            $('previewEmpty').hidden = false; $('previewText').textContent = text;
+        }
+
+        // Связь с доской: продлеваем подключение и забираем ответ доски. Таймер — в фоновом потоке,
+        // чтобы Chrome не «усыпил» вкладку, пока учитель показывает презентацию из другого окна
+        let ticks = 0, polling = false;
+        async function heartbeat() {
+            if (!conn || polling) return;
+            ticks++;
+            if (!conn.waiting && ticks % 3) return;       // ждём ответ доски — каждые 0,8 с, иначе каждые 2,4 с
+            polling = true;
+            const c = conn;
+            try {
+                const data = await call(`/boards/${c.id}/poll/`, { session: c.session, since: c.since });
+                if (conn !== c) return;
+                if (!data.active) {
+                    stopShare(true); conn = null; $('live').hidden = true;
+                    toast(T.kicked, true); refresh();
+                    return;
+                }
+                for (const m of data.messages || []) {
+                    c.since = Math.max(c.since, m.id);
+                    if (m.kind === 'answer' && c.pc && c.waiting && m.offer === c.offerId) {
+                        c.waiting = false;
+                        await c.pc.setRemoteDescription({ type: 'answer', sdp: m.sdp });
+                    }
+                }
+                if (c.waiting && Date.now() - c.offerAt > 15000) { c.waiting = false; status(T.lost, true); }
+            } catch (e) {
+                status(T.offline, true);
+            } finally {
+                polling = false;
+            }
+        }
+        try {
+            const worker = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 800)'], { type: 'text/javascript' })));
+            worker.onmessage = heartbeat;
+        } catch (e) {
+            setInterval(heartbeat, 800);
+        }
+
+        /* ---------- Показать экран (WebRTC) ---------- */
+        const canShare = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+        if (!canShare) { $('shareBtn').hidden = true; $('noScreen').hidden = false; $('noScreen').textContent = T.no_screen_here; }
+
+        function iceDone(pc) {
+            return new Promise(resolve => {
+                if (pc.iceGatheringState === 'complete') return resolve();
+                const done = () => { if (pc.iceGatheringState === 'complete') resolve(); };
+                pc.addEventListener('icegatheringstatechange', done);
+                setTimeout(resolve, 2500);
+            });
+        }
+        function stopShare(silent) {
+            if (!conn) return;
+            if (conn.stream) conn.stream.getTracks().forEach(t => { t.onended = null; t.stop(); });
+            if (conn.pc) conn.pc.close();
+            conn.stream = null; conn.pc = null; conn.waiting = false;
+            $('shareBtn').classList.remove('is-stop');
+            $('shareLabel').textContent = $('shareBtn').dataset.start || $('shareLabel').textContent;
+            if (!silent) setPreview(T.nothing);
+        }
+        $('shareBtn').dataset.start = $('shareLabel').textContent;
+        window.toggleShare = async function () {
+            if (!conn) return;
+            if (conn.stream) {
+                stopShare();
+                await call(`/boards/${conn.id}/send/`, { session: conn.session, kind: 'clear' });
+                status(T.stopped);
+                return;
+            }
+            let stream;
+            try {
+                stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 30 }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: true });
+            } catch (e) {
+                status(T.no_screen, true);
+                return;
+            }
+            const c = conn;
+            if (!c) { stream.getTracks().forEach(t => t.stop()); return; }
+            stopShare(true);
+            c.stream = stream;
+            const video = stream.getVideoTracks()[0];
+            video.contentHint = 'detail';
+            // «Прекратить показ» в панели браузера — доска возвращается к заставке
+            video.onended = () => { if (conn === c && c.stream === stream) window.toggleShare(); };
+            $('local').srcObject = stream; $('local').hidden = false; $('previewEmpty').hidden = true; $('liveDot').hidden = false;
+            $('shareBtn').classList.add('is-stop');
+            $('shareLabel').textContent = T.stop_share;
+            status(T.waiting_board);
+            const pc = c.pc = new RTCPeerConnection({ iceServers: ICE });
+            stream.getTracks().forEach(t => pc.addTrack(t, stream));
+            pc.onconnectionstatechange = () => {
+                if (c.pc !== pc) return;
+                if (pc.connectionState === 'connected') status(T.sharing);
+                if (pc.connectionState === 'failed') status(T.link_failed, true);
+            };
+            await pc.setLocalDescription(await pc.createOffer());
+            // Чёткость важнее плавности: текст на слайдах не «мылится»
+            pc.getSenders().forEach(s => {
+                if (!s.track || s.track.kind !== 'video') return;
+                const p = s.getParameters();
+                p.degradationPreference = 'maintain-resolution';
+                (p.encodings || [{}]).forEach(enc => { enc.maxBitrate = 6000000; enc.maxFramerate = 30; });
+                s.setParameters(p).catch(() => {});
+            });
+            await iceDone(pc);
+            if (c.pc !== pc) return;
+            const data = await call(`/boards/${c.id}/send/`, { session: c.session, kind: 'offer', sdp: pc.localDescription.sdp });
+            if (!data.ok) { status(data.error || T.error, true); return; }
+            c.offerId = data.id; c.offerAt = Date.now(); c.waiting = true; ticks = 0;
+        };
+
+        /* ---------- Ссылка, файл, очистить ---------- */
+        window.sendUrl = async function (e) {
+            e.preventDefault();
+            if (!conn) return;
+            const url = $('urlInput').value.trim();
+            if (!url) return $('urlInput').focus();
+            stopShare(true);
+            const data = await call(`/boards/${conn.id}/send/`, { session: conn.session, kind: 'url', url });
+            if (!data.ok) { status(data.error || T.error, true); return; }
+            setPreview(url);
+            status(T.sent_url);
+            $('urlInput').value = '';
+        };
+        window.sendFile = function (input) {
+            const file = input.files[0];
+            input.value = '';
+            if (!file || !conn) return;
+            if (file.size > MAX_MB * 1024 * 1024) { status(T.too_big, true); return; }
+            stopShare(true);
+            const c = conn, xhr = new XMLHttpRequest();
+            xhr.open('POST', `/boards/${c.id}/upload/`);
+            xhr.setRequestHeader('X-CSRFToken', CSRF);
+            xhr.upload.onprogress = ev => { if (ev.lengthComputable) $('progressBar').style.width = Math.round(ev.loaded * 100 / ev.total) + '%'; };
+            xhr.onload = () => {
+                $('progress').hidden = true;
+                let data = {};
+                try { data = JSON.parse(xhr.responseText); } catch (err) { data = { ok: false, error: xhr.status === 413 ? T.server_limit : T.error }; }
+                if (!data.ok) { status(data.error || T.error, true); return; }
+                setPreview(data.name);
+                status(T.sent_file);
+            };
+            xhr.onerror = () => { $('progress').hidden = true; status(T.offline, true); };
+            $('progressBar').style.width = '0'; $('progress').hidden = false;
+            status(T.uploading);
+            const f = form({ session: c.session });
+            f.append('file', file);
+            xhr.send(f);
+        };
+        window.clearBoard = async function () {
+            if (!conn) return;
+            stopShare();
+            await call(`/boards/${conn.id}/send/`, { session: conn.session, kind: 'clear' });
+            status(T.cleared);
+        };
+
+        /* ---------- Настройка досок (админ, менеджер) ---------- */
+        if (!CAN_MANAGE) return;
+        let setup = JSON.parse(document.getElementById('boards-setup').textContent), editing = null;
+        const chrome = url => `"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --user-data-dir="C:\\EnjoyBoard" --app=${url} --start-fullscreen --autoplay-policy=no-user-gesture-required --disable-popup-blocking --no-first-run`;
+        function fill(item) {
+            $('setupMore').hidden = !item;
+            if (!item) return;
+            $('setupUrl').value = item.url;
+            $('setupCmd').value = chrome(item.url);
+        }
+        window.openSetup = function (id) {
+            editing = setup.find(x => x.id === id) || null;
+            $('setupTitle').textContent = editing ? editing.name : T.new_board;
+            $('setupName').value = editing ? editing.name : '';
+            fill(editing);
+            $('setup').hidden = false;
+            $('setupName').focus();
+        };
+        window.closeSetup = () => { $('setup').hidden = true; };
+        $('setup').addEventListener('mousedown', e => { if (e.target === $('setup')) closeSetup(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('setup').hidden) closeSetup(); });
+        window.saveSetup = async function () {
+            const data = await call('{% url "board_save" %}', { id: editing ? editing.id : '', name: $('setupName').value });
+            if (!data.ok) { toast(data.error || T.error, true); return; }
+            if (!editing) { location.reload(); return; }   // новая доска — карточка появится в списке
+            editing.name = $('setupName').value.trim();
+            $('setupTitle').textContent = editing.name;
+            toast(T.saved);
+            refresh();
+        };
+        window.newToken = async function () {
+            if (!editing || !confirm(T.confirm_token)) return;
+            const data = await call('{% url "board_save" %}', { id: editing.id, action: 'token' });
+            if (!data.ok) { toast(data.error || T.error, true); return; }
+            editing.url = data.url; fill(editing); toast(T.saved);
+        };
+        window.deleteBoard = async function () {
+            if (!editing || !confirm(T.confirm_delete)) return;
+            const data = await call('{% url "board_save" %}', { id: editing.id, action: 'delete' });
+            if (data.ok) location.reload();
+        };
+        window.copyField = function (id, btn) {
+            const input = $(id);
+            input.select();
+            (navigator.clipboard ? navigator.clipboard.writeText(input.value) : Promise.reject()).catch(() => document.execCommand('copy'));
+            toast(T.copy);
+        };
+    })();
+    </script>
+</body>
+</html>

@@ -676,12 +676,15 @@ class EnglishTests(CRMTestCase):
         Application.objects.create(kind='english', first_name='Алия', last_name='Тимур', age=21, level='zero', duration='1y',
                                    shift='none', parent_phone='+7 701 123 45 67', status='contacted', status_by=self.manager,
                                    status_at=timezone.now())
+        from .models import Board
+        board = Board.objects.create(name='Альфа', seen_at=timezone.now())
         names = {'Алия', 'Тимур', 'Альфа', 'алия', 'тимур', 'альфа'}
         i18n.missing = set()
         try:
             self.client.cookies['ee_lang'] = 'en'
             self.client.get('/')
             self.client.get('/?applied=ielts')
+            self.client.get(f'/board/{board.token}/')
             for user in [self.admin, self.teacher, self.accountant, self.manager]:
                 self.login(user)
                 for url in ['/dashboard/', '/students/', '/students/add/', '/schedule/', '/individual/', '/payments/',
@@ -689,7 +692,8 @@ class EnglishTests(CRMTestCase):
                             '/broadcast/', '/broadcast/?kind=news', '/broadcast/?kind=payment&audience=teacher',
                             f'/group/{self.group.id}/', f'/group/{self.group.id}/history/', f'/group/{self.group.id}/edit/',
                             f'/students/{self.student.id}/', f'/student/{self.student.id}/edit/', '/game/tetris/',
-                            '/messages/', '/messages/?cat=applications', f'/students/add/?application={Application.objects.first().id}']:
+                            '/messages/', '/messages/?cat=applications', f'/students/add/?application={Application.objects.first().id}',
+                            '/boards/']:
                     self.client.get(url)
             # Одна буква — инициалы на аватарах и сочетание Ctrl+Л
             missing = {phrase for phrase in i18n.missing - names if len(phrase) > 1}
@@ -1938,6 +1942,166 @@ class HomeworkRateTests(CRMTestCase):
         lesson.refresh_from_db()
         self.assertTrue(lesson.no_homework)
         self.assertIsNone(self.client.get(f'/group/{self.group.id}/').context['homework_rate'])
+
+
+class BoardTests(CRMTestCase):
+    """Интерактивные доски: одна доска — один подключённый, обмен offer/answer, ссылки и файлы"""
+    def setUp(self):
+        super().setUp()
+        import tempfile
+        from .models import Board
+        media = tempfile.mkdtemp()
+        patcher = override_settings(MEDIA_ROOT=media)
+        patcher.enable()
+        self.addCleanup(patcher.disable)
+        self.board = Board.objects.create(name='Кабинет 3', seen_at=timezone.now())
+
+    def connect(self, user):
+        self.login(user)
+        return self.client.post(f'/boards/{self.board.id}/connect/').json()
+
+    def board_poll(self, session='', since=0):
+        return self.client.post(f'/board/{self.board.token}/poll/', {'session': session, 'since': since}).json()
+
+    def test_page_and_menu(self):
+        for user in (self.teacher, self.manager, self.admin):
+            self.login(user)
+            page = self.client.get('/boards/')
+            self.assertEqual(page.status_code, 200)
+            self.assertContains(page, 'href="/boards/" data-label="Доски"')
+        self.assertContains(page, 'openSetup()')                                  # админ: «Добавить доску»
+        self.login(self.teacher)
+        self.assertNotContains(self.client.get('/boards/'), 'openSetup()')       # настройка — только админ и менеджер
+        self.login(self.accountant)
+        self.assertEqual(self.client.get('/boards/').status_code, 302)
+        self.assertEqual(self.client.post(f'/boards/{self.board.id}/connect/').status_code, 403)
+
+    def test_one_person_at_a_time(self):
+        first = self.connect(self.teacher)
+        self.assertTrue(first['ok'])
+        busy = self.connect(self.other_teacher)
+        self.assertEqual((busy['ok'], busy['busy']), (False, True))
+        self.assertIn('teacher', busy['error'])
+        states = {b['id']: b for b in self.client.get('/boards/state/').json()['boards']}
+        self.assertEqual((states[self.board.id]['busy'], states[self.board.id]['holder']), (True, 'teacher'))
+        # Тот же учитель с другой вкладки — переподключается, старое подключение больше не действует
+        second = self.connect(self.teacher)
+        self.assertTrue(second['ok'])
+        self.assertFalse(self.client.post(f'/boards/{self.board.id}/poll/', {'session': first['session']}).json()['active'])
+        self.assertTrue(self.client.post(f'/boards/{self.board.id}/poll/', {'session': second['session'], 'since': 'abc'}).json()['active'])
+        # Ноутбук пропал (закрыли крышку) — через полторы минуты доска свободна
+        from .models import Board
+        Board.objects.filter(pk=self.board.pk).update(holder_seen=timezone.now() - timedelta(minutes=2))
+        self.assertTrue(self.connect(self.other_teacher)['ok'])
+
+    def test_offline_board(self):
+        from .models import Board
+        Board.objects.filter(pk=self.board.pk).update(seen_at=timezone.now() - timedelta(minutes=5))
+        self.assertIn('выключена', self.connect(self.teacher)['error'])
+        self.board_poll()                                              # страница доски открылась — снова на связи
+        self.assertTrue(self.connect(self.teacher)['ok'])
+
+    def test_screen_offer_and_answer(self):
+        session = self.connect(self.teacher)['session']
+        sent = self.client.post(f'/boards/{self.board.id}/send/', {'session': session, 'kind': 'offer', 'sdp': 'v=0 offer'}).json()
+        self.assertTrue(sent['ok'])
+        got = self.board_poll()
+        self.assertEqual((got['session'], got['holder']), (session, 'teacher'))
+        self.assertEqual([m['kind'] for m in got['messages']], ['hello', 'offer'])
+        offer = got['messages'][-1]
+        self.assertEqual(offer['sdp'], 'v=0 offer')
+        self.assertEqual(self.board_poll(session, offer['id'])['messages'], [])          # уже прочитано
+        # Ответ доски — учителю
+        self.assertEqual(self.client.post(f'/board/{self.board.token}/send/', {'session': 'чужое', 'kind': 'answer', 'sdp': 'x'}).status_code, 400)
+        self.client.post(f'/board/{self.board.token}/send/', {'session': session, 'kind': 'answer', 'sdp': 'v=0 answer', 'offer': offer['id']})
+        answer = self.client.post(f'/boards/{self.board.id}/poll/', {'session': session}).json()['messages']
+        self.assertEqual([(m['kind'], m['sdp'], m['offer']) for m in answer], [('answer', 'v=0 answer', offer['id'])])
+        # Чужой учитель отправить на доску ничего не может
+        self.login(self.other_teacher)
+        self.assertEqual(self.client.post(f'/boards/{self.board.id}/send/', {'session': session, 'kind': 'clear'}).status_code, 409)
+
+    def test_links_and_clear(self):
+        session = self.connect(self.teacher)['session']
+        send = lambda **data: self.client.post(f'/boards/{self.board.id}/send/', {'session': session, **data})
+        self.assertEqual(send(kind='url', url='javascript:alert(1)').status_code, 400)
+        self.assertEqual(send(kind='url', url='').status_code, 400)
+        self.assertTrue(send(kind='url', url='example.com/lesson').json()['ok'])
+        messages = self.board_poll()['messages']
+        self.assertEqual((messages[-1]['kind'], messages[-1]['url']), ('url', 'https://example.com/lesson'))
+        state = self.client.get('/boards/state/').json()['boards'][0]
+        self.assertEqual((state['showing'], state['showing_label']), ('url', 'https://example.com/lesson'))
+        send(kind='clear')
+        self.assertEqual(self.board_poll()['messages'][-1]['kind'], 'clear')
+        self.assertEqual(self.client.get('/boards/state/').json()['boards'][0]['showing'], '')
+
+    def test_files(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from .models import BoardFile
+        session = self.connect(self.teacher)['session']
+        upload = lambda name, body=b'data': self.client.post(f'/boards/{self.board.id}/upload/', {'session': session, 'file': SimpleUploadedFile(name, body)})
+        self.assertEqual(upload('lesson.pptx').status_code, 400)                       # PowerPoint — через «Показать экран»
+        self.assertEqual(upload('virus.exe').status_code, 400)
+        self.assertTrue(upload('Слайд 1.png', b'\x89PNG fake').json()['ok'])
+        message = self.board_poll()['messages'][-1]
+        self.assertEqual((message['kind'], message['type']), ('file', 'image'))
+        self.client.logout()                                                            # доска не входит в CRM
+        response = self.client.get(message['url'])
+        self.assertEqual((response.status_code, response['Content-Type']), (200, 'image/png'))
+        self.assertEqual(b''.join(response.streaming_content), b'\x89PNG fake')
+        self.assertEqual(self.client.get(message['url'].replace(self.board.token, 'wrong-token')).status_code, 404)
+        # Видео на доске перематывается: файл отдаётся частями
+        part = self.client.get(message['url'], HTTP_RANGE='bytes=1-3')
+        self.assertEqual((part.status_code, part['Content-Range'], b''.join(part.streaming_content)), (206, 'bytes 1-3/9', b'PNG'))
+        self.assertEqual(self.client.get(message['url'], HTTP_RANGE='bytes=50-').status_code, 416)
+        # Следующий файл заменяет прошлый
+        self.login(self.teacher)
+        upload('video.mp4')
+        self.assertEqual([(f.name, f.mime) for f in BoardFile.objects.all()], [('video.mp4', 'video/mp4')])
+
+    def test_release_and_kick(self):
+        session = self.connect(self.teacher)['session']
+        self.client.post(f'/boards/{self.board.id}/release/', {'session': session})
+        self.assertEqual(self.board_poll()['session'], '')                            # доска вернулась к заставке
+        session = self.connect(self.teacher)['session']
+        self.login(self.other_teacher)
+        self.assertEqual(self.client.post(f'/boards/{self.board.id}/kick/').status_code, 403)
+        self.login(self.manager)
+        self.client.post(f'/boards/{self.board.id}/kick/')
+        self.login(self.teacher)
+        self.assertFalse(self.client.post(f'/boards/{self.board.id}/poll/', {'session': session}).json()['active'])
+        # Учитель пропал — доска сама освобождается при следующем опросе
+        from .models import Board
+        session = self.connect(self.teacher)['session']
+        Board.objects.filter(pk=self.board.pk).update(holder_seen=timezone.now() - timedelta(minutes=2))
+        self.assertEqual(self.board_poll(session)['session'], '')
+        self.assertIsNone(Board.objects.get(pk=self.board.pk).holder)
+
+    def test_board_screen(self):
+        page = self.client.get(f'/board/{self.board.token}/')
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, 'Кабинет 3')
+        self.assertEqual(page['Cross-Origin-Opener-Policy'], 'same-origin-allow-popups')
+        self.assertEqual(self.client.get('/board/nope/').status_code, 404)
+        self.assertEqual(self.client.post('/board/nope/poll/').status_code, 404)
+
+    def test_manage_boards(self):
+        from .models import Board
+        self.login(self.teacher)
+        self.assertEqual(self.client.post('/boards/save/', {'name': 'Кабинет 9'}).status_code, 403)
+        self.login(self.admin)
+        created = self.client.post('/boards/save/', {'name': '  Кабинет   9 '}).json()
+        board = Board.objects.get(id=created['id'])
+        self.assertEqual(board.name, 'Кабинет 9')
+        self.assertIn(f'/board/{board.token}/', created['url'])
+        self.client.post('/boards/save/', {'id': board.id, 'name': 'Кабинет 10'})
+        old = board.token
+        new = self.client.post('/boards/save/', {'id': board.id, 'action': 'token'}).json()
+        board.refresh_from_db()
+        self.assertNotEqual(board.token, old)
+        self.assertEqual((board.name, self.client.get(f'/board/{old}/').status_code), ('Кабинет 10', 404))
+        self.assertIn(board.token, new['url'])
+        self.client.post('/boards/save/', {'id': board.id, 'action': 'delete'})
+        self.assertFalse(Board.objects.filter(id=board.id).exists())
 
 
 class TwoTeachersTests(CRMTestCase):

@@ -213,3 +213,11 @@ LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
 
 from zoneinfo import ZoneInfo
+
+# Интерактивные доски: запасной путь для показа экрана через свой TURN-сервер (coturn), если Wi-Fi центра
+# не пускает ноутбук к доске напрямую. Обычно не нужен — см. docs/server.md, раздел «Интерактивные доски»
+BOARD_TURN = {
+    'urls': os.environ.get('BOARD_TURN_URL', ''),          # например: turn:enjoy-english.space:3478
+    'username': os.environ.get('BOARD_TURN_USER', ''),
+    'credential': os.environ.get('BOARD_TURN_PASSWORD', ''),
+}

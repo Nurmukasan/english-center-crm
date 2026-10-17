@@ -481,3 +481,61 @@ class Application(models.Model):
         verbose_name = "Заявка"
         verbose_name_plural = "Заявки"
         ordering = ['-created_at']
+
+
+def board_token():
+    import secrets
+    return secrets.token_urlsafe(24)
+
+
+class Board(models.Model):
+    """Интерактивная доска в кабинете (dashboard/boards.py).
+
+    На доске открыта страница /board/<token>/ — она показывает то, что прислал учитель: его экран
+    (WebRTC, напрямую по Wi-Fi центра), ссылку или файл. Подключён может быть только один человек."""
+    name = models.CharField(max_length=60, verbose_name="Кабинет")
+    token = models.CharField(max_length=40, unique=True, default=board_token, verbose_name="Секрет ссылки доски")
+    order = models.PositiveSmallIntegerField(default=0, verbose_name="Порядок")
+    seen_at = models.DateTimeField(null=True, blank=True, verbose_name="Доска была на связи")
+    # Кто подключён сейчас: одна доска — один человек
+    holder = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+', verbose_name="Подключён")
+    session = models.CharField(max_length=32, blank=True, verbose_name="Подключение")
+    holder_since = models.DateTimeField(null=True, blank=True)
+    holder_seen = models.DateTimeField(null=True, blank=True)
+    # Что сейчас на доске: screen, url, file или пусто
+    showing = models.CharField(max_length=10, blank=True)
+    showing_label = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = "Интерактивная доска"
+        verbose_name_plural = "Интерактивные доски"
+        ordering = ['order', 'name']
+
+
+class BoardMessage(models.Model):
+    """Сообщения между ноутбуком учителя и доской в рамках одного подключения (offer/answer, ссылка, файл…)"""
+    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name='messages')
+    session = models.CharField(max_length=32)
+    to_board = models.BooleanField(default=True)
+    kind = models.CharField(max_length=10)
+    payload = models.TextField(blank=True)   # JSON
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+        indexes = [models.Index(fields=['board', 'session', 'to_board', 'id'], name='boardmsg_poll')]
+
+
+class BoardFile(models.Model):
+    """Файл, отправленный на доску: картинка, видео, звук или PDF. Хранится несколько дней"""
+    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name='files')
+    file = models.FileField(upload_to='board_files/')
+    name = models.CharField(max_length=200)
+    mime = models.CharField(max_length=60)
+    size = models.PositiveBigIntegerField(default=0)
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)

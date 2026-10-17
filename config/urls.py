@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path, re_path
 from django.contrib.staticfiles.views import serve as static_serve
 from django.conf import settings
-from dashboard import applications, broadcasts, game, inbox, security, views, weather
+from dashboard import applications, boards, broadcasts, game, inbox, security, views, weather
 
 # Вход в /admin/ — с паузой после неудачных попыток и записью в журнал входов
 admin.site.login = security.throttled_admin_login(admin.site.login)
@@ -11,6 +11,20 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.login_view, name='login'),
     path('apply/', applications.apply, name='apply'),
+    # Интерактивные доски: вкладка учителя и экран доски по секретной ссылке
+    path('boards/', boards.boards_page, name='boards'),
+    path('boards/state/', boards.boards_state, name='boards_state'),
+    path('boards/save/', boards.board_save, name='board_save'),
+    path('boards/<int:board_id>/connect/', boards.board_connect, name='board_connect'),
+    path('boards/<int:board_id>/poll/', boards.board_poll, name='board_poll'),
+    path('boards/<int:board_id>/send/', boards.board_send, name='board_send'),
+    path('boards/<int:board_id>/upload/', boards.board_upload, name='board_upload'),
+    path('boards/<int:board_id>/release/', boards.board_release, name='board_release'),
+    path('boards/<int:board_id>/kick/', boards.board_kick, name='board_kick'),
+    path('board/<str:token>/', boards.board_screen, name='board_screen'),
+    path('board/<str:token>/poll/', boards.board_screen_poll, name='board_screen_poll'),
+    path('board/<str:token>/send/', boards.board_screen_send, name='board_screen_send'),
+    path('board/<str:token>/file/<int:file_id>/', boards.board_file, name='board_file'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('logout/', views.logout_view, name='logout'),
     path('profile/', views.profile, name='profile'),
