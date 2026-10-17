@@ -7,6 +7,7 @@
     <div class="ee-blob b1"></div><div class="ee-blob b2"></div><div class="ee-blob b3"></div><div class="ee-grid"></div>
 </div>
 
+<div class="ee-rail-scrim" id="eeRailScrim" hidden></div>
 <nav class="ee-rail" aria-label="Навигация">
     <a href="{% url 'dashboard' %}" class="ee-rail-logo" title="Enjoy English">
         <img src="/media/logo/logo.png" alt="Enjoy English">
@@ -58,7 +59,7 @@
         </a>
         {% endif %}
         {% if role != 'accountant' %}
-        <a href="{% url 'inbox_page' %}" data-label="Сообщения"
+        <a href="{% url 'inbox_page' %}" data-label="Сообщения" data-inbox
            class="ee-rail-item {% if url_name == 'inbox_page' %}is-active{% endif %}">
             <i class="fas fa-inbox"></i>{% if inbox_unread %}<b class="ee-rail-badge notranslate" aria-label="Новых: {{ inbox_unread }}">{% if inbox_unread > 99 %}99+{% else %}{{ inbox_unread }}{% endif %}</b>{% endif %}<span>Сообщения</span>
         </a>
@@ -100,6 +101,14 @@
                 <i class="fas fa-arrow-right-from-bracket"></i><span>Выйти</span>
             </button>
         </form>
+    </div>
+
+    <!-- Телефон: «Ещё» — все разделы, поиск, язык, профиль -->
+    <div class="ee-rail-head">
+        <b>Все разделы</b>
+        <button type="button" class="ee-rail-item ee-rail-more" id="eeRailMore" aria-expanded="false" aria-controls="eeRailItems" aria-label="Все разделы">
+            <i class="fas fa-grip"></i><i class="fas fa-xmark"></i>
+        </button>
     </div>
 </nav>
 
@@ -162,11 +171,44 @@
             : `translate3d(${el.offsetLeft}px, 0, 0)`;
         if (instant) requestAnimationFrame(() => glow.style.transition = '');
     }
+    /* ---------- Телефон: в доке — что помещается, остальное по кнопке «Ещё» ---------- */
+    const rail = items.closest('.ee-rail');
+    const more = document.getElementById('eeRailMore');
+    const scrim = document.getElementById('eeRailScrim');
+    function fitDock() {
+        const list = Array.from(items.querySelectorAll('.ee-rail-item'));
+        list.forEach(a => a.classList.remove('is-more'));
+        if (vertical()) return;
+        const room = Math.max(1, Math.floor((items.clientWidth + 4) / 48));   // пункт 44px + промежуток 4px
+        // «Сообщения» (счётчик новых) и открытая страница остаются в доке всегда
+        const keep = new Set([active, items.querySelector('[data-inbox]')].filter(Boolean).slice(0, room));
+        for (const a of list) { if (keep.size >= room) break; keep.add(a); }
+        list.forEach(a => a.classList.toggle('is-more', !keep.has(a)));
+        more.classList.toggle('has-badge', list.some(a => a.classList.contains('is-more') && a.querySelector('.ee-rail-badge')));
+    }
+    function setMenu(open) {
+        rail.classList.toggle('is-open', open);
+        scrim.hidden = !open;
+        more.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) (items.querySelector('.is-active') || items.querySelector('.ee-rail-item')).focus();
+        else moveGlow(active, true);
+    }
+    more.addEventListener('click', () => setMenu(!rail.classList.contains('is-open')));
+    scrim.addEventListener('click', () => setMenu(false));
+    rail.querySelectorAll('.ee-rail-bottom button').forEach(b => b.addEventListener('click', () => setMenu(false)));
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && rail.classList.contains('is-open')) { setMenu(false); more.focus(); }
+    });
+
+    fitDock();
     moveGlow(active, true);
     items.querySelectorAll('.ee-rail-item').forEach(el => el.addEventListener('pointerenter', () => moveGlow(el)));
     items.addEventListener('pointerleave', () => moveGlow(active));
-    addEventListener('resize', () => moveGlow(active, true));
-    if (active && !vertical()) active.scrollIntoView({ inline: 'center', block: 'nearest' });
+    addEventListener('resize', () => {
+        if (vertical() && rail.classList.contains('is-open')) setMenu(false);
+        fitDock();
+        moveGlow(active, true);
+    });
 
     /* ---------- Язык: страница приходит с сервера уже на нужном языке ---------- */
     window.eeToggleLang = function () {
