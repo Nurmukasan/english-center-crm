@@ -25,7 +25,9 @@ CATEGORY_ORDER = ['complaint', 'comment', 'calibration']
 
 
 def unread_count():
-    return InboxMessage.objects.filter(read_at__isnull=True).count()
+    """Счётчик в меню: непрочитанные сообщения и новые заявки с лендинга"""
+    from .applications import new_count
+    return InboxMessage.objects.filter(read_at__isnull=True).count() + new_count()
 
 
 def inbox_context(request):
@@ -128,10 +130,15 @@ def decorate(items, now):
 def inbox_page(request):
     """Админу и менеджерам — входящие с фильтром по категории (менеджер может и написать сам);
     учителю — форма и отправленные"""
+    from . import applications
     role = get_user_role(request.user)
     now = timezone.now()
     if role in INBOX_ROLES:
-        category = request.GET.get('cat') if request.GET.get('cat') in CATEGORY_ORDER else 'all'
+        apps_new = applications.new_count()
+        unread_messages = InboxMessage.objects.filter(read_at__isnull=True).count()
+        category = request.GET.get('cat') if request.GET.get('cat') in CATEGORY_ORDER + ['applications'] else ''
+        # Без выбора: новые заявки и нет новых сообщений — сразу открываем заявки
+        category = category or ('applications' if apps_new and not unread_messages else 'all')
         base = InboxMessage.objects.select_related('student', 'group', 'author', 'read_by', 'resolved_by', 'calibration')
         unread = {c: 0 for c in CATEGORY_ORDER}
         for row in InboxMessage.objects.filter(read_at__isnull=True).values('category').annotate(n=Count('id')):
@@ -143,14 +150,20 @@ def inbox_page(request):
         new = decorate(list(items.filter(read_at__isnull=True).order_by('-created_at')), now)
         old = decorate(list(items.filter(read_at__isnull=False).order_by('-created_at')[:100]), now)
         can_compose = role == 'manager'   # менеджер и сам пишет про учеников
-        return render(request, 'dashboard/inbox.html', {
+        context = {
             'role': role, 'is_inbox': True, 'category': category, 'new': new, 'old': old,
             'unread': unread, 'unread_total': sum(unread.values()), 'totals': totals, 'all_total': sum(totals.values()),
             'all_groups': Group.objects.filter(is_active=True, group_type='group').order_by('level', 'name'),
             'can_compose': can_compose,
             'choices': sender_students(request.user, role) if can_compose else [],
             'preselect': request.GET.get('student', ''),
-        })
+            # Заявки с лендинга — своя вкладка (dashboard/applications.py)
+            'apps_new_total': apps_new, 'apps_all_total': applications.Application.objects.count(),
+            'header_new': sum(unread.values()) + apps_new,
+        }
+        if category == 'applications':
+            context.update(applications.inbox_context(request, now))
+        return render(request, 'dashboard/inbox.html', context)
     if role not in SENDER_ROLES:
         messages.error(request, 'У вас нет доступа')
         return redirect('dashboard')

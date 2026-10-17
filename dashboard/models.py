@@ -419,3 +419,63 @@ class GameScore(models.Model):
 
     def __str__(self):
         return f'{self.user} — {self.score}'
+
+
+class Application(models.Model):
+    """Заявка на обучение с лендинга: английский или подготовка к IELTS (dashboard/applications.py)"""
+    KIND_CHOICES = [('english', 'Английский'), ('ielts', 'IELTS')]
+    LEVEL_CHOICES = [
+        ('unknown', 'Не знаю — определим на пробном'),
+        ('zero', 'С нуля'),
+        ('a1', 'A1 — Beginner'),
+        ('a2', 'A2 — Elementary'),
+        ('b1', 'B1 — Intermediate'),
+        ('b2', 'B2 — Upper-Intermediate'),
+        ('c1', 'C1 — Advanced'),
+    ]
+    DURATION_CHOICES = [
+        ('1m', 'Месяц'),
+        ('3m', '3 месяца'),
+        ('6m', 'Полгода'),
+        ('1y', 'Год и больше'),
+        ('unsure', 'Пока не знаю'),
+    ]
+    SHIFT_CHOICES = [('morning', 'Утром'), ('evening', 'Вечером'), ('none', 'Не учится')]
+    TARGET_CHOICES = [('5.5', '5.5'), ('6.0', '6.0'), ('6.5', '6.5'), ('7.0', '7.0'), ('7.5+', '7.5 и выше'), ('unsure', 'Пока не знаю')]
+    EXAM_CHOICES = [('1m', 'В ближайший месяц'), ('3m', 'Через 2–3 месяца'), ('6m', 'Через полгода'),
+                    ('later', 'Позже'), ('unsure', 'Дата не выбрана')]
+    STATUS_CHOICES = [('new', 'Новая'), ('contacted', 'Связались'), ('enrolled', 'Записан'), ('declined', 'Отказ')]
+
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES, verbose_name="Форма")
+    first_name = models.CharField(max_length=60, verbose_name="Имя")
+    last_name = models.CharField(max_length=60, verbose_name="Фамилия")
+    age = models.PositiveSmallIntegerField(verbose_name="Возраст")
+    level = models.CharField(max_length=10, choices=LEVEL_CHOICES, verbose_name="Уровень (со слов)")
+    duration = models.CharField(max_length=10, choices=DURATION_CHOICES, verbose_name="Сколько планирует заниматься")
+    shift = models.CharField(max_length=10, choices=SHIFT_CHOICES, verbose_name="Когда учится")
+    phone = models.CharField(max_length=20, blank=True, verbose_name="Телефон ученика")
+    parent_phone = models.CharField(max_length=20, blank=True, verbose_name="Телефон родителя")
+    # Только для IELTS
+    target_score = models.CharField(max_length=10, choices=TARGET_CHOICES, blank=True, verbose_name="Нужный балл IELTS")
+    exam_when = models.CharField(max_length=10, choices=EXAM_CHOICES, blank=True, verbose_name="Когда экзамен")
+    previous_score = models.CharField(max_length=10, blank=True, verbose_name="Прошлый результат IELTS")
+    comment = models.TextField(blank=True, max_length=1000, verbose_name="Комментарий")
+
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='new', db_index=True, verbose_name="Статус")
+    status_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+', verbose_name="Кто сменил статус")
+    status_at = models.DateTimeField(null=True, blank=True, verbose_name="Когда сменили статус")
+    student = models.ForeignKey(Student, on_delete=models.SET_NULL, null=True, blank=True, related_name='applications', verbose_name="Ученик в CRM")
+    ip = models.GenericIPAddressField(null=True, blank=True, verbose_name="IP")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Пришла")
+
+    def __str__(self):
+        return f"{self.get_kind_display()}: {self.full_name}"
+
+    @property
+    def full_name(self):
+        return f'{self.first_name} {self.last_name}'.strip()
+
+    class Meta:
+        verbose_name = "Заявка"
+        verbose_name_plural = "Заявки"
+        ordering = ['-created_at']

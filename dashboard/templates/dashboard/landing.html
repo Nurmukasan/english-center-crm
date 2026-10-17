@@ -188,6 +188,89 @@
         .shake { animation: shake .5s cubic-bezier(.36,.07,.19,.97); }
         @keyframes shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
 
+        /* ---------- Заявка на обучение ---------- */
+        .apply-wrap { display: grid; gap: 40px; align-items: start; }
+        @media (min-width: 1024px) {
+            .apply-wrap { grid-template-columns: .8fr 1.2fr; gap: 56px; }
+            .apply-intro { position: sticky; top: 8rem; }
+        }
+        .apply-card { position: relative; border-radius: 32px; padding: 36px; scroll-margin-top: 96px; }
+        @media (max-width: 639px) { .apply-card { border-radius: 26px; padding: 18px; } }
+        .apply-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 6px; border-radius: 22px; background: var(--surface-2); border: 1px solid var(--line); }
+        .apply-tab { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; text-align: left; color: var(--muted);
+            transition: background-color .25s ease, color .25s ease, box-shadow .25s ease, transform var(--spring-dur) var(--spring); }
+        .apply-tab:hover { color: var(--ink); }
+        .apply-tab i { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; font-size: 16px;
+            color: var(--accent-ink); background: var(--accent-soft); transition: background-color .25s ease, color .25s ease; }
+        .apply-tab b { display: block; font-size: 15px; font-weight: 800; color: inherit; }
+        .apply-tab small { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 1px; }
+        .apply-tab[aria-selected="true"] { color: var(--ink); background: var(--surface); box-shadow: var(--shadow); }
+        .apply-tab[aria-selected="true"] i { color: #fff; background: var(--accent); }
+        .apply-form[hidden], .apply-done[hidden], .apply-tabs[hidden] { display: none; }
+        .apply-form { animation: apply-in .45s var(--spring-soft) both; }
+        @keyframes apply-in { from { opacity: 0; transform: translateY(10px); } }
+        .apply-group { margin-top: 26px; border: 0; padding: 0; min-width: 0; }
+        .apply-legend { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; font-size: 13px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+        .apply-legend span { width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; color: var(--accent-ink); background: var(--accent-soft); border: 1px solid var(--accent-line); }
+        .apply-row { display: grid; grid-template-columns: 1fr 1fr 110px; gap: 12px; }
+        .apply-row-2 { grid-template-columns: 1fr 1fr; }
+        .apply-field { display: block; min-width: 0; }
+        .apply-field + .apply-field { margin-top: 0; }
+        .apply-group > .apply-field, .apply-narrow { margin-top: 14px; }
+        .apply-narrow { max-width: 220px; }
+        .apply-label { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 13px; font-weight: 700; color: var(--ink-2); }
+        .apply-label b { color: var(--accent); }
+        .apply-label i { color: var(--faint); font-size: 12px; }
+        .apply-input { width: 100%; padding: .8rem .95rem; border-radius: 12px; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong);
+            font-size: 15px; outline: none; transition: border-color .2s ease, box-shadow .2s ease; }
+        .apply-input::placeholder { color: var(--faint); }
+        .apply-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(249, 115, 22, .16); }
+        textarea.apply-input { resize: vertical; min-height: 64px; }
+        .apply-q { margin-top: 16px; }
+        .apply-q:first-of-type { margin-top: 0; }
+        .apply-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .chip { position: relative; cursor: pointer; }
+        .chip input { position: absolute; opacity: 0; pointer-events: none; }
+        .chip span { display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; border-radius: 9999px; font-size: 14px; font-weight: 700;
+            color: var(--ink-2); background: var(--surface); border: 1px solid var(--line-strong);
+            transition: background-color .2s ease, color .2s ease, border-color .2s ease, transform var(--spring-dur) var(--spring); }
+        .chip span i { font-size: 12px; color: var(--faint); transition: color .2s ease; }
+        .chip:hover span { border-color: var(--accent); }
+        .chip input:checked + span { color: #fff; background: var(--accent); border-color: var(--accent); transform: scale(1.03); }
+        .chip input:checked + span i { color: #fff; }
+        .chip input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .apply-help { margin-top: 7px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+        .apply-err { display: block; min-height: 0; font-size: 12.5px; font-weight: 700; color: #dc2626; }
+        .apply-err:not(:empty) { margin-top: 6px; }
+        .apply-err-main:not(:empty) { margin-top: 22px; padding: 10px 14px; border-radius: 12px; background: #fef2f2; border: 1px solid #fecaca; }
+        .is-bad .apply-input, .apply-input.is-bad { border-color: #f87171; }
+        .apply-submit { margin-top: 24px; }
+        .apply-submit[disabled] { opacity: .7; pointer-events: none; }
+        .apply-privacy { margin-top: 12px; font-size: 12.5px; color: var(--muted); text-align: center; text-wrap: balance; }
+        .apply-privacy i { margin-right: 6px; font-size: 11px; color: var(--faint); }
+        .apply-trap { position: absolute !important; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+        .apply-done { text-align: center; padding: 34px 8px 18px; animation: apply-in .5s var(--spring-soft) both; }
+        .apply-done-icon { width: 76px; height: 76px; margin: 0 auto 18px; border-radius: 24px; display: grid; place-items: center; font-size: 32px; color: #fff;
+            background: var(--accent); box-shadow: 0 16px 34px -14px rgba(249, 115, 22, .8); animation: apply-pop .7s var(--spring) both .1s; }
+        @keyframes apply-pop { from { transform: scale(.3) rotate(-20deg); opacity: 0; } }
+        .apply-perks { display: grid; gap: 14px; margin-top: 30px; }
+        .apply-perk { display: flex; gap: 14px; align-items: flex-start; }
+        .apply-perk > span { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; color: var(--accent-ink); background: var(--accent-soft); border: 1px solid var(--accent-line); }
+        .apply-perk b { display: block; font-weight: 800; color: var(--ink); }
+        .apply-perk p { font-size: 14px; color: var(--muted); margin-top: 1px; }
+        /* Телефон: кнопка «Оставить заявку» внизу, пока форма не на экране */
+        .apply-float { position: fixed; left: 16px; bottom: 16px; z-index: 30; transform: translateY(140%); transition: transform .5s var(--spring-soft); }
+        .apply-float.show { transform: none; }
+        @media (min-width: 640px) { .apply-float { display: none; } }
+        @media (max-width: 639px) {
+            .apply-row { grid-template-columns: 1fr 1fr; }
+            .apply-age { grid-column: span 2; max-width: 140px; }
+            .apply-row-2 { grid-template-columns: 1fr; }
+            .apply-tab { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; }
+            .apply-tab small { display: none; }
+            .chip span { padding: 8px 12px; font-size: 13.5px; }
+        }
+
         html.lang-switch body { opacity: 0; transition: opacity .16s ease; }
 
         @media (prefers-reduced-motion: reduce) {
@@ -226,9 +309,14 @@
                 <a href="#journey" class="nav-link">Путь ученика</a>
                 {% if contacts %}<a href="#contacts" class="nav-link">Контакты</a>{% endif %}
             </div>
-            <button type="button" data-open-login class="btn btn-ghost magnetic text-sm px-5 py-2.5">
-                <i class="fas fa-right-to-bracket text-violet-300"></i> Войти
-            </button>
+            <div class="flex items-center gap-2">
+                <a href="#apply" class="btn btn-primary magnetic text-sm px-4 sm:px-5 py-2.5">
+                    <i class="fas fa-pen-to-square"></i><span class="hidden sm:inline">Оставить заявку</span><span class="sm:hidden">Заявка</span>
+                </a>
+                <button type="button" data-open-login class="btn btn-ghost magnetic text-sm px-4 sm:px-5 py-2.5" aria-label="Войти">
+                    <i class="fas fa-right-to-bracket text-violet-300"></i><span class="hidden sm:inline">Войти</span>
+                </button>
+            </div>
         </nav>
     </header>
 
@@ -259,17 +347,12 @@
                     </p>
 
                     <div data-reveal style="--i:4" class="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-10">
-                        {% if contacts %}
-                        <a href="#contacts" class="btn btn-primary magnetic px-8 py-4 text-base">
-                            Записаться на пробный <i class="fas fa-arrow-right arrow"></i>
+                        <a href="#apply" data-apply="english" class="btn btn-primary magnetic px-8 py-4 text-base">
+                            Оставить заявку <i class="fas fa-arrow-right arrow"></i>
                         </a>
-                        <a href="#method" class="btn btn-ghost magnetic px-8 py-4 text-base">Как мы учим</a>
-                        {% else %}
-                        <a href="#method" class="btn btn-primary magnetic px-8 py-4 text-base">
-                            Как мы учим <i class="fas fa-arrow-right arrow"></i>
+                        <a href="#apply" data-apply="ielts" class="btn btn-ghost magnetic px-8 py-4 text-base">
+                            <i class="fas fa-bullseye text-violet-300"></i> Подготовка к IELTS
                         </a>
-                        <a href="#formats" class="btn btn-ghost magnetic px-8 py-4 text-base">Форматы занятий</a>
-                        {% endif %}
                     </div>
                 </div>
 
@@ -336,6 +419,48 @@
                         <span class="text-white/80 notranslate">Speaking</span><span class="text-violet-400">✦</span>
                     </span>
                     {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        <!-- Заявка на обучение: английский или IELTS -->
+        <section id="apply" class="px-4 py-20 sm:py-28 scroll-mt-24">
+            <div class="mx-auto max-w-6xl apply-wrap">
+                <div class="apply-intro">
+                    <p data-reveal class="text-xs sm:text-sm font-bold uppercase tracking-[.25em] text-violet-300/90 mb-4">Заявка на обучение</p>
+                    <h2 data-reveal style="--i:1" class="font-display text-3xl sm:text-5xl font-bold text-white leading-tight">
+                        Запишитесь — <span class="text-gradient">мы перезвоним</span>
+                    </h2>
+                    <p data-reveal style="--i:2" class="text-soft text-lg mt-6 max-w-md">Пара минут на форму — и администратор свяжется с вами, ответит на вопросы и подберёт группу по уровню и времени.</p>
+                    <div data-stagger class="apply-perks">
+                        <div data-reveal class="apply-perk"><span><i class="fas fa-phone-volume"></i></span><div><b>Перезвоним</b><p>Уточним, что важно именно вам</p></div></div>
+                        <div data-reveal class="apply-perk"><span><i class="fas fa-stairs"></i></span><div><b>Определим уровень</b><p>На пробном уроке, без стресса</p></div></div>
+                        <div data-reveal class="apply-perk"><span><i class="fas fa-calendar-check"></i></span><div><b>Подберём время</b><p>Утром или вечером — как удобно</p></div></div>
+                    </div>
+                </div>
+
+                <div data-reveal style="--i:1" class="apply-card glass-strong ring-gradient">
+                    {% with active=applied|default:'english' %}
+                    <div class="apply-tabs" role="tablist" aria-label="Что хотите изучать"{% if applied %} hidden{% endif %}>
+                        <button type="button" role="tab" id="tab-english" class="apply-tab" aria-controls="apply-english" aria-selected="{% if active == 'english' %}true{% else %}false{% endif %}" data-tab="english">
+                            <i class="fas fa-comments"></i><span><b>Английский</b><small>Группы и индивидуально</small></span>
+                        </button>
+                        <button type="button" role="tab" id="tab-ielts" class="apply-tab" aria-controls="apply-ielts" aria-selected="{% if active == 'ielts' %}true{% else %}false{% endif %}" data-tab="ielts">
+                            <i class="fas fa-bullseye"></i><span><b>IELTS</b><small>Подготовка к экзамену</small></span>
+                        </button>
+                    </div>
+                    {% if not applied %}
+                    {% include 'dashboard/partials/apply_form.html' with kind='english' %}
+                    {% include 'dashboard/partials/apply_form.html' with kind='ielts' %}
+                    {% endif %}
+                    <div class="apply-done" id="applyDone" role="status"{% if not applied %} hidden{% endif %}>
+                        <div class="apply-done-icon"><i class="fas fa-check"></i></div>
+                        <h3 class="font-display text-2xl sm:text-3xl font-bold text-white">Заявка отправлена!</h3>
+                        <p class="text-soft text-lg mt-3 max-w-sm mx-auto">Мы позвоним в ближайшее время. Если удобнее написать — ответим в WhatsApp по этому номеру.</p>
+                        <a href="#top" class="btn btn-ghost px-6 py-3 mt-7">Вернуться наверх</a>
+                    </div>
+                    {% if apply_error %}<p class="apply-err apply-err-main" role="alert">Не получилось отправить — проверьте поля и попробуйте ещё раз.</p>{% endif %}
+                    {% endwith %}
                 </div>
             </div>
         </section>
@@ -490,6 +615,7 @@
                         Приходите <span class="text-gradient">на пробный урок</span>
                     </h2>
                     <p class="text-soft text-lg mt-5 max-w-xl mx-auto">Познакомимся, определим уровень и подберём формат, в котором учиться будет в удовольствие.</p>
+                    <a href="#apply" class="btn btn-primary magnetic px-8 py-4 text-base mt-9">Оставить заявку <i class="fas fa-arrow-right arrow"></i></a>
 
                     {% if contacts %}
                     <div data-stagger class="mt-10 flex flex-wrap justify-center gap-3 sm:gap-4">
@@ -530,6 +656,9 @@
             </button>
         </div>
     </footer>
+
+    <!-- Телефон: заявка всегда под рукой -->
+    <a href="#apply" class="apply-float btn btn-primary px-5 py-3 text-sm" id="applyFloat"><i class="fas fa-pen-to-square"></i> Оставить заявку</a>
 
     <!-- Переключатель языков -->
     <div class="fixed bottom-4 right-4 z-30 flex gap-1 glass-strong rounded-full p-1 text-sm font-semibold">
@@ -737,6 +866,102 @@
                     });
                 }, { passive: true });
             }
+
+            /* ---------- Заявка: вкладки «Английский» / «IELTS», отправка без перезагрузки ---------- */
+            const tabs = document.querySelectorAll('.apply-tab');
+            function showForm(kind, focus) {
+                tabs.forEach(t => t.setAttribute('aria-selected', t.dataset.tab === kind ? 'true' : 'false'));
+                document.querySelectorAll('.apply-form').forEach(f => { f.hidden = f.dataset.kind !== kind; });
+                if (focus) document.getElementById('tab-' + kind).focus({ preventScroll: true });
+            }
+            tabs.forEach(t => t.addEventListener('click', () => showForm(t.dataset.tab)));
+            tabs.forEach((t, i) => t.addEventListener('keydown', e => {
+                if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+                const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+                showForm(next.dataset.tab, true);
+            }));
+            // Кнопки «Оставить заявку» / «Подготовка к IELTS» открывают нужную форму; когда колонки
+            // друг под другом (телефон, планшет) — листаем сразу к форме, а не к заголовку секции
+            const applyCard = document.querySelector('.apply-card');
+            document.querySelectorAll('a[href="#apply"]').forEach(a => a.addEventListener('click', e => {
+                if (a.dataset.apply && document.getElementById('apply-' + a.dataset.apply)) showForm(a.dataset.apply);
+                if (innerWidth < 1024) {
+                    e.preventDefault();
+                    applyCard.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+                    history.replaceState(null, '', '#apply');
+                }
+            }));
+
+            // Телефон: «87001234567» → «+7 700 123 45 67»
+            function formatPhone(raw) {
+                let d = raw.replace(/\D/g, '');
+                if (!d) return '';
+                if (d[0] === '8') d = '7' + d.slice(1);
+                if (d[0] !== '7') return '+' + d.slice(0, 15);
+                d = d.slice(0, 11);
+                const parts = [d.slice(1, 4), d.slice(4, 7), d.slice(7, 9), d.slice(9, 11)].filter(Boolean);
+                return '+7' + (parts.length ? ' ' + parts.join(' ') : '');
+            }
+            document.querySelectorAll('[data-phone]').forEach(input => input.addEventListener('input', () => {
+                const atEnd = input.selectionStart === input.value.length;
+                input.value = formatPhone(input.value);
+                if (atEnd) input.setSelectionRange(input.value.length, input.value.length);
+            }));
+
+            function showErrors(form, errors, message) {
+                form.querySelectorAll('[data-err]').forEach(el => { el.textContent = ''; });
+                form.querySelectorAll('.is-bad').forEach(el => el.classList.remove('is-bad'));
+                let first = null;
+                Object.entries(errors || {}).forEach(([name, text]) => {
+                    const box = form.querySelector(`[data-err="${name}"]`);
+                    if (box) box.textContent = text;
+                    const field = form.querySelector(`[name="${name}"]`);
+                    if (field && field.type !== 'radio') field.classList.add('is-bad');
+                    first = first || (box && box.closest('.apply-q, .apply-field'));
+                });
+                if (message) form.querySelector('[data-err="__all__"]').textContent = message;
+                if (first) first.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+            }
+            document.querySelectorAll('.apply-form').forEach(form => {
+                // Исправили поле — ошибка под ним пропадает
+                form.addEventListener('input', e => {
+                    const name = e.target.name;
+                    const box = name && form.querySelector(`[data-err="${name}"]`);
+                    if (box) box.textContent = '';
+                    e.target.classList.remove('is-bad');
+                    if (name === 'phone' || name === 'parent_phone') form.querySelector('[data-err="phone"]').textContent = '';
+                });
+                form.addEventListener('submit', async e => {
+                    e.preventDefault();
+                    const btn = form.querySelector('.apply-submit');
+                    const label = btn.innerHTML;
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+                    try {
+                        const res = await fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'Accept': 'application/json' } });
+                        const data = await res.json();
+                        if (!data.ok) { showErrors(form, data.errors, data.message); return; }
+                        document.querySelector('.apply-tabs').hidden = true;
+                        document.querySelectorAll('.apply-form').forEach(f => { f.hidden = true; });
+                        const done = document.getElementById('applyDone');
+                        done.hidden = false;
+                        done.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+                    } catch (err) {
+                        showErrors(form, {}, form.querySelector('.apply-offline').textContent);
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerHTML = label;
+                    }
+                });
+            });
+
+            // Телефон: плавающая кнопка, пока форма заявки не на экране и hero уже пролистан
+            const floatBtn = document.getElementById('applyFloat');
+            const applySection = document.getElementById('apply');
+            let applyVisible = false;
+            new IntersectionObserver(([e]) => { applyVisible = e.isIntersecting; syncFloat(); }, { threshold: 0.05 }).observe(applySection);
+            function syncFloat() { floatBtn.classList.toggle('show', scrollY > innerHeight * 0.6 && !applyVisible); }
+            addEventListener('scroll', syncFloat, { passive: true });
 
             /* ---------- Окно входа ---------- */
             const modal = document.getElementById('loginModal');

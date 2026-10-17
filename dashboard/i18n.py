@@ -214,7 +214,11 @@ def translate_html(content):
                 else:
                     code = _translate_js(code)
                 part = part[:open_end] + code + part[close_start:]
-            out.append(part)   # style и textarea — как есть
+            elif name == 'textarea' and not skip and 'notranslate' not in part[:part.index('>')]:
+                # Текст в поле — то, что ввёл человек, остаётся как есть; подсказка (placeholder) — переводится
+                open_end = part.index('>') + 1
+                part = _translate_tag(part[:open_end]) + part[open_end:]
+            out.append(part)   # style — как есть
         elif part.startswith('<'):
             tag = TAG_NAME.match(part)
             if not tag:

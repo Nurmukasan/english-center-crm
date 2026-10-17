@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book
-from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book, LevelCalibration, LoginEvent, GameScore
+from .models import Student, Group, Enrollment, Lesson, Attendance, Payment, Book, LevelCalibration, LoginEvent, GameScore, Application
 
 @admin.register(LevelCalibration)
 class LevelCalibrationAdmin(admin.ModelAdmin):
@@ -104,3 +104,12 @@ class GameScoreAdmin(admin.ModelAdmin):
     list_filter = ('game',)
     search_fields = ('user__username', 'user__first_name')
     date_hierarchy = 'created_at'
+
+
+@admin.register(Application)
+class ApplicationAdmin(admin.ModelAdmin):
+    list_display = ['created_at', 'kind', 'first_name', 'last_name', 'age', 'phone', 'parent_phone', 'status']
+    list_filter = ['kind', 'status', 'level']
+    search_fields = ['first_name', 'last_name', 'phone', 'parent_phone']
+    date_hierarchy = 'created_at'
+    raw_id_fields = ['student']
