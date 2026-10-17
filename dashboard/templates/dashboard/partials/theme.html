@@ -264,7 +264,17 @@ Tailwind «светлый / dark:» — тёмный режим больше н�
         box-shadow: 0 0 0 1px var(--line); transition: transform var(--spring-dur) var(--spring); }
     .ee-rail-logo:hover { transform: rotate(-8deg) scale(1.05); }
     .ee-rail-logo img { width: 100%; height: 100%; object-fit: cover; }
-    .ee-rail-items { position: relative; display: flex; flex-direction: column; gap: 6px; margin-top: 10px; flex: 1; min-height: 0; }
+    /* Разделов больше, чем влезает по высоте (ноутбук, у админа их много) — кнопки не сжимаются,
+       список прокручивается колёсиком, у края — плавное затухание */
+    .ee-rail-items { position: relative; display: flex; flex-direction: column; gap: 6px; margin-top: 10px; flex: 1; min-height: 0;
+        overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: none; }
+    .ee-rail-items::-webkit-scrollbar { display: none; }
+    .ee-rail-items .ee-rail-item, .ee-rail-bottom .ee-rail-item { flex-shrink: 0; }
+    .ee-rail-items.fade-top { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 26px); mask-image: linear-gradient(to bottom, transparent, #000 26px); }
+    .ee-rail-items.fade-bottom { -webkit-mask-image: linear-gradient(to top, transparent, #000 26px); mask-image: linear-gradient(to top, transparent, #000 26px); }
+    .ee-rail-items.fade-top.fade-bottom {
+        -webkit-mask-image: linear-gradient(to bottom, transparent, #000 26px, #000 calc(100% - 26px), transparent);
+        mask-image: linear-gradient(to bottom, transparent, #000 26px, #000 calc(100% - 26px), transparent); }
     .ee-rail-bottom { display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid var(--line); }
     .ee-rail-item {
         position: relative; z-index: 1; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px;
@@ -273,14 +283,25 @@ Tailwind «светлый / dark:» — тёмный режим больше н�
     }
     .ee-rail-item:hover { color: var(--ink); background: var(--surface-2); }
     .ee-rail-item.is-active, .ee-rail-item.is-active:hover { color: #fff; background: transparent; }
-    .ee-rail-item > span:last-child {
-        position: absolute; left: calc(100% + 14px); top: 50%; white-space: nowrap; pointer-events: none;
+    /* Подпись пункта — всплывающая подсказка справа от панели (рисует shell.html: список прокручивается
+       и обрезал бы подсказку внутри себя). На телефоне подписи видны в меню «Ещё» */
+    .ee-rail-item > span:last-child { display: none; }
+    .ee-rail-tip { position: fixed; z-index: 80; white-space: nowrap; pointer-events: none;
         padding: 6px 11px; border-radius: 9px; font-size: 13px; font-weight: 700; color: #fff;
         background: var(--ink); box-shadow: var(--shadow);
-        opacity: 0; transform: translate(-6px, -50%); transform-origin: left center;
-        transition: opacity .15s ease, transform .2s ease;
+        opacity: 0; transform: translate(-6px, -50%); transition: opacity .15s ease, transform .2s ease; }
+    .ee-rail-tip.show { opacity: 1; transform: translate(0, -50%); }
+    /* Невысокий экран ноутбука: всё чуть компактнее, чтобы влезло больше разделов */
+    @media (min-width: 768px) and (max-height: 1000px) {
+        .ee-rail { gap: 8px; padding: 10px 0; }
+        .ee-rail-logo { width: 40px; height: 40px; }
+        .ee-rail-items { gap: 3px; margin-top: 4px; }
+        .ee-rail-bottom { gap: 3px; padding-top: 8px; }
+        .ee-rail-item { height: 42px; border-radius: 13px; }
+        .ee-rail-glow { height: 42px; border-radius: 13px; }
+        .ee-rail-item.ee-rail-game { width: 34px; height: 34px; margin-bottom: 2px; }
+        .ee-rail-avatar img, .ee-rail-avatar b { width: 30px; height: 30px; }
     }
-    .ee-rail-item:hover > span:last-child { opacity: 1; transform: translate(0, -50%); }
     /* Счётчик новых сообщений на значке, как в мессенджерах */
     .ee-rail-badge { position: absolute; top: 4px; right: 3px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9999px;
         display: grid; place-items: center; font-size: 10px; font-weight: 800; line-height: 1; color: #fff; background: var(--bad);

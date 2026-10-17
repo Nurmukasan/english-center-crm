@@ -206,14 +206,45 @@
         if (e.key === 'Escape' && rail.classList.contains('is-open')) { setMenu(false); more.focus(); }
     });
 
+    /* ---------- Компьютер: подсказки у пунктов и прокрутка длинного списка ---------- */
+    const tip = document.createElement('div');
+    tip.className = 'ee-rail-tip';
+    tip.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(tip);
+    function showTip(el) {
+        if (!vertical() || !el.dataset.label) return;
+        const r = el.getBoundingClientRect();
+        tip.textContent = el.dataset.label;
+        tip.style.left = (r.right + 14) + 'px';
+        tip.style.top = (r.top + r.height / 2) + 'px';
+        tip.classList.add('show');
+    }
+    const hideTip = () => tip.classList.remove('show');
+    rail.querySelectorAll('.ee-rail-item').forEach(el => {
+        el.addEventListener('pointerenter', () => showTip(el));
+        el.addEventListener('pointerleave', hideTip);
+        el.addEventListener('focus', () => showTip(el));
+        el.addEventListener('blur', hideTip);
+    });
+    // Затухание у края — только если там ещё есть пункты
+    function syncFade() {
+        const scrollable = vertical() && items.scrollHeight > items.clientHeight + 1;
+        items.classList.toggle('fade-top', scrollable && items.scrollTop > 2);
+        items.classList.toggle('fade-bottom', scrollable && items.scrollTop + items.clientHeight < items.scrollHeight - 2);
+    }
+    items.addEventListener('scroll', () => { hideTip(); syncFade(); }, { passive: true });
+
     fitDock();
     moveGlow(active, true);
+    if (active && vertical()) active.scrollIntoView({ block: 'nearest' });
+    syncFade();
     items.querySelectorAll('.ee-rail-item').forEach(el => el.addEventListener('pointerenter', () => moveGlow(el)));
     items.addEventListener('pointerleave', () => moveGlow(active));
     addEventListener('resize', () => {
         if (vertical() && rail.classList.contains('is-open')) setMenu(false);
         fitDock();
         moveGlow(active, true);
+        syncFade();
     });
 
     /* ---------- Язык: страница приходит с сервера уже на нужном языке ---------- */
